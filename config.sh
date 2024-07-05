@@ -4,7 +4,7 @@ PROJECTS="libc kernel"
 export MAKE=make
 export HOST=${HOST:-$(./default-host.sh)}
 
-export AR="zig ar -target x86-freestanding"
+export AR="zig ar"
 export AS=nasm
 export CC="zig cc -target x86-freestanding"
 
