@@ -56,8 +56,11 @@ myos.kernel: $(OBJS) $(ARCHDIR)/linker.ld
 	$(CC) -T $(ARCHDIR)/linker.ld -o $@ $(CFLAGS) $(LINK_LIST)
 	grub-file --is-x86-multiboot myos.kernel
 
-$(ARCHDIR)/crtbegin.o $(ARCHDIR)/crtend.o:
-	OBJ=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$OBJ" $@
+$(ARCHDIR)/crtbegin.o:
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $(ARCHDIR)/crti.S -o $@
+
+$(ARCHDIR)/crtend.o:
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $(ARCHDIR)/crtn.S -o $@
 
 .c.o:
 	$(CC) -MD -c $< -o $@ -std=gnu11 $(CFLAGS) $(CPPFLAGS)

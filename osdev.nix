@@ -11,6 +11,12 @@ pkgs.mkShell {
         nasm
         gnumake
         clang
+        bison
+        flex
+        gmp
+        mpfr
+        mpc
+        texinfo
         # crosspkgs.gcc
     ];
 }
