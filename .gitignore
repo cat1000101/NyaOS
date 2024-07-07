@@ -46,6 +46,7 @@
 *.mod*
 *.cmd
 .tmp_versions/
+.zig-cashe/
 modules.order
 Module.symvers
 Mkfile.old
