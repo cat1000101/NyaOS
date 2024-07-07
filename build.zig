@@ -48,4 +48,17 @@ pub fn build(b: *Builder) void {
 
     const kernel_step = b.step("kernel", "Build the kernel");
     kernel_step.dependOn(&kernel.step);
+
+    const kernel_path = kernel.getEmittedBin().getDisplayName();
+    const sysroot_path = b.fmt("{s}/sysroot", .{b.cache_root.path});
+    const iso_path = b.fmt("{s}/NyaOS.iso", .{b.exe_dir});
+
+    const iso_cmd_make_str = &[_][]const u8{ "mkdir -p ", sysroot_path + "/boot/grub", " && ", "cp src/boot/grub.cfg ", sysroot_path + "boot/grub", " && ", "cp ", kernel_path, sysroot_path + "boot", " && ", "grub-mkrescue -o ", iso_path, " ", sysroot_path };
+    const iso_cmd = b.addSystemCommand(iso_cmd_make_str);
+    iso_cmd.step.dependOn(kernel_step);
+
+    const iso_step = b.step("iso", "Build an ISO image");
+    iso_step.dependOn(&iso_cmd.step);
+
+    b.default_step.dependOn(iso_step);
 }
