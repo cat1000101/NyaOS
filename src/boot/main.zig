@@ -16,11 +16,22 @@ export var multiboot align(4) linksection(".multiboot") = MultibootHeader{
     .checksum = -(MAGIC + FLAGS),
 };
 
-export var stack_bytes: [16 * 1024]u8 align(16) linksection(".bss") = undefined;
-const stack_bytes_slice = stack_bytes[0..];
+export var stack: [16 * 1024 + 1]u8 align(16) linksection(".bss") = undefined;
+export const stack_top = &stack[stack.len - 1];
 
-export fn _start() callconv(.Naked) noreturn {
-    @call(.auto, kmain.kmain, .{});
-
-    while (true) {}
+comptime {
+    _ = kmain;
+    asm (
+        \\.section .text
+        \\.global _start
+        \\.type _start, @function
+        \\_start:
+        \\mov stack_top, %esp
+        \\call kmain
+        \\cli
+        \\1: hlt
+        \\jmp 1b
+        \\
+        \\.size _start, . - _start
+    );
 }

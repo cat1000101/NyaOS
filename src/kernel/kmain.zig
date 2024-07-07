@@ -1,6 +1,9 @@
 const tty = @import("tty.zig");
+const io_qemu = @import("io.zig");
 
-pub fn kmain() void {
+export fn kmain() void {
+    io_qemu.outb("meow?");
     tty.initialize();
     tty.puts("Hello world!");
+    while (true) {}
 }
