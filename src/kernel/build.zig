@@ -29,13 +29,13 @@ pub fn build(b: *Builder) void {
 
     const kernel = b.addExecutable(.{
         .name = "kernel.elf",
-        .root_source_file = b.path("src/kernel/main.zig"),
+        .root_source_file = b.path("main.zig"),
         .target = b.resolveTargetQuery(target_query),
         .optimize = optimize,
         .code_model = .kernel,
     });
 
-    kernel.setLinkerScript(b.path("src/kernel/arch/x86/linker.ld"));
+    kernel.setLinkerScript(b.path("arch/x86/linker.ld"));
     b.installArtifact(kernel);
 
     const kernel_step = b.step("kernel", "Build the kernel");
