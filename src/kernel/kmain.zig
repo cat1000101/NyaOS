@@ -5,5 +5,6 @@ export fn kmain() void {
     io_qemu.outb("meow?");
     tty.initialize();
     tty.puts("Hello world!");
-    while (true) {}
+    asm volatile ("hlt");
+    while (true) asm volatile ("");
 }
