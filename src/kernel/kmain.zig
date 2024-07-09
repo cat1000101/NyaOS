@@ -1,10 +1,10 @@
 const tty = @import("tty.zig");
-const io_qemu = @import("io.zig");
+const virtio = @import("virtio.zig");
+const utils = @import("utils.zig");
 
 export fn kmain() void {
-    io_qemu.outb("meow?");
     tty.initialize();
-    tty.puts("Hello world!");
-    asm volatile ("hlt");
-    while (true) asm volatile ("");
+    tty.printf("meow i like {any} cats", .{53});
+    virtio.outb("meow?");
+    utils.hlt();
 }

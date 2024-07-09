@@ -32,7 +32,7 @@ pub fn build(b: *Builder) void {
     const steps: []const *std.Build.Step = &.{ &kernel.step, &install_iso.step };
     for (steps) |step| all_step.dependOn(step);
 
-    const run_cmd = [_][]const u8{ "qemu-system-i386", "-cdrom", "zig-out/NyaOS.iso" };
+    const run_cmd = [_][]const u8{ "qemu-system-i386", "-debugcon", "stdio", "-cdrom", "zig-out/NyaOS.iso" };
     const run = b.addSystemCommand(&run_cmd);
     run.step.dependOn(all_step);
     _ = run.captureStdOut();
