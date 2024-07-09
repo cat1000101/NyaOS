@@ -35,7 +35,6 @@ pub fn build(b: *Builder) void {
     const run_cmd = [_][]const u8{ "qemu-system-i386", "-debugcon", "stdio", "-cdrom", "zig-out/NyaOS.iso" };
     const run = b.addSystemCommand(&run_cmd);
     run.step.dependOn(all_step);
-    _ = run.captureStdOut();
 
     const run_step = b.step("run", "runs the iso file with qemu");
     run_step.dependOn(&run.step);
