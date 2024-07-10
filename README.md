@@ -4,7 +4,7 @@ os that is stupid :3
 ## Welcome to NyaOS!
 
 ### Description
-NyaOS is an innovative operating system built with Zig, designed to provide a delightful computing experience with a touch of fun.
+NyaOS is a passion project built with Zig that aims to be an oparating system that is safe... hopefully
 
 ### Build and Run Instructions
 To build and run NyaOS, use:
