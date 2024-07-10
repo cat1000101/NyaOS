@@ -1,12 +1,12 @@
 const std = @import("std");
 const virtio = @import("virtio.zig");
 
-pub const gdt_entry_struct = packed struct {
+pub const GdtEntry = packed struct {
     limit_low: u16,
     base_low: u24,
-    access: access_struct,
+    access: Access,
     limit_high: u4,
-    flags: flags_struct,
+    flags: Flags,
     base_high: u8,
 };
 
@@ -51,19 +51,19 @@ pub const Tss = packed struct {
     ssp: u32,
 };
 
-pub const gdt_ptr_struct = packed struct {
+pub const GdtPtr = packed struct {
     limit: u16,
     base: u32,
 };
 
-pub const flags_struct = packed struct {
+pub const Flags = packed struct {
     preserved: u1 = 0,
     l: u1, //L: Long-mode code flag. If set (1), the descriptor defines a 64-bit code segment. When set, DB should always be clear. For any other type of segment (other code types or any data segment), it should be clear (0).
     db: u1, //DB: Size flag. If clear (0), the descriptor defines a 16-bit protected mode segment. If set (1) it defines a 32-bit protected mode segment. A GDT can have both 16-bit and 32-bit selectors at once.
     g: u1, //G: Granularity flag, indicates the size the Limit value is scaled by. If clear (0), the Limit is in 1 Byte blocks (byte granularity). If set (1), the Limit is in 4 KiB blocks (page granularity).
 };
 
-pub const access_struct = packed struct {
+pub const Access = packed struct {
     a: u1, //A: Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
     rw: u1, //RW: Readable bit/Writable bit.
     dc: u1, //DC: Direction bit/Conforming bit. when data sector : 0 for up 1 for down when code sector : 0 execute from the same ring 1 for jumping to higher place.
@@ -74,12 +74,12 @@ pub const access_struct = packed struct {
 };
 const NUMBER_OF_ENTRIES: u16 = 0x06;
 
-var gdt_entries: [NUMBER_OF_ENTRIES]gdt_entry_struct = undefined;
+var gdt_entries: [NUMBER_OF_ENTRIES]GdtEntry = undefined;
 var tss_entry: Tss = std.mem.zeroes(Tss);
-var gdt_ptr: gdt_ptr_struct = undefined;
+var gdt_ptr: GdtPtr = undefined;
 
 pub fn initGdt() void {
-    gdt_ptr.limit = (@sizeOf(gdt_entry_struct) * NUMBER_OF_ENTRIES) - 1;
+    gdt_ptr.limit = (@sizeOf(GdtEntry) * NUMBER_OF_ENTRIES) - 1;
     gdt_ptr.base = @intFromPtr(&gdt_entries);
     setTssTable(&tss_entry, 0x10, @sizeOf(Tss));
 
@@ -126,14 +126,14 @@ pub fn initGdt() void {
         .{ .g = 1, .db = 0, .l = 0, .preserved = 0 },
     ); // Task State Segment
 
-    gdt_flush(&gdt_ptr);
+    gdtFlush(&gdt_ptr);
 
     virtio.outb("initialize gdt\n");
 
-    load_tss();
+    loadTss();
     virtio.outb("initialize Tss\n");
 }
-fn setGdtGate(num: u32, base: u32, limit: u20, access: access_struct, flags: flags_struct) void {
+fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) void {
     gdt_entries[num].base_low = @truncate(base);
     gdt_entries[num].base_high = @truncate(base >> 24);
     gdt_entries[num].limit_low = @truncate(limit);
@@ -147,7 +147,7 @@ fn setTssTable(tss: *Tss, ss0: u16, iopb: u16) void {
     tss.iopb = iopb; // autofix
 }
 
-fn gdt_flush(gdt_ptr_: *gdt_ptr_struct) void {
+fn gdtFlush(gdt_ptr_: *GdtPtr) void {
     // Load the GDT into the CPU
     asm volatile ("lgdt (%%eax)"
         :
@@ -169,8 +169,10 @@ fn gdt_flush(gdt_ptr_: *gdt_ptr_struct) void {
     );
 }
 
-fn load_tss() void {
+fn loadTss() void {
     // Load the Tss into the CPU
-    asm volatile ("movw $0x28 , %%ax");
-    asm volatile ("ltr %%ax");
+    asm volatile (
+        \\ movw $0x28 , %%ax
+        \\ ltr %%ax
+        ::: "%ax");
 }
