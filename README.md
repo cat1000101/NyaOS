@@ -19,6 +19,7 @@ zig build all
 The ISO output is located in the `zig-out` directory. Ensure you have the following dependencies installed:
 - grub2
 - zig 0.13.0
+- qemu (for running)
 
 ### License
 NyaOS is licensed under the Cat Public License (CPL), or for the more formal, the MIT License.
