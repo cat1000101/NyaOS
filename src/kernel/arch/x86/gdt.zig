@@ -72,6 +72,19 @@ pub const Access = packed struct {
     dpl: u2, //DPL: Descriptor privilege level field. Contains the CPU Privilege level of the segment. 0 = highest privilege (kernel), 3 = lowest privilege (user applications).
     p: u1, //P: Present bit. Allows an entry to refer to a valid segment. Must be set (1) for any valid segment.
 };
+
+const NULL_ACCESS: Access = std.mem.zeroes(Access);
+const NULL_FLAGS: Flags = std.mem.zeroes(Flags);
+
+const BIT32_PAGED_FLAGS: Flags = .{ .g = 1, .db = 1, .l = 0, .preserved = 0 };
+const TASK_STATE: Flags = .{ .g = 1, .db = 0, .l = 0, .preserved = 0 };
+
+const KERNEL_CODE_ACCESS: Access = .{ .p = 1, .dpl = 0, .s = 1, .e = 1, .dc = 0, .rw = 1, .a = 0 };
+const KERNEL_DATA_ACCESS: Access = .{ .p = 1, .dpl = 0, .s = 1, .e = 0, .dc = 0, .rw = 1, .a = 0 };
+const USER_CODE_ACCESS: Access = .{ .p = 1, .dpl = 3, .s = 1, .e = 1, .dc = 0, .rw = 1, .a = 0 };
+const USER_DATA_ACCESS: Access = .{ .p = 1, .dpl = 3, .s = 1, .e = 0, .dc = 0, .rw = 1, .a = 0 };
+const TASK_STATE_ACCESS: Access = .{ .p = 1, .dpl = 0, .s = 0, .e = 1, .dc = 0, .rw = 0, .a = 1 };
+
 const NUMBER_OF_ENTRIES: u16 = 0x06;
 
 var gdt_entries: [NUMBER_OF_ENTRIES]GdtEntry = undefined;
@@ -87,43 +100,43 @@ pub fn initGdt() void {
         0,
         0,
         0,
-        .{ .p = 0, .dpl = 0, .s = 0, .e = 0, .dc = 0, .rw = 0, .a = 0 },
-        .{ .g = 0, .db = 0, .l = 0, .preserved = 0 },
+        NULL_ACCESS,
+        NULL_FLAGS,
     );
     setGdtGate(
         1,
         0,
         0xFFFFF,
-        .{ .p = 1, .dpl = 0, .s = 1, .e = 1, .dc = 0, .rw = 1, .a = 0 },
-        .{ .g = 1, .db = 1, .l = 0, .preserved = 0 },
-    ); //kernel code segment
+        KERNEL_CODE_ACCESS,
+        BIT32_PAGED_FLAGS,
+    ); // kernel code segment
     setGdtGate(
         2,
         0,
         0xFFFFF,
-        .{ .p = 1, .dpl = 0, .s = 1, .e = 0, .dc = 0, .rw = 1, .a = 0 },
-        .{ .g = 1, .db = 1, .l = 0, .preserved = 0 },
-    ); //kernel data segment
+        KERNEL_DATA_ACCESS,
+        BIT32_PAGED_FLAGS,
+    ); // kernel data segment
     setGdtGate(
         3,
         0,
         0xFFFFF,
-        .{ .p = 1, .dpl = 3, .s = 1, .e = 1, .dc = 0, .rw = 1, .a = 0 },
-        .{ .g = 1, .db = 1, .l = 0, .preserved = 0 },
+        USER_CODE_ACCESS,
+        BIT32_PAGED_FLAGS,
     ); // user code segment
     setGdtGate(
         4,
         0,
         0xFFFFF,
-        .{ .p = 1, .dpl = 3, .s = 1, .e = 0, .dc = 0, .rw = 1, .a = 0 },
-        .{ .g = 1, .db = 1, .l = 0, .preserved = 0 },
+        USER_DATA_ACCESS,
+        BIT32_PAGED_FLAGS,
     ); // user data segment
     setGdtGate(
         5,
         @intFromPtr(&tss_entry),
         @sizeOf(Tss),
-        .{ .p = 1, .dpl = 0, .s = 0, .e = 1, .dc = 0, .rw = 0, .a = 1 },
-        .{ .g = 1, .db = 0, .l = 0, .preserved = 0 },
+        TASK_STATE_ACCESS,
+        TASK_STATE,
     ); // Task State Segment
 
     gdtFlush(&gdt_ptr);
