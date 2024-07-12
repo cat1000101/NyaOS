@@ -140,11 +140,10 @@ pub fn initGdt() void {
     ); // Task State Segment
 
     gdtFlush(&gdt_ptr);
-
-    virtio.outb("initialize gdt\n");
+    virtio.outb("initialized gdt\n");
 
     loadTss();
-    virtio.outb("initialize Tss\n");
+    virtio.outb("initialized Tss\n");
 }
 fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) void {
     gdt_entries[num].base_low = @truncate(base);
@@ -156,8 +155,8 @@ fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) voi
 }
 
 fn setTssTable(tss: *Tss, ss0: u16, iopb: u16) void {
-    tss.ss0 = ss0; // autofix
-    tss.iopb = iopb; // autofix
+    tss.ss0 = ss0;
+    tss.iopb = iopb;
 }
 
 fn gdtFlush(gdt_ptr_: *GdtPtr) void {
@@ -165,15 +164,16 @@ fn gdtFlush(gdt_ptr_: *GdtPtr) void {
     asm volatile ("lgdt (%%eax)"
         :
         : [gdt_ptr_] "{eax}" (gdt_ptr_),
+        : "%eax"
     );
 
     // Load the kernel data segment, index into the GDT
-    asm volatile ("mov $0x10, %%bx");
-    asm volatile ("mov %%bx, %%ds");
-    asm volatile ("mov %%bx, %%es");
-    asm volatile ("mov %%bx, %%fs");
-    asm volatile ("mov %%bx, %%gs");
-    asm volatile ("mov %%bx, %%ss");
+    asm volatile ("mov $0x10, %%bx" ::: "%bx");
+    asm volatile ("mov %%bx, %%ds" ::: "%ds");
+    asm volatile ("mov %%bx, %%es" ::: "%es");
+    asm volatile ("mov %%bx, %%fs" ::: "%fs");
+    asm volatile ("mov %%bx, %%gs" ::: "%gs");
+    asm volatile ("mov %%bx, %%ss" ::: "%ss");
 
     // Load the kernel code segment into the CS register
     asm volatile (
