@@ -14,24 +14,33 @@ const IdtGateDescriptor = packed struct {
 
 const Idtr = packed struct {
     size: u16, // size of the IDT in bytes - 1
-    offset: u32, // address of the IDT (not the physical address, paging applies)
+    offset: *[256]IdtGateDescriptor, // address of the IDT (not the physical address, paging applies)
 };
 
 var idtr: Idtr = undefined;
-var idt = [_]IdtGateDescriptor{std.mem.zeroes(IdtGateDescriptor)} ** 256;
+var idt: [256]IdtGateDescriptor = [_]IdtGateDescriptor{std.mem.zeroes(IdtGateDescriptor)} ** 256;
 
 pub fn initIdt() void {
     idtr = .{
         .size = @sizeOf(IdtGateDescriptor) * 256 - 1,
-        .offset = @intFromPtr(&idt),
+        .offset = &idt,
     };
 
-    loadIdt(&idtr);
+    loadIdt(@intFromPtr(&idtr));
 
     virtio.outb("initialized idt");
 }
 
-fn loadIdt(idtr_pointer: *Idtr) void {
+pub fn setIdtGate(id: usize, offset: u32, selector: u16, gate_type: u4, dpl: u2) void {
+    idt[id].dpl = dpl;
+    idt[id].selector = selector;
+    idt[id].type_attr = gate_type;
+    idt[id].p = 1;
+    idt[id].offset_low = @truncate(offset);
+    idt[id].offset_low = @truncate(offset >> 16);
+}
+
+fn loadIdt(idtr_pointer: u32) void {
     // Load the GDT into the CPU
     asm volatile ("LIDT (%%eax)"
         :

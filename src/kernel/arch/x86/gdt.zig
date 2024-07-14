@@ -1,6 +1,8 @@
 const std = @import("std");
 const virtio = @import("virtio.zig");
 
+const NUMBER_OF_ENTRIES: u16 = 0x06;
+
 pub const GdtEntry = packed struct {
     limit_low: u16,
     base_low: u24,
@@ -53,7 +55,7 @@ pub const Tss = packed struct {
 
 pub const GdtPtr = packed struct {
     limit: u16,
-    base: u32,
+    base: *[NUMBER_OF_ENTRIES]GdtEntry,
 };
 
 pub const Flags = packed struct {
@@ -85,15 +87,13 @@ const USER_CODE_ACCESS: Access = .{ .p = 1, .dpl = 3, .s = 1, .e = 1, .dc = 0, .
 const USER_DATA_ACCESS: Access = .{ .p = 1, .dpl = 3, .s = 1, .e = 0, .dc = 0, .rw = 1, .a = 0 };
 const TASK_STATE_ACCESS: Access = .{ .p = 1, .dpl = 0, .s = 0, .e = 1, .dc = 0, .rw = 0, .a = 1 };
 
-const NUMBER_OF_ENTRIES: u16 = 0x06;
-
 var gdt_entries: [NUMBER_OF_ENTRIES]GdtEntry = undefined;
 var tss_entry: Tss = std.mem.zeroes(Tss);
 var gdt_ptr: GdtPtr = undefined;
 
 pub fn initGdt() void {
     gdt_ptr.limit = (@sizeOf(GdtEntry) * NUMBER_OF_ENTRIES) - 1;
-    gdt_ptr.base = @intFromPtr(&gdt_entries);
+    gdt_ptr.base = &gdt_entries;
     setTssTable(&tss_entry, 0x10, @sizeOf(Tss));
 
     setGdtGate(
@@ -139,7 +139,7 @@ pub fn initGdt() void {
         TASK_STATE,
     ); // Task State Segment
 
-    gdtFlush(&gdt_ptr);
+    gdtFlush(@intFromPtr(&gdt_ptr));
     virtio.outb("initialized gdt\n");
 
     loadTss();
@@ -159,7 +159,7 @@ fn setTssTable(tss: *Tss, ss0: u16, iopb: u16) void {
     tss.iopb = iopb;
 }
 
-fn gdtFlush(gdt_ptr_: *GdtPtr) void {
+fn gdtFlush(gdt_ptr_: u32) void {
     // Load the GDT into the CPU
     asm volatile ("lgdt (%%eax)"
         :
