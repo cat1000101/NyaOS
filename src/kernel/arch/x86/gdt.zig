@@ -139,7 +139,7 @@ pub fn initGdt() void {
         TASK_STATE,
     ); // Task State Segment
 
-    gdtFlush(@intFromPtr(&gdt_ptr));
+    gdtFlush(&gdt_ptr);
     virtio.outb("initialized gdt\n");
 
     loadTss();
@@ -159,7 +159,7 @@ fn setTssTable(tss: *Tss, ss0: u16, iopb: u16) void {
     tss.iopb = iopb;
 }
 
-fn gdtFlush(gdt_ptr_: u32) void {
+fn gdtFlush(gdt_ptr_: *const GdtPtr) void {
     // Load the GDT into the CPU
     asm volatile ("lgdt (%%eax)"
         :
