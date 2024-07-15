@@ -56,7 +56,7 @@ pub fn setIdtGate(id: usize, offset: u32, selector: u16, gate_type: u4, dpl: u2)
     idt[id].type_attr = gate_type;
     idt[id].p = 1;
     idt[id].offset_low = @truncate(offset);
-    idt[id].offset_low = @truncate(offset >> 16);
+    idt[id].offset_high = @truncate(offset >> 16);
 }
 
 fn loadIdt(idtr_pointer: *const Idtr) void {

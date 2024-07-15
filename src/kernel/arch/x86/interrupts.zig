@@ -34,8 +34,6 @@ pub fn commonIsr() callconv(.Naked) void {
 
 pub export fn temp() callconv(.Naked) void {
     asm volatile (
-        \\  push 0
-        \\  push 0 
         \\  pusha               // pushes in order: eax, ecx, edx, ebx, esp, ebp, esi, edi
     );
 
