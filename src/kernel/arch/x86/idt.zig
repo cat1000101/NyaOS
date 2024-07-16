@@ -13,7 +13,7 @@ pub const PRIVLIGE_RING_1: u2 = 0x1;
 pub const PRIVLIGE_RING_2: u2 = 0x2;
 pub const PRIVLIGE_RING_3: u2 = 0x3;
 
-pub const InterruptFun = *const fn () callconv(.Naked) void;
+pub const InterruptStub = fn () callconv(.Naked) void;
 
 const IdtGateDescriptor = packed struct {
     offset_low: u16, // Offset: A 32-bit value, split in two parts. It represents the address of the entry point of the Interrupt Service Routine.
@@ -42,12 +42,6 @@ pub fn initIdt() void {
 
     loadIdt(&idtr);
     virtio.outb("initialized idt");
-
-    setIdtGate(0, @intFromPtr(&int.temp), 0x8, INTERRUPT_GATE, PRIVLIGE_RING_0);
-
-    {
-        asm volatile ("int $0x00");
-    }
 }
 
 pub fn setIdtGate(id: usize, offset: u32, selector: u16, gate_type: u4, dpl: u2) void {
@@ -67,6 +61,9 @@ fn loadIdt(idtr_pointer: *const Idtr) void {
         : "%eax"
     );
 }
+
+// cpu state when calling intrupt
+pub const CpuState = packed struct {};
 
 test "idt" {
     std.debug.print("{any}", .{idt});
