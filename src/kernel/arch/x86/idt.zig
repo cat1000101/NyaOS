@@ -1,5 +1,6 @@
 const std = @import("std");
 const virtio = @import("virtio.zig");
+const gdt = @import("gdt.zig");
 const int = @import("interrupts.zig");
 
 pub const TASK_GATE: u4 = 0x5;
@@ -13,7 +14,41 @@ pub const PRIVLIGE_RING_1: u2 = 0x1;
 pub const PRIVLIGE_RING_2: u2 = 0x2;
 pub const PRIVLIGE_RING_3: u2 = 0x3;
 
+pub const InterruptError = error{
+    interruptOpen,
+};
+
 pub const InterruptStub = fn () callconv(.Naked) void;
+
+// cpu state when calling intrupt
+pub const CpuState = packed struct {
+    // General-purpose registers pushed by pusha
+    edi: u32,
+    esi: u32,
+    ebp: u32,
+    esp: u32,
+    ebx: u32,
+    edx: u32,
+    ecx: u32,
+    eax: u32,
+
+    // Segment registers pushed manually
+    gs: u32,
+    fs: u32,
+    es: u32,
+    ds: u32,
+
+    // Items pushed by the CPU during an interrupt
+    error_code: u32, // Error code pushed by the interrupt or us
+    eip: u32,
+    cs: u32,
+    eflags: u32,
+
+    // Items pushed by the CPU if a privilege level change occurs ¯\_(ツ)_/¯
+    // idk so there is the option for latter ignore for now
+    user_esp: u32, // ESP if there is a privilege level change
+    ss: u32, // SS if there is a privilege level change
+};
 
 const IdtGateDescriptor = packed struct {
     offset_low: u16, // Offset: A 32-bit value, split in two parts. It represents the address of the entry point of the Interrupt Service Routine.
@@ -44,7 +79,19 @@ pub fn initIdt() void {
     virtio.outb("initialized idt");
 }
 
-pub fn setIdtGate(id: usize, offset: u32, selector: u16, gate_type: u4, dpl: u2) void {
+pub fn openIdtGate(index: usize, interrupt: *InterruptStub) InterruptError!void {
+    if (idt[index].p == 1) return InterruptError.interruptOpen;
+
+    setIdtGate(
+        index,
+        @intFromPtr(interrupt),
+        gdt.KERNEL_CODE_OFFSET,
+        TRAP_GATE,
+        PRIVLIGE_RING_3,
+    );
+}
+
+fn setIdtGate(id: usize, offset: u32, selector: u16, gate_type: u4, dpl: u2) void {
     idt[id].dpl = dpl;
     idt[id].selector = selector;
     idt[id].type_attr = gate_type;
@@ -61,9 +108,6 @@ fn loadIdt(idtr_pointer: *const Idtr) void {
         : "%eax"
     );
 }
-
-// cpu state when calling intrupt
-pub const CpuState = packed struct {};
 
 test "idt" {
     std.debug.print("{any}", .{idt});

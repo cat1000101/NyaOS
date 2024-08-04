@@ -53,19 +53,19 @@ pub const Tss = packed struct {
     ssp: u32,
 };
 
-pub const GdtPtr = packed struct {
+const GdtPtr = packed struct {
     limit: u16,
     base: *[NUMBER_OF_ENTRIES]GdtEntry,
 };
 
-pub const Flags = packed struct {
+const Flags = packed struct {
     preserved: u1 = 0,
     l: u1, //L: Long-mode code flag. If set (1), the descriptor defines a 64-bit code segment. When set, DB should always be clear. For any other type of segment (other code types or any data segment), it should be clear (0).
     db: u1, //DB: Size flag. If clear (0), the descriptor defines a 16-bit protected mode segment. If set (1) it defines a 32-bit protected mode segment. A GDT can have both 16-bit and 32-bit selectors at once.
     g: u1, //G: Granularity flag, indicates the size the Limit value is scaled by. If clear (0), the Limit is in 1 Byte blocks (byte granularity). If set (1), the Limit is in 4 KiB blocks (page granularity).
 };
 
-pub const Access = packed struct {
+const Access = packed struct {
     a: u1, //A: Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
     rw: u1, //RW: Readable bit/Writable bit.
     dc: u1, //DC: Direction bit/Conforming bit. when data sector : 0 for up 1 for down when code sector : 0 execute from the same ring 1 for jumping to higher place.
@@ -86,6 +86,12 @@ const KERNEL_DATA_ACCESS: Access = .{ .p = 1, .dpl = 0, .s = 1, .e = 0, .dc = 0,
 const USER_CODE_ACCESS: Access = .{ .p = 1, .dpl = 3, .s = 1, .e = 1, .dc = 0, .rw = 1, .a = 0 };
 const USER_DATA_ACCESS: Access = .{ .p = 1, .dpl = 3, .s = 1, .e = 0, .dc = 0, .rw = 1, .a = 0 };
 const TASK_STATE_ACCESS: Access = .{ .p = 1, .dpl = 0, .s = 0, .e = 1, .dc = 0, .rw = 0, .a = 1 };
+
+pub const KERNEL_CODE_OFFSET = 0x8;
+pub const KERNEL_DATA_OFFSET = 0x10;
+pub const USER_CODE_OFFSET = 0x18;
+pub const USER_DATA_OFFSET = 0x20;
+pub const TASK_STATE_OFFSET = 0x28;
 
 var gdt_entries: [NUMBER_OF_ENTRIES]GdtEntry = undefined;
 var tss_entry: Tss = std.mem.zeroes(Tss);

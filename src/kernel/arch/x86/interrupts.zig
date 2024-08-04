@@ -3,14 +3,13 @@ const idt = @import("idt.zig");
 const isr = @import("isr.zig");
 const virtio = @import("virtio.zig");
 
-export fn Handler(cpu_state: idt.CpuState) void {
+export fn Handler(cpu_state: *idt.CpuState) void {
     _ = cpu_state; // autofix
-
 }
 
 export fn commonStub() callconv(.Naked) void {
+    // push corrent state to the stack
     asm volatile (
-        \\ push corrent state to the stack
         \\  pusha               // pushes in order: eax, ecx, edx, ebx, esp, ebp, esi, edi
         \\
         \\  xor eax, eax
@@ -24,9 +23,8 @@ export fn commonStub() callconv(.Naked) void {
         \\  push %ax
     );
 
+    // this place now is black boxed wawwie
     asm volatile (
-        \\ // this place now is black boxed wawwie
-        \\
         \\  mov $0x10, %ax       // use kernel data segment
         \\  mov %ax, %ds
         \\  mov %ax, %es
@@ -36,12 +34,11 @@ export fn commonStub() callconv(.Naked) void {
         \\  push %esp            // pass pointer to the cpu state
         \\  call Handler
         \\  add $4, %esp         // remove the pointer to the cpu state
-        \\
-        \\ // end of black box
     );
+    // end of black box
 
+    // return the state from before
     asm volatile (
-        \\ // return the state from before
         \\  xor eax, eax
         \\  pop %ax
         \\  mov %ax, %gs
@@ -53,8 +50,8 @@ export fn commonStub() callconv(.Naked) void {
         \\  mov %ax, %ds
         \\
         \\  popa                // pop what we pushed with pusha
-        \\  add $8, %esp        // remove the things that we push from the interrupt stub
-        \\  iret                // will pop: cs, eip, eflags, ss, esp
+        \\  add $4, %esp        // remove the error code that was pushed by us or the cpu
+        \\  iret                // will pop: cs, eip, eflags and ss, esp if there was a privlige level change
     );
 }
 
@@ -67,7 +64,7 @@ pub fn generateStub(comptime interrupt_num: u32) idt.InterruptStub {
                 \\ cli
             );
 
-            // These interrupts don't push an error code onto the stack, so will push a zero.
+            // These interrupts don't push an error code onto the stack, so will push a zero. meanng 0-31 other then those
             if (interrupt_num != 8 and !(interrupt_num >= 10 and interrupt_num <= 14) and interrupt_num != 17) {
                 asm volatile (
                     \\ pushl $0
