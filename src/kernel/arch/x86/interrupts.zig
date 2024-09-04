@@ -4,7 +4,8 @@ const isr = @import("isr.zig");
 const virtio = @import("virtio.zig");
 
 export fn Handler(cpu_state: *idt.CpuState) void {
-    _ = cpu_state; // autofix
+    virtio.outb("interrupt has accured yippe\n");
+    virtio.putcharAsm(@truncate(cpu_state.error_code + 60));
 }
 
 export fn commonStub() callconv(.Naked) void {
@@ -12,7 +13,7 @@ export fn commonStub() callconv(.Naked) void {
     asm volatile (
         \\  pusha               // pushes in order: eax, ecx, edx, ebx, esp, ebp, esi, edi
         \\
-        \\  xor eax, eax
+        \\  xor %eax, %eax
         \\  mov %ds, %ax
         \\  push %ax
         \\  mov %es, %ax
@@ -39,7 +40,7 @@ export fn commonStub() callconv(.Naked) void {
 
     // return the state from before
     asm volatile (
-        \\  xor eax, eax
+        \\  xor %eax, %eax
         \\  pop %ax
         \\  mov %ax, %gs
         \\  pop %ax
@@ -50,7 +51,7 @@ export fn commonStub() callconv(.Naked) void {
         \\  mov %ax, %ds
         \\
         \\  popa                // pop what we pushed with pusha
-        \\  add $4, %esp        // remove the error code that was pushed by us or the cpu
+        \\  add $8, %esp        // remove the error code that was pushed by us or the cpu and the interrupt number
         \\  iret                // will pop: cs, eip, eflags and ss, esp if there was a privlige level change
     );
 }

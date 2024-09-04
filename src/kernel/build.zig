@@ -25,13 +25,13 @@ pub fn build(b: *Builder) void {
         .cpu_features_add = enabled_features,
     };
 
-    const optimize = b.standardOptimizeOption(.{});
+    // const optimize = b.standardOptimizeOption(.{});
 
     const kernel = b.addExecutable(.{
         .name = "kernel.elf",
         .root_source_file = b.path("main.zig"),
         .target = b.resolveTargetQuery(target_query),
-        .optimize = optimize,
+        .optimize = .Debug,
         .code_model = .kernel,
     });
 

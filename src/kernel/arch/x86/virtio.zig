@@ -11,7 +11,7 @@ pub fn outNum(num: u32) void {
     );
 }
 
-fn putcharAsm(c: u8) void {
+pub fn putcharAsm(c: u8) void {
     asm volatile ("outb %[c],$0xe9"
         :
         : [c] "{al}" (c),

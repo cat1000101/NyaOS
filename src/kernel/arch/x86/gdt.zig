@@ -146,10 +146,10 @@ pub fn initGdt() void {
     ); // Task State Segment
 
     gdtFlush(&gdt_ptr);
-    virtio.outb("initialized gdt\n");
+    virtio.outb("initialized and loaded the gdt\n");
 
     loadTss();
-    virtio.outb("initialized Tss\n");
+    virtio.outb("loaded Tss\n");
 }
 fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) void {
     gdt_entries[num].base_low = @truncate(base);

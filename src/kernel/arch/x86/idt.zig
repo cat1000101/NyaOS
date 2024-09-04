@@ -76,10 +76,10 @@ pub fn initIdt() void {
     };
 
     loadIdt(&idtr);
-    virtio.outb("initialized idt");
+    virtio.outb("initialized idt\n");
 }
 
-pub fn openIdtGate(index: usize, interrupt: *InterruptStub) InterruptError!void {
+pub fn openIdtGate(index: usize, interrupt: *const InterruptStub) InterruptError!void {
     if (idt[index].p == 1) return InterruptError.interruptOpen;
 
     setIdtGate(
@@ -100,7 +100,7 @@ fn setIdtGate(id: usize, offset: u32, selector: u16, gate_type: u4, dpl: u2) voi
     idt[id].offset_high = @truncate(offset >> 16);
 }
 
-fn loadIdt(idtr_pointer: *const Idtr) void {
+pub fn loadIdt(idtr_pointer: *const Idtr) void {
     // Load the GDT into the CPU
     asm volatile ("LIDT (%%eax)"
         :
