@@ -111,3 +111,7 @@ pub inline fn outsd(port: u16, addr: *const void, count: u32) void {
         : [port] "d" (port),
     );
 }
+
+pub inline fn io_wait() void {
+    outb(0x80, 0);
+}
