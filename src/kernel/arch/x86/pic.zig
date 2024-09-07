@@ -1,4 +1,5 @@
 const port = @import("port.zig");
+const virtio = @import("virtio.zig");
 
 const PIC_MASTER = 0x20; // the base io offset of the pic master chip
 const PIC_SLAVE = 0xA0; // the base io offset of the pic slave chip
@@ -63,4 +64,59 @@ pub fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
 
     port.outb(PIC_MASTER_DATA, a1); // restore saved masks.
     port.outb(PIC_SLAVE_DATA, a2);
+
+    virtio.outb("pic enabled");
+}
+
+pub fn irqSetMask(irqLine: u8) void {
+    var portOfLine: u16 = undefined;
+    var value: u8 = undefined;
+
+    if (irqLine < 8) {
+        portOfLine = PIC_MASTER_DATA;
+    } else if (irqLine < 16) {
+        portOfLine = PIC_SLAVE_DATA;
+        irqLine -= 8;
+    } else {
+        unreachable;
+    }
+    value = port.inb(portOfLine) or (1 << irqLine);
+    port.outb(portOfLine, value);
+}
+
+pub fn irqClearMask(irqLine: u8) void {
+    var portOfLine: u16 = undefined;
+    var value: u8 = undefined;
+
+    if (irqLine < 8) {
+        portOfLine = PIC_MASTER_DATA;
+    } else if (irqLine < 16) {
+        portOfLine = PIC_SLAVE_DATA;
+        irqLine -= 8;
+    } else {
+        unreachable;
+    }
+    value = port.inb(portOfLine) and (1 << irqLine);
+    port.outb(portOfLine, value);
+}
+
+const PIC_READ_IRR = 0x0a; // OCW3 irq ready next CMD read
+const PIC_READ_ISR = 0x0b; // OCW3 irq service next CMD read
+
+/// OCW3 to PIC CMD to get the register values.  PIC2 is chained, and
+/// represents IRQs 8-15.  PIC1 is IRQs 0-7, with 2 being the chain
+fn picGetIrqReg(ocw3: u32) u16 {
+    port.outb(PIC_MASTER_COMMAND, ocw3);
+    port.outb(PIC_SLAVE_COMMAND, ocw3);
+    return (port.inb(PIC_SLAVE_COMMAND) << 8) or port.inb(PIC_MASTER_COMMAND);
+}
+
+/// Returns the combined value of the cascaded PICs irq request register
+pub fn picGetIrr() u16 {
+    return picGetIrqReg(PIC_READ_IRR);
+}
+
+/// Returns the combined value of the cascaded PICs in-service register
+pub fn picGetIsr() u16 {
+    return picGetIrqReg(PIC_READ_ISR);
 }

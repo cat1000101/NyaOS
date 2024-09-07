@@ -2,8 +2,8 @@
 pub inline fn outb(port: u16, data: u8) void {
     asm volatile ("outb %[data], %[port]"
         :
-        : [data] "a" (data),
-          [port] "Nd" (port),
+        : [data] "{al}" (data),
+          [port] "{dx}" (port),
     );
 }
 
@@ -11,8 +11,8 @@ pub inline fn outb(port: u16, data: u8) void {
 pub inline fn outw(port: u16, data: u16) void {
     asm volatile ("outw %[data], %[port]"
         :
-        : [data] "a" (data),
-          [port] "Nd" (port),
+        : [data] "{ax}" (data),
+          [port] "{dx}" (port),
     );
 }
 
@@ -20,8 +20,8 @@ pub inline fn outw(port: u16, data: u16) void {
 pub inline fn outl(port: u16, data: u32) void {
     asm volatile ("outl %[data], %[port]"
         :
-        : [data] "a" (data),
-          [port] "Nd" (port),
+        : [data] "{eax}" (data),
+          [port] "{dx}" (port),
     );
 }
 
@@ -29,8 +29,8 @@ pub inline fn outl(port: u16, data: u32) void {
 pub inline fn inb(port: u16) u8 {
     var ret: u8 = 0;
     asm volatile ("inb %[port], %[ret]"
-        : [ret] "=a" (ret),
-        : [port] "Nd" (port),
+        : [ret] "={al}" (ret),
+        : [port] "{dx}" (port),
     );
     return ret;
 }
@@ -39,8 +39,8 @@ pub inline fn inb(port: u16) u8 {
 pub inline fn inw(port: u16) u16 {
     var ret: u16 = 0;
     asm volatile ("inw %[port], %[ret]"
-        : [ret] "=a" (ret),
-        : [port] "Nd" (port),
+        : [ret] "={ax}" (ret),
+        : [port] "{dx}" (port),
     );
     return ret;
 }
@@ -49,8 +49,8 @@ pub inline fn inw(port: u16) u16 {
 pub inline fn inl(port: u16) u32 {
     var ret: u32 = 0;
     asm volatile ("inl %[port], %[ret]"
-        : [ret] "=a" (ret),
-        : [port] "Nd" (port),
+        : [ret] "={eax}" (ret),
+        : [port] "{dx}" (port),
     );
     return ret;
 }
@@ -58,9 +58,9 @@ pub inline fn inl(port: u16) u32 {
 // INS - Input string (byte) from port into memory
 pub inline fn insb(port: u16, addr: *void, count: u32) void {
     asm volatile ("rep insb"
-        : [addr] "+D" (addr),
-          [count] "+c" (count),
-        : [port] "d" (port),
+        : [addr] "+{edi}" (addr),
+          [count] "+{ecx}" (count),
+        : [port] "{dx}" (port),
         : "memory"
     );
 }
@@ -68,9 +68,9 @@ pub inline fn insb(port: u16, addr: *void, count: u32) void {
 // INS - Input string (word) from port into memory
 pub inline fn insw(port: u16, addr: *void, count: u32) void {
     asm volatile ("rep insw"
-        : [addr] "+D" (addr),
-          [count] "+c" (count),
-        : [port] "d" (port),
+        : [addr] "+{edi}" (addr),
+          [count] "+{ecx}" (count),
+        : [port] "{dx}" (port),
         : "memory"
     );
 }
@@ -78,9 +78,9 @@ pub inline fn insw(port: u16, addr: *void, count: u32) void {
 // INS - Input string (double word) from port into memory
 pub inline fn insd(port: u16, addr: *void, count: u32) void {
     asm volatile ("rep insd"
-        : [addr] "+D" (addr),
-          [count] "+c" (count),
-        : [port] "d" (port),
+        : [addr] "+{edi}" (addr),
+          [count] "+{ecx}" (count),
+        : [port] "{dx}" (port),
         : "memory"
     );
 }
@@ -88,27 +88,27 @@ pub inline fn insd(port: u16, addr: *void, count: u32) void {
 // OUTS - Output string (byte) from memory to port
 pub inline fn outsb(port: u16, addr: *const void, count: u32) void {
     asm volatile ("rep outsb"
-        : [addr] "+S" (addr),
-          [count] "+c" (count),
-        : [port] "d" (port),
+        : [addr] "+{esi}" (addr),
+          [count] "+{ecx}" (count),
+        : [port] "{dx}" (port),
     );
 }
 
 // OUTS - Output string (word) from memory to port
 pub inline fn outsw(port: u16, addr: *const void, count: u32) void {
     asm volatile ("rep outsw"
-        : [addr] "+S" (addr),
-          [count] "+c" (count),
-        : [port] "d" (port),
+        : [addr] "+{esi}" (addr),
+          [count] "+{ecx}" (count),
+        : [port] "{dx}" (port),
     );
 }
 
 // OUTS - Output string (double word) from memory to port
 pub inline fn outsd(port: u16, addr: *const void, count: u32) void {
     asm volatile ("rep outsd"
-        : [addr] "+S" (addr),
-          [count] "+c" (count),
-        : [port] "d" (port),
+        : [addr] "+{esi}" (addr),
+          [count] "+{ecx}" (count),
+        : [port] "{dx}" (port),
     );
 }
 

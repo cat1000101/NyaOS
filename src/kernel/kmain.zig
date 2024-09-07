@@ -4,6 +4,7 @@ const utils = @import("arch/x86/utils.zig");
 const gdt = @import("arch/x86/gdt.zig");
 const idt = @import("arch/x86/idt.zig");
 const isr = @import("arch/x86/isr.zig");
+const pic = @import("arch/x86/pic.zig");
 
 export fn kmain() void {
     virtio.outb("booted?\n");
@@ -16,6 +17,8 @@ export fn kmain() void {
     idt.initIdt();
 
     isr.isrInit();
+
+    pic.picRemap(0x20, 0x28);
 
     asm volatile ("int $1");
 
