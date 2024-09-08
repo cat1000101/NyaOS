@@ -65,7 +65,7 @@ pub fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
     port.outb(PIC_MASTER_DATA, a1); // restore saved masks.
     port.outb(PIC_SLAVE_DATA, a2);
 
-    virtio.outb("pic enabled");
+    virtio.outb("pic enabled or changed the base offset in the idt\n");
 }
 
 pub fn irqSetMask(irqLine: u8) void {
@@ -80,7 +80,7 @@ pub fn irqSetMask(irqLine: u8) void {
     } else {
         unreachable;
     }
-    value = port.inb(portOfLine) or (1 << irqLine);
+    value = port.inb(portOfLine) | (1 << irqLine);
     port.outb(portOfLine, value);
 }
 
@@ -96,7 +96,7 @@ pub fn irqClearMask(irqLine: u8) void {
     } else {
         unreachable;
     }
-    value = port.inb(portOfLine) and (1 << irqLine);
+    value = port.inb(portOfLine) & ~(1 << irqLine);
     port.outb(portOfLine, value);
 }
 
@@ -108,7 +108,7 @@ const PIC_READ_ISR = 0x0b; // OCW3 irq service next CMD read
 fn picGetIrqReg(ocw3: u32) u16 {
     port.outb(PIC_MASTER_COMMAND, ocw3);
     port.outb(PIC_SLAVE_COMMAND, ocw3);
-    return (port.inb(PIC_SLAVE_COMMAND) << 8) or port.inb(PIC_MASTER_COMMAND);
+    return (port.inb(PIC_SLAVE_COMMAND) << 8) | port.inb(PIC_MASTER_COMMAND);
 }
 
 /// Returns the combined value of the cascaded PICs irq request register

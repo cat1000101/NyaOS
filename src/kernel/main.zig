@@ -32,11 +32,12 @@ comptime {
         \\.global _start
         \\.type _start, @function
         \\_start:
-        \\mov stack_top, %esp
-        \\call kmain
-        \\cli
+        \\  mov stack_top, %esp
+        \\  push %ebx
+        \\  call kmain
+        \\  cli
         \\1: hlt
-        \\jmp 1b
+        \\  jmp 1b
         \\
         \\.size _start, . - _start
     );
