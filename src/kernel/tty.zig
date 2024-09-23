@@ -29,6 +29,8 @@ var column: usize = 0;
 var color = vgaEntryColor(ConsoleColors.LightGray, ConsoleColors.Black);
 var buffer = @as([*]volatile u16, @ptrFromInt(0xB8000));
 
+const logo = "                           /^--^\\     /^--^\\     /^--^\\                                                    \\____/     \\____/     \\____/                                                  /      \\   /      \\   /      \\                                                  |        | |        | |        |                                                \\__  __/   \\__  __/   \\__  __/                            |^|^|^|^|^|^|^|^|^|^|^|^\\ \\^|^|^|^/ /^|^|^|^|^\\ \\^|^|^|^|^|^|^|^|^|^|^|^|       | | | | | | | | | | | | |\\ \\| | |/ /| | | | | | \\ \\ | | | | | | | | | | |       ########################/ /######\\ \\###########/ /#######################       | | | | | | | | | | | | \\/| | | | \\/| | | | | |\\/ | | | | | | | | | | | |       |_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|    ";
+
 fn vgaEntryColor(fg: ConsoleColors, bg: ConsoleColors) u8 {
     return @intFromEnum(fg) | (@intFromEnum(bg) << 4);
 }
@@ -41,6 +43,7 @@ fn vgaEntry(uc: u8, new_color: u8) u16 {
 
 pub fn initialize() void {
     clear();
+    printf("{s}", .{logo});
 }
 
 pub fn setColor(new_color: u8) void {

@@ -10,8 +10,10 @@ pub const bootInfoStruct = packed struct {
     mods_count: u32, //       |    (present if flags[3] is set)
     mods_addr: u32, //        |    (present if flags[3] is set)
 
-    syms: [4]u32, //          |    (present if flags[4] or
-    //                        |                flags[5] is set)
+    syms1: u32, //          |    (present if flags[4] or
+    syms2: u32, //                        |                flags[5] is set)
+    syms3: u32,
+    syms4: u32,
 
     mmap_length: u32, //      |    (present if flags[6] is set)
     mmap_addr: u32, //        |    (present if flags[6] is set)
