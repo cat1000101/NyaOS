@@ -6,6 +6,7 @@ const gdt = @import("arch/x86/gdt.zig");
 const idt = @import("arch/x86/idt.zig");
 const isr = @import("arch/x86/isr.zig");
 const pic = @import("arch/x86/pic.zig");
+const acpi = @import("arch/x86/acpi.zig");
 
 export fn kmain(bootInfo: *boot.bootInfoStruct) void {
     _ = bootInfo; // autofix
@@ -21,6 +22,8 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
     isr.isrInit();
 
     pic.picRemap(0x20, 0x28);
+
+    acpi.initACPI();
 
     asm volatile ("int $1");
 
