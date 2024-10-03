@@ -11,7 +11,7 @@ const acpiErrors = error{
     InvalidSignature,
 };
 
-const RSDP = packed struct {
+const RSDP align(1) = extern struct {
     signature: [8]u8,
     checksum: u8,
     oem_id: [6]u8,
@@ -24,7 +24,7 @@ const RSDP = packed struct {
     reserved: [3]u8,
 };
 
-const SDTHeader = packed struct {
+const SDTHeader align(1) = extern struct {
     signature: [4]u8,
     length: u32,
     revision: u8,
@@ -35,17 +35,17 @@ const SDTHeader = packed struct {
     creator_id: u32,
     creator_revision: u32,
 };
-const RSDT = packed struct {
+const RSDT align(1) = extern struct {
     h: SDTHeader,
     entries: *[]u32,
 };
 
-const XSDT = packed struct {
+const XSDT align(1) = extern struct {
     h: SDTHeader,
     entries: *[]u64,
 };
 
-const genericAddressStructure = packed struct {
+const genericAddressStructure align(1) = extern struct {
     address_space: u8,
     bit_width: u8,
     bit_offset: u8,
@@ -53,7 +53,7 @@ const genericAddressStructure = packed struct {
     address: u64,
 };
 
-const FADT = packed struct {
+const FADT align(1) = extern struct {
     h: SDTHeader,
     firmware_control: u32,
     dsdt: u32,
@@ -103,7 +103,7 @@ const FADT = packed struct {
     reset_reg: genericAddressStructure,
 
     reset_value: u8,
-    reserved3: u24,
+    reserved3: [3]u8,
 
     x_firmware_control: u64,
     x_dsdt: u64,
@@ -153,7 +153,7 @@ fn validationChecksum(header: *SDTHeader) bool {
 fn calculateChecksum(ptr: *[]u8, length: usize) bool {
     var sum: u8 = 0;
     var index = ptr;
-    while (index <= @intFromPtr(ptr) + length) : (index += 1) {
+    while (@intFromPtr(index) <= @intFromPtr(ptr) + length) : (index += 1) {
         sum += index.*;
     }
     return sum == 0;
@@ -163,8 +163,8 @@ fn getFADT(rsdp: *RSDP) !*FADT {
     const rsdt = rsdp.rsdt_address;
     const enteries = rsdt.h.length - @sizeOf(SDTHeader) / @sizeOf(u32);
     var index = rsdt.entries;
-    while (index <= @intFromPtr(rsdt.entries) + enteries) : (index += 1) {
-        const header: *SDTHeader = @ptrFromInt(index);
+    while (@intFromPtr(index) <= @intFromPtr(rsdt.entries) + enteries) : (index += 1) {
+        const header: *SDTHeader = @ptrCast(index);
         if (header.signature == FADT_SIGNATURE) {
             return @ptrCast(header);
         }
