@@ -33,10 +33,12 @@ pub const CpuState = packed struct {
     eax: u32,
 
     // Segment registers pushed manually
-    gs: u32,
-    fs: u32,
-    es: u32,
-    ds: u32,
+    gs: u16,
+    fs: u16,
+    es: u16,
+    ds: u16,
+
+    interrupt_number: u32, // Interrupt number pushed by me :3
 
     // Items pushed by the CPU during an interrupt
     error_code: u32, // Error code pushed by the interrupt or us

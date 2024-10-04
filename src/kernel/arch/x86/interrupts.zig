@@ -4,8 +4,7 @@ const isr = @import("isr.zig");
 const virtio = @import("virtio.zig");
 
 export fn Handler(cpu_state: *idt.CpuState) void {
-    virtio.outb("interrupt has accured yippe\n");
-    virtio.putcharAsm(@truncate(cpu_state.error_code + 60));
+    virtio.printf("interrupt has accured yippe interrupt/exeption:{}, error:{}\n", .{ cpu_state.interrupt_number, cpu_state.error_code });
 }
 
 export fn commonStub() callconv(.Naked) void {
