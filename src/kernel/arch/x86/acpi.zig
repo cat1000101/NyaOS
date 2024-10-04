@@ -1,5 +1,6 @@
 const virtio = @import("virtio.zig");
 const port = @import("port.zig");
+const std = @import("std");
 
 const RSDP_FINDING_POSITION: [2]u32 = [2]u32{ 0x000E0000, 0x000FFFFF };
 const IDENTIFIER = "RSD PTR ";
@@ -37,12 +38,12 @@ const SDTHeader align(1) = extern struct {
 };
 const RSDT align(1) = extern struct {
     h: SDTHeader,
-    entries: *[]u32,
+    entries: [*]u32,
 };
 
 const XSDT align(1) = extern struct {
     h: SDTHeader,
-    entries: *[]u64,
+    entries: [*]u64,
 };
 
 const genericAddressStructure align(1) = extern struct {
@@ -126,7 +127,7 @@ fn findRSDP() *RSDP {
     var i = RSDP_FINDING_POSITION[0];
     while (i <= RSDP_FINDING_POSITION[1]) : (i += 16) {
         const ptr: *RSDP = @ptrFromInt(i);
-        if (ptr.signature == IDENTIFIER) {
+        if (std.mem.eql(u8, &ptr.signature, IDENTIFIER)) {
             rsdp = ptr;
             break;
         }
@@ -136,7 +137,6 @@ fn findRSDP() *RSDP {
 }
 
 fn validationRsdpChecksum(rsdp: *RSDP) bool {
-    //var sum: u8 = 0;
     var size: usize = undefined;
     if (rsdp.revision == 0) {
         size = CHECKSUM_LENGTH_V1;
@@ -150,11 +150,11 @@ fn validationChecksum(header: *SDTHeader) bool {
     return calculateChecksum(@ptrCast(header), header.length);
 }
 
-fn calculateChecksum(ptr: *[]u8, length: usize) bool {
+fn calculateChecksum(ptr: [*]u8, length: usize) bool {
     var sum: u8 = 0;
     var index = ptr;
     while (@intFromPtr(index) <= @intFromPtr(ptr) + length) : (index += 1) {
-        sum += index.*;
+        sum += index[0];
     }
     return sum == 0;
 }
@@ -165,7 +165,7 @@ fn getFADT(rsdp: *RSDP) !*FADT {
     var index = rsdt.entries;
     while (@intFromPtr(index) <= @intFromPtr(rsdt.entries) + enteries) : (index += 1) {
         const header: *SDTHeader = @ptrCast(index);
-        if (header.signature == FADT_SIGNATURE) {
+        if (std.mem.eql(u8, &header.signature, FADT_SIGNATURE)) {
             return @ptrCast(header);
         }
     }
@@ -192,7 +192,7 @@ pub fn initACPI() void {
         return;
     }
 
-    port.outb(fadt.smi_command_port, fadt.acpi_enable);
+    port.outb(@intCast(fadt.smi_command_port), fadt.acpi_enable);
 
     virtio.printf("acpi init success yippe", .{});
 }
