@@ -23,7 +23,7 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
 
     pic.picRemap(0x20, 0x28);
 
-    acpi.initACPI();
+    //    acpi.initACPI();
 
     asm volatile ("int $1");
 
