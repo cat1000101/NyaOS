@@ -11,6 +11,7 @@ const acpi = @import("arch/x86/acpi.zig");
 export fn kmain(bootInfo: *boot.bootInfoStruct) void {
     _ = bootInfo; // autofix
     virtio.outb("booted?\n");
+    virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
 
     tty.initialize();
     tty.printf("meow i like {any} cat femboy", .{69});
@@ -23,7 +24,7 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
 
     pic.picRemap(0x20, 0x28);
 
-    //    acpi.initACPI();
+    acpi.initACPI();
 
     asm volatile ("int $1");
 
