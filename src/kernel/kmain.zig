@@ -10,7 +10,7 @@ const acpi = @import("arch/x86/acpi.zig");
 
 export fn kmain(bootInfo: *boot.bootInfoStruct) void {
     _ = bootInfo; // autofix
-    virtio.outb("booted?\n");
+    virtio.printf("booted?\n", .{});
     virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
 
     tty.initialize();
