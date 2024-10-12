@@ -162,7 +162,8 @@ fn getFADT(rsdp: *RSDP) !*FADT {
     for (0..enteries) |i| {
         const header: *SDTHeader = enteriesArray[i];
         if (std.mem.eql(u8, &header.signature, FADT_SIGNATURE)) {
-            return @ptrCast(header);
+            const ret: *FADT = @ptrCast(header);
+            return ret;
         }
     }
     return acpiErrors.NotFound;
@@ -181,7 +182,7 @@ pub fn initACPI() void {
         virtio.printf("fadt not found? {}\n", .{err});
         return;
     };
-    if (validationChecksum(@ptrCast(fadt))) {
+    if (!validationChecksum(@ptrCast(fadt))) {
         virtio.printf("fadt checksum failed\n", .{});
         return;
     }
