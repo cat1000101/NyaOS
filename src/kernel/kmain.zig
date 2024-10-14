@@ -24,7 +24,11 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
 
     pic.picRemap(0x20, 0x28);
 
-    acpi.initACPI();
+    const acpiInfo: ?acpi.acpiTables = acpi.initACPI() catch |err| blk: {
+        virtio.printf("acpi error: {}\n", .{err});
+        break :blk null;
+    };
+    _ = acpiInfo; // autofix
 
     asm volatile ("int $1");
 
