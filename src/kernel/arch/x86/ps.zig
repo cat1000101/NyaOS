@@ -35,4 +35,6 @@ const controllerOutput = packed struct {
     firstPortData: u1,
 };
 
-pub fn init() void {}
+pub fn init() void {
+    // TODO: this whole thing
+}

@@ -26,7 +26,7 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
 
     const acpiInfo: ?acpi.acpiTables = acpi.initACPI() catch |err| blk: {
         virtio.printf("acpi error: {}\n", .{err});
-        break :blk null;
+        break :blk null; // TODO: make axpi more pretty and the such
     };
     _ = acpiInfo; // autofix
 
