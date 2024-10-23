@@ -7,6 +7,7 @@ const idt = @import("arch/x86/idt.zig");
 const isr = @import("arch/x86/isr.zig");
 const pic = @import("arch/x86/pic.zig");
 const acpi = @import("arch/x86/acpi.zig");
+const ps2 = @import("arch/x86/ps2.zig");
 
 export fn kmain(bootInfo: *boot.bootInfoStruct) void {
     _ = bootInfo; // autofix
@@ -28,7 +29,7 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
         virtio.printf("acpi error: {}\n", .{err});
         break :blk null; // TODO: make axpi more pretty and the such
     };
-    _ = acpiInfo; // autofix
+    ps2.init(acpiInfo);
 
     asm volatile ("int $1");
 
