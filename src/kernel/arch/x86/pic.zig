@@ -1,5 +1,6 @@
 const port = @import("port.zig");
 const virtio = @import("virtio.zig");
+const idt = @import("idt.zig");
 
 const PIC_MASTER = 0x20; // the base io offset of the pic master chip
 const PIC_SLAVE = 0xA0; // the base io offset of the pic slave chip
@@ -119,4 +120,9 @@ pub fn picGetIrr() u16 {
 /// Returns the combined value of the cascaded PICs in-service register
 pub fn picGetIsr() u16 {
     return picGetIrqReg(PIC_READ_ISR);
+}
+
+pub fn installIrq(interrupt: *const idt.InterruptStub, irqNumber: u8) !void {
+    idt.openIdtGate(irqNumber, interrupt) catch |err| return err;
+    irqClearMask(irqNumber);
 }
