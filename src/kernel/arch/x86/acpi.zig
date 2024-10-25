@@ -6,10 +6,16 @@ const RSDP_FINDING_POSITION: [2]u32 = [2]u32{ 0x000E0000, 0x000FFFFF };
 const IDENTIFIER = "RSD PTR ";
 const FADT_SIGNATURE = "FACP";
 
-const acpiErrors = error{
+pub const acpiErrors = error{
     NotFound,
     InvalidChecksum,
     InvalidSignature,
+    AlreadyInitialized,
+};
+
+pub const acpiTables = struct {
+    rsdp: *RSDP,
+    fadt: *FADT,
 };
 
 const RSDP align(1) = extern struct {
@@ -38,12 +44,12 @@ const SDTHeader align(1) = extern struct {
 };
 const RSDT align(1) = extern struct {
     h: SDTHeader,
-    entries: [*]u32,
+    entries: u32, // [(@This().h.length - @sizeOf(SDTHeader)) / @sizeOf(u32)]*SDTHeader,
 };
 
 const XSDT align(1) = extern struct {
     h: SDTHeader,
-    entries: [*]u64,
+    entries: u64, // [(@This().h.length - @sizeOf(SDTHeader)) / @sizeOf(u32)]*SDTHeader,
 };
 
 const genericAddressStructure align(1) = extern struct {
@@ -119,21 +125,19 @@ const FADT align(1) = extern struct {
     x_gpe1_block: genericAddressStructure,
 };
 
-const CHECKSUM_LENGTH_V1: usize = @offsetOf(RSDP, "length") - 1; // @sizeOf(RSDP) - @sizeOf(u8) * 4 - @sizeOf(u32) - @sizeOf(u64);
+const CHECKSUM_LENGTH_V1: usize = @offsetOf(RSDP, "length");
 const CHECKSUM_LENGTH_V2: usize = @sizeOf(RSDP);
 
-fn findRSDP() *RSDP {
-    var rsdp: *RSDP = undefined;
+fn findRSDP() acpiErrors!*RSDP {
     var i = RSDP_FINDING_POSITION[0];
     while (i <= RSDP_FINDING_POSITION[1]) : (i += 16) {
         const ptr: *RSDP = @ptrFromInt(i);
         if (std.mem.eql(u8, &ptr.signature, IDENTIFIER)) {
-            rsdp = ptr;
-            break;
+            return ptr;
         }
     }
-    if (rsdp == undefined) virtio.printf("where the hail is rsdp?", .{});
-    return rsdp;
+    virtio.printf("rsdp not found? {}\n", .{acpiErrors.NotFound});
+    return acpiErrors.NotFound;
 }
 
 fn validationRsdpChecksum(rsdp: *RSDP) bool {
@@ -152,47 +156,46 @@ fn validationChecksum(header: *SDTHeader) bool {
 
 fn calculateChecksum(ptr: [*]u8, length: usize) bool {
     var sum: u8 = 0;
-    var index = ptr;
-    while (@intFromPtr(index) <= @intFromPtr(ptr) + length) : (index += 1) {
-        sum += index[0];
+    for (0..length) |i| {
+        sum +%= ptr[i];
     }
     return sum == 0;
 }
 
-fn getFADT(rsdp: *RSDP) !*FADT {
+fn getFADT(rsdp: *RSDP) acpiErrors!*FADT {
     const rsdt = rsdp.rsdt_address;
-    const enteries = rsdt.h.length - @sizeOf(SDTHeader) / @sizeOf(u32);
-    var index = rsdt.entries;
-    while (@intFromPtr(index) <= @intFromPtr(rsdt.entries) + enteries) : (index += 1) {
-        const header: *SDTHeader = @ptrCast(index);
+    const enteries = (rsdt.h.length - @sizeOf(SDTHeader)) / @sizeOf(u32);
+    const enteriesArray: [*]*SDTHeader = @ptrCast(&rsdt.entries);
+    for (0..enteries) |i| {
+        const header: *SDTHeader = enteriesArray[i];
         if (std.mem.eql(u8, &header.signature, FADT_SIGNATURE)) {
-            return @ptrCast(header);
+            const ret: *FADT = @ptrCast(header);
+            return ret;
         }
     }
+    virtio.printf("fadt not found? {}\n", .{acpiErrors.NotFound});
     return acpiErrors.NotFound;
 }
 
-pub fn initACPI() void {
-    const rsdp = findRSDP();
+pub fn initACPI() acpiErrors!acpiTables {
+    const rsdp: *RSDP = try findRSDP();
     if (!validationRsdpChecksum(rsdp)) {
-        virtio.printf("rsdp checksum failed", .{});
-        return;
+        virtio.printf("rsdp checksum failed\n", .{});
+        return acpiErrors.InvalidChecksum;
     }
-    const fadt: *FADT = getFADT(rsdp) catch |err| {
-        virtio.printf("fadt not found? {}", .{err});
-        return;
-    };
-    if (validationChecksum(@ptrCast(fadt))) {
-        virtio.printf("fadt checksum failed", .{});
-        return;
+    const fadt: *FADT = try getFADT(rsdp);
+    if (!validationChecksum(@ptrCast(fadt))) {
+        virtio.printf("fadt checksum failed\n", .{});
+        return acpiErrors.InvalidChecksum;
     }
 
     if (fadt.smi_command_port == 0 and fadt.acpi_enable == 0 and fadt.acpi_disable == 0 and (fadt.pm1a_control_block & 1) == 1) {
-        virtio.printf("acpi not supported or already enabled?", .{}); // i think there is miss information but idk
-        return;
+        virtio.printf("acpi not supported or already enabled?\n", .{}); // i think there is miss information but idk
+        return acpiErrors.AlreadyInitialized;
     }
 
     port.outb(@intCast(fadt.smi_command_port), fadt.acpi_enable);
 
-    virtio.printf("acpi init success yippe", .{});
+    virtio.printf("acpi init success yippe\n", .{});
+    return acpiTables{ .rsdp = rsdp, .fadt = fadt };
 }
