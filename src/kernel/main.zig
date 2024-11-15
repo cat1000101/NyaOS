@@ -20,7 +20,7 @@ export var multiboot align(4) linksection(".multiboot") = MultibootHeader{
 };
 
 // setting up stack manually
-export var stack: [16 * 1024 + 1]u8 align(16) linksection(".bss") = undefined;
+export var stack: [16 * 1024]u8 align(16) linksection(".bss") = undefined;
 export const stack_top = &stack[stack.len - 1];
 
 // putting the stack to the stack pointer

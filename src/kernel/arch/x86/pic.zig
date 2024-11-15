@@ -126,3 +126,7 @@ pub fn installIrq(interrupt: *const idt.InterruptStub, irqNumber: u8) !void {
     idt.openIdtGate(irqNumber, interrupt) catch |err| return err;
     irqClearMask(irqNumber);
 }
+
+pub fn init() void {
+    picRemap(0x20, 0x28);
+}

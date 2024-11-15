@@ -1,5 +1,6 @@
 const acpi = @import("acpi.zig");
 const port = @import("port.zig");
+const virtio = @import("virtio.zig");
 
 const DATA_READ_WRITE = 0x60;
 const STATUS_READ = 0x64;
@@ -43,14 +44,15 @@ const controllerOutput = packed struct {
 };
 
 fn ps2ControllerExists(acpiTables: ?acpi.acpiTables) bool {
-    const fadt = acpiTables.fadt orelse return true;
-    return (fadt.iapc_boot_arch_flags & 2) == 2;
+    const LocalAcpiTables = acpiTables orelse return true;
+    return (LocalAcpiTables.fadt.iapc_boot_arch_flags & 2) == 2;
 }
 
 pub fn init(acpiTables: ?acpi.acpiTables) ps2Errors!void {
     // TODO: this whole thing
     // TODO: usb stuff
     if (!ps2ControllerExists(acpiTables)) {
+        virtio.printf("ps2 controller not present sad\n", .{});
         return ps2Errors.ps2ControllerNotPresent;
     }
     port.outb(COMMAND_WRITE, 0xAD); // disable first port

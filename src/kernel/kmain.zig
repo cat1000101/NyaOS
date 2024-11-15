@@ -15,7 +15,7 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
     virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
 
     tty.initialize();
-    tty.printf("meow i like {any} cat femboy", .{69});
+    tty.printf("meow i like {any} cats", .{69});
 
     gdt.initGdt();
 
@@ -23,13 +23,12 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
 
     isr.isrInit();
 
-    pic.picRemap(0x20, 0x28);
+    pic.init();
 
-    const acpiInfo: ?acpi.acpiTables = acpi.initACPI() catch |err| blk: {
-        virtio.printf("acpi error: {}\n", .{err});
-        break :blk null; // TODO: make axpi more pretty and the such
+    const acpiInfo: ?acpi.acpiTables = acpi.initACPI() catch null;
+    ps2.init(acpiInfo) catch |err| {
+        virtio.printf("ps2 error: {}\n", .{err});
     };
-    ps2.init(acpiInfo);
 
     asm volatile ("int $1");
 
