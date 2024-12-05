@@ -38,7 +38,7 @@ pub fn picDisable() void {
 }
 
 /// remaps the pic offsets, recommanded for master 0x20 and for the slave 0x28
-pub fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
+fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
     var a1: u8 = undefined;
     var a2: u8 = undefined;
 
@@ -123,10 +123,10 @@ pub fn picGetIsr() u16 {
 }
 
 pub fn installIrq(interrupt: *const idt.InterruptStub, irqNumber: u8) !void {
-    idt.openIdtGate(irqNumber, interrupt) catch |err| return err;
+    try idt.openIdtGate(irqNumber, interrupt);
     irqClearMask(irqNumber);
 }
 
-pub fn init() void {
+pub fn initPic() void {
     picRemap(0x20, 0x28);
 }

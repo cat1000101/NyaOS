@@ -7,7 +7,7 @@ pub fn isrHandler(cpu_state: *idt.CpuState) void {
     _ = cpu_state; // autofix
 }
 
-pub fn isrInit() void {
+pub fn initIsr() void {
     comptime var i = 0;
     inline while (i < 32) : (i += 1) {
         const interrupt = int.generateStub(i);

@@ -8,6 +8,8 @@ const COMMAND_WRITE = 0x64;
 
 const ps2Errors = error{
     ps2ControllerNotPresent,
+    ps2CommandTimeout,
+    ps2SelfTestFailed,
 };
 
 const statusRegister = packed struct {
@@ -43,19 +45,96 @@ const controllerOutput = packed struct {
     firstPortData: u1,
 };
 
+const controllerComands = enum(u8) {
+    readControllerConfiguration = 0x20,
+    writeControllerConfiguration = 0x60,
+    disableFirstPort = 0xAD,
+    disableSecondPort = 0xA7,
+    enableFirstPort = 0xAE,
+    enableSecondPort = 0xA8,
+    testFirstPort = 0xAB,
+    testSecondPort = 0xA9,
+    testController = 0xAA,
+    selfTest = 0xAA,
+    interfaceTest = 0xAB,
+    diagnosticDump = 0xAC,
+    disableFirstPortClock = 0x10,
+    disableSecondPortClock = 0x20,
+    enableFirstPortClock = 0x11,
+    enableSecondPortClock = 0x21,
+    readOutputPort = 0xD0,
+    writeOutputPort = 0xD1,
+    writeSecondPortOutput = 0xD3,
+    writeSecondPortInput = 0xD4,
+    _,
+};
+
 fn ps2ControllerExists(acpiTables: ?acpi.acpiTables) bool {
     const LocalAcpiTables = acpiTables orelse return true;
     return (LocalAcpiTables.fadt.iapc_boot_arch_flags & 2) == 2;
 }
 
-pub fn init(acpiTables: ?acpi.acpiTables) ps2Errors!void {
+inline fn readStatus() statusRegister {
+    return @bitCast(port.inb(STATUS_READ));
+}
+
+fn sendCommand(command: u8) void {
+    while (true) {
+        const status = readStatus();
+        if (status.inputBufferStatus == 0) {
+            break;
+        }
+    }
+    port.outb(COMMAND_WRITE, command);
+}
+
+fn reciveData() u8 {
+    while (true) {
+        const status = readStatus();
+        if (status.outputBufferStatus == 1) {
+            break;
+        }
+    }
+    return port.inb(DATA_READ_WRITE);
+}
+
+fn sendData(data: u8) void {
+    while (true) {
+        const status = readStatus();
+        if (status.inputBufferStatus == 0) {
+            break;
+        }
+    }
+    port.outb(DATA_READ_WRITE, data);
+}
+
+pub fn initPs2(acpiTables: ?acpi.acpiTables) !void {
     // TODO: this whole thing
     // TODO: usb stuff
     if (!ps2ControllerExists(acpiTables)) {
         virtio.printf("ps2 controller not present sad\n", .{});
         return ps2Errors.ps2ControllerNotPresent;
     }
-    port.outb(COMMAND_WRITE, 0xAD); // disable first port
-    port.outb(COMMAND_WRITE, 0xA7); // disable second port
+    sendCommand(0xAD); // disable first port
+    sendCommand(0xA7); // disable second port
+
     _ = port.inb(DATA_READ_WRITE); // flush
+
+    // Set the Controller Configuration Byte
+    sendCommand(0x20);
+    const psConfiguration: controllerConfiguration = @bitCast(reciveData()); // read controller configuration
+    var newPsconfiguration = psConfiguration;
+    newPsconfiguration.firstPortInterrupt = 0;
+    newPsconfiguration.firstPortTranslation = 0;
+    newPsconfiguration.firstPortClock = 0;
+    sendCommand(0x60);
+    sendData(@bitCast(newPsconfiguration));
+
+    sendCommand(0xAA); // self test
+    if (reciveData() != 0x55) {
+        virtio.printf("ps2 self test failed\n", .{});
+        sendCommand(0x60);
+        sendData(@bitCast(psConfiguration));
+        return ps2Errors.ps2SelfTestFailed;
+    }
 }

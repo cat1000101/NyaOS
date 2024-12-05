@@ -21,16 +21,16 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
 
     idt.initIdt();
 
-    isr.isrInit();
+    isr.initIsr();
 
-    pic.init();
+    pic.initPic();
 
     const acpiInfo: ?acpi.acpiTables = acpi.initACPI() catch null;
-    ps2.init(acpiInfo) catch |err| {
+    ps2.initPs2(acpiInfo) catch |err| {
         virtio.printf("ps2 error: {}\n", .{err});
     };
 
-    asm volatile ("int $1");
+    asm volatile ("int $1"); // test for the interrutps
 
     utils.hlt();
 }
