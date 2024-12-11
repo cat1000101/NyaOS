@@ -80,3 +80,54 @@ pub fn generateStub(comptime interrupt_num: u32) idt.InterruptStub {
         }
     }.func;
 }
+
+pub fn generateCommonStub(function: *const fn () void) idt.InterruptStub {
+    return struct {
+        fn func() callconv(.Naked) void {
+            asm volatile (
+                \\  pusha               // pushes in order: eax, ecx, edx, ebx, esp, ebp, esi, edi
+                \\
+                \\  xor %eax, %eax
+                \\  mov %ds, %ax
+                \\  push %ax
+                \\  mov %es, %ax
+                \\  push %ax
+                \\  mov %fs, %ax
+                \\  push %ax
+                \\  mov %gs, %ax
+                \\  push %ax
+            );
+
+            // this place now is black boxed wawwie
+            asm volatile (
+                \\  mov $0x10, %ax       // use kernel data segment
+                \\  mov %ax, %ds
+                \\  mov %ax, %es
+                \\  mov %ax, %fs
+                \\  mov %ax, %gs
+                \\
+                \\  push %esp            // pass pointer to the cpu state
+                \\  call *%[function]
+                \\  add $4, %esp         // remove the pointer to the cpu state
+                :
+                : [function] "{eax}" (function),
+            );
+            // end of black box
+
+            asm volatile (
+                \\  xor %eax, %eax
+                \\  pop %ax
+                \\  mov %ax, %gs
+                \\  pop %ax
+                \\  mov %ax, %fs
+                \\  pop %ax
+                \\  mov %ax, %es
+                \\  pop %ax
+                \\  mov %ax, %ds
+                \\
+                \\  popa                // pop what we pushed with pusha
+                \\  iret                // will pop: cs, eip, eflags and ss, esp if there was a privlige level change
+            );
+        }
+    }.func;
+}

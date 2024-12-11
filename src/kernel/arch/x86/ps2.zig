@@ -1,6 +1,8 @@
 const acpi = @import("acpi.zig");
 const port = @import("port.zig");
 const virtio = @import("virtio.zig");
+const interrupt = @import("interrupts.zig");
+const pic = @import("pic.zig");
 
 const DATA_READ_WRITE = 0x60;
 const STATUS_READ = 0x64;
@@ -252,4 +254,11 @@ pub fn initPs2(acpiTables: ?acpi.acpiTables) !void {
             }
         }
     }
+    const keyboardHandeler = interrupt.generateCommonStub(&ps2KeyboardHandeler);
+    try pic.installIrq(&keyboardHandeler, 1);
+    virtio.printf("ps2 controller initialized and installed keyboard handeler?\n", .{});
+}
+
+fn ps2KeyboardHandeler() void {
+    virtio.printf("meow kayboard happend\n", .{});
 }

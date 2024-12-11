@@ -2,6 +2,9 @@ const port = @import("port.zig");
 const virtio = @import("virtio.zig");
 const idt = @import("idt.zig");
 
+pub const PIC_MASTER_OFFSET: u8 = 0x20;
+pub const PIC_SLAVE_OFFSET: u8 = 0x28;
+
 const PIC_MASTER = 0x20; // the base io offset of the pic master chip
 const PIC_SLAVE = 0xA0; // the base io offset of the pic slave chip
 const PIC_MASTER_COMMAND = PIC_MASTER; // the port where the master accepts commands
@@ -72,32 +75,34 @@ fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
 pub fn irqSetMask(irqLine: u8) void {
     var portOfLine: u16 = undefined;
     var value: u8 = undefined;
+    var localIrqLine: u3 = @intCast(irqLine);
 
-    if (irqLine < 8) {
+    if (localIrqLine < 8) {
         portOfLine = PIC_MASTER_DATA;
-    } else if (irqLine < 16) {
+    } else if (localIrqLine < 16) {
         portOfLine = PIC_SLAVE_DATA;
-        irqLine -= 8;
+        localIrqLine -= 8;
     } else {
         unreachable;
     }
-    value = port.inb(portOfLine) | (1 << irqLine);
+    value = port.inb(portOfLine) | (@as(u8, 1) << localIrqLine);
     port.outb(portOfLine, value);
 }
 
 pub fn irqClearMask(irqLine: u8) void {
     var portOfLine: u16 = undefined;
     var value: u8 = undefined;
+    var localIrqLine: u3 = @intCast(irqLine);
 
-    if (irqLine < 8) {
+    if (localIrqLine < 8) {
         portOfLine = PIC_MASTER_DATA;
-    } else if (irqLine < 16) {
+    } else if (localIrqLine < 16) {
         portOfLine = PIC_SLAVE_DATA;
-        irqLine -= 8;
+        localIrqLine -= 8;
     } else {
         unreachable;
     }
-    value = port.inb(portOfLine) & ~(1 << irqLine);
+    value = port.inb(portOfLine) & ~(@as(u8, 1) << localIrqLine);
     port.outb(portOfLine, value);
 }
 
@@ -123,10 +128,10 @@ pub fn picGetIsr() u16 {
 }
 
 pub fn installIrq(interrupt: *const idt.InterruptStub, irqNumber: u8) !void {
-    try idt.openIdtGate(irqNumber, interrupt);
+    try idt.openIdtGate(irqNumber + PIC_MASTER_OFFSET, interrupt);
     irqClearMask(irqNumber);
 }
 
 pub fn initPic() void {
-    picRemap(0x20, 0x28);
+    picRemap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
 }
