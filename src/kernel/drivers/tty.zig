@@ -60,14 +60,28 @@ pub fn putCharAt(c: u8, new_color: u8, x: usize, y: usize) void {
 }
 
 pub fn putChar(c: u8) void {
-    putCharAt(c, color, column, row);
+    if (c == '\n') {
+        column = 0;
+        row += 1;
+        if (row == VGA_HEIGHT)
+            nextLine();
+        return;
+    } else {
+        putCharAt(c, color, column, row);
+    }
+
     column += 1;
     if (column == VGA_WIDTH) {
         column = 0;
         row += 1;
         if (row == VGA_HEIGHT)
-            row = 0;
+            nextLine();
     }
+}
+
+fn nextLine() void {
+    for (VGA_WIDTH..(VGA_WIDTH * VGA_HEIGHT - 1)) |i|
+        buffer[i - VGA_WIDTH] = buffer[i];
 }
 
 pub fn puts(data: []const u8) void {

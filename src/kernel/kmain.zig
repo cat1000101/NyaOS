@@ -1,4 +1,4 @@
-const tty = @import("tty.zig");
+const tty = @import("drivers/tty.zig");
 const virtio = @import("arch/x86/virtio.zig");
 const utils = @import("arch/x86/utils.zig");
 const boot = @import("arch/x86/boot.zig");
@@ -15,7 +15,7 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
     virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
 
     tty.initialize();
-    tty.printf("meow i like {any} cats", .{69});
+    tty.printf("meow i like {any} cats\n", .{69});
 
     gdt.initGdt();
 
