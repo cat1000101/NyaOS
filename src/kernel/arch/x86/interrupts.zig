@@ -57,7 +57,7 @@ export fn commonStub() callconv(.Naked) void {
 
 // stollen/"inspired" from https://github.com/ZystemOS/pluto it is a good zig os
 // that is a good refrence for good practive maybe idk
-pub fn generateStub(comptime interrupt_num: u32) idt.InterruptStub {
+pub fn generateStub(comptime interrupt_num: u32) fn () callconv(.Naked) void {
     return struct {
         fn func() callconv(.Naked) void {
             asm volatile (
@@ -81,7 +81,7 @@ pub fn generateStub(comptime interrupt_num: u32) idt.InterruptStub {
     }.func;
 }
 
-pub fn generateCommonStub(function: *const fn () void) idt.InterruptStub {
+pub fn generateCommonStub(function: *const fn () void) fn () callconv(.Naked) void {
     return struct {
         fn func() callconv(.Naked) void {
             asm volatile (

@@ -18,8 +18,6 @@ pub const InterruptError = error{
     interruptOpen,
 };
 
-pub const InterruptStub = fn () callconv(.Naked) void;
-
 // cpu state when calling intrupt
 pub const CpuState = packed struct {
     // General-purpose registers pushed by pusha
@@ -81,9 +79,9 @@ pub fn initIdt() void {
     virtio.outb("initialized idt\n");
 }
 
-pub fn openIdtGate(index: usize, interrupt: *const InterruptStub) InterruptError!void {
+pub fn openIdtGate(index: usize, interrupt: *const fn () callconv(.Naked) void) InterruptError!void {
     if (idt[index].p == 1) return InterruptError.interruptOpen;
-
+    virtio.printf("opening idt gate: {} {}\n", .{ index, interrupt });
     setIdtGate(
         index,
         @intFromPtr(interrupt),

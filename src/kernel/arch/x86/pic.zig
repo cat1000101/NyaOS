@@ -72,7 +72,7 @@ fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
     virtio.outb("pic enabled or changed the base offset in the idt\n");
 }
 
-pub fn irqSetMask(irqLine: u8) void {
+fn irqSetMask(irqLine: u8) void {
     var portOfLine: u16 = undefined;
     var value: u8 = undefined;
     var localIrqLine: u3 = @intCast(irqLine);
@@ -86,10 +86,11 @@ pub fn irqSetMask(irqLine: u8) void {
         unreachable;
     }
     value = port.inb(portOfLine) | (@as(u8, 1) << localIrqLine);
+    virtio.printf("setting irq mask: {} {}\n", .{ irqLine, value });
     port.outb(portOfLine, value);
 }
 
-pub fn irqClearMask(irqLine: u8) void {
+fn irqClearMask(irqLine: u8) void {
     var portOfLine: u16 = undefined;
     var value: u8 = undefined;
     var localIrqLine: u3 = @intCast(irqLine);
@@ -103,6 +104,7 @@ pub fn irqClearMask(irqLine: u8) void {
         unreachable;
     }
     value = port.inb(portOfLine) & ~(@as(u8, 1) << localIrqLine);
+    virtio.printf("clearing irq mask: {} {}\n", .{ irqLine, value });
     port.outb(portOfLine, value);
 }
 
@@ -127,9 +129,9 @@ pub fn picGetIsr() u16 {
     return picGetIrqReg(PIC_READ_ISR);
 }
 
-pub fn installIrq(interrupt: *const idt.InterruptStub, irqNumber: u8) !void {
+pub fn installIrq(interrupt: *const fn () callconv(.Naked) void, irqNumber: u8) !void {
     try idt.openIdtGate(irqNumber + PIC_MASTER_OFFSET, interrupt);
-    irqClearMask(irqNumber);
+    irqSetMask(irqNumber);
 }
 
 pub fn initPic() void {

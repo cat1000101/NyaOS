@@ -254,8 +254,22 @@ pub fn initPs2(acpiTables: ?acpi.acpiTables) !void {
             }
         }
     }
-    const keyboardHandeler = interrupt.generateCommonStub(&ps2KeyboardHandeler);
-    try pic.installIrq(&keyboardHandeler, 1);
+    if (ps2status.secondPort) {
+        sendCommand(0xA7);
+        ps2status.secondPort = false;
+    }
+
+    virtio.printf("ps2 controller initialized\n", .{});
+    if (ps2status.firstPort) {
+        virtio.printf("ps2 first port enabled\n", .{});
+    }
+    if (ps2status.secondPort) {
+        virtio.printf("ps2 second port enabled\n", .{});
+    }
+    const keyboardHandeler = comptime interrupt.generateCommonStub(&ps2KeyboardHandeler);
+    pic.installIrq(&keyboardHandeler, 1) catch |err| {
+        virtio.printf("failed to install keyboard handeler {}\n", .{err});
+    };
     virtio.printf("ps2 controller initialized and installed keyboard handeler?\n", .{});
 }
 

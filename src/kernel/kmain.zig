@@ -31,6 +31,9 @@ export fn kmain(bootInfo: *boot.bootInfoStruct) void {
     };
 
     asm volatile ("int $1"); // test for the interrutps
+    asm volatile ("int $21"); // test for the interrutps
+
+    utils.whileTrue();
 
     utils.hlt();
 }
