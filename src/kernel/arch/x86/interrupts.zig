@@ -81,7 +81,7 @@ pub fn generateStub(comptime interrupt_num: u32) fn () callconv(.Naked) void {
     }.func;
 }
 
-pub fn generateCommonStub(function: *const fn () void) fn () callconv(.Naked) void {
+pub fn generateCommonStub(function: *const fn () callconv(.C) void) fn () callconv(.Naked) void {
     return struct {
         fn func() callconv(.Naked) void {
             asm volatile (
@@ -105,6 +105,11 @@ pub fn generateCommonStub(function: *const fn () void) fn () callconv(.Naked) vo
                 \\  mov %ax, %es
                 \\  mov %ax, %fs
                 \\  mov %ax, %gs
+            );
+            asm volatile (
+                \\  push %eax
+                \\  call testInterrupt
+                \\  pop %eax
                 \\
                 \\  push %esp            // pass pointer to the cpu state
                 \\  call *%[function]
@@ -130,4 +135,8 @@ pub fn generateCommonStub(function: *const fn () void) fn () callconv(.Naked) vo
             );
         }
     }.func;
+}
+
+export fn testInterrupt(number: u32) void {
+    virtio.printf("interrupts test {}\n", .{number});
 }

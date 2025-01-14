@@ -259,13 +259,6 @@ pub fn initPs2(acpiTables: ?acpi.acpiTables) !void {
         ps2status.secondPort = false;
     }
 
-    virtio.printf("ps2 controller initialized\n", .{});
-    if (ps2status.firstPort) {
-        virtio.printf("ps2 first port enabled\n", .{});
-    }
-    if (ps2status.secondPort) {
-        virtio.printf("ps2 second port enabled\n", .{});
-    }
     const keyboardHandeler = comptime interrupt.generateCommonStub(&ps2KeyboardHandeler);
     pic.installIrq(&keyboardHandeler, 1) catch |err| {
         virtio.printf("failed to install keyboard handeler {}\n", .{err});
@@ -273,6 +266,6 @@ pub fn initPs2(acpiTables: ?acpi.acpiTables) !void {
     virtio.printf("ps2 controller initialized and installed keyboard handeler?\n", .{});
 }
 
-fn ps2KeyboardHandeler() void {
+fn ps2KeyboardHandeler() callconv(.C) void {
     virtio.printf("meow kayboard happend\n", .{});
 }

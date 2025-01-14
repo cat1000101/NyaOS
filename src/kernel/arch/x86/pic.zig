@@ -42,11 +42,8 @@ pub fn picDisable() void {
 
 /// remaps the pic offsets, recommanded for master 0x20 and for the slave 0x28
 fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
-    var a1: u8 = undefined;
-    var a2: u8 = undefined;
-
-    a1 = port.inb(PIC_MASTER_DATA); // save masks
-    a2 = port.inb(PIC_SLAVE_DATA);
+    // const a1 = port.inb(PIC_MASTER_DATA); // save masks
+    // const a2 = port.inb(PIC_SLAVE_DATA);
 
     port.outb(PIC_MASTER_COMMAND, ICW1_INIT | ICW1_ICW4); // starts the initialization sequence (in cascade mode)
     port.io_wait();
@@ -66,44 +63,28 @@ fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
     port.outb(PIC_SLAVE_DATA, ICW4_8086);
     port.io_wait();
 
-    port.outb(PIC_MASTER_DATA, a1); // restore saved masks.
-    port.outb(PIC_SLAVE_DATA, a2);
+    // port.outb(PIC_MASTER_DATA, a1); // restore saved masks.
+    // port.outb(PIC_SLAVE_DATA, a2);
+
+    picDisable();
 
     virtio.outb("pic enabled or changed the base offset in the idt\n");
 }
 
 fn irqSetMask(irqLine: u8) void {
-    var portOfLine: u16 = undefined;
-    var value: u8 = undefined;
-    var localIrqLine: u3 = @intCast(irqLine);
+    const portOfLine: u16 = if (irqLine < 8) PIC_MASTER_DATA else if (irqLine < 16) PIC_SLAVE_DATA else unreachable;
+    const localIrqLine: u3 = @intCast(irqLine % 8);
+    const value = port.inb(portOfLine) | (@as(u8, 1) << localIrqLine);
 
-    if (localIrqLine < 8) {
-        portOfLine = PIC_MASTER_DATA;
-    } else if (localIrqLine < 16) {
-        portOfLine = PIC_SLAVE_DATA;
-        localIrqLine -= 8;
-    } else {
-        unreachable;
-    }
-    value = port.inb(portOfLine) | (@as(u8, 1) << localIrqLine);
     virtio.printf("setting irq mask: {} {}\n", .{ irqLine, value });
     port.outb(portOfLine, value);
 }
 
 fn irqClearMask(irqLine: u8) void {
-    var portOfLine: u16 = undefined;
-    var value: u8 = undefined;
-    var localIrqLine: u3 = @intCast(irqLine);
+    const portOfLine: u16 = if (irqLine < 8) PIC_MASTER_DATA else if (irqLine < 16) PIC_SLAVE_DATA else unreachable;
+    const localIrqLine: u3 = @intCast(irqLine % 8);
+    const value = port.inb(portOfLine) & ~(@as(u8, 1) << localIrqLine);
 
-    if (localIrqLine < 8) {
-        portOfLine = PIC_MASTER_DATA;
-    } else if (localIrqLine < 16) {
-        portOfLine = PIC_SLAVE_DATA;
-        localIrqLine -= 8;
-    } else {
-        unreachable;
-    }
-    value = port.inb(portOfLine) & ~(@as(u8, 1) << localIrqLine);
     virtio.printf("clearing irq mask: {} {}\n", .{ irqLine, value });
     port.outb(portOfLine, value);
 }
