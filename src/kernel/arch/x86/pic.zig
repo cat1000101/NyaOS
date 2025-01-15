@@ -68,7 +68,7 @@ fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
 
     picDisable();
 
-    virtio.outb("pic enabled or changed the base offset in the idt\n");
+    virtio.outb("pic changed the base offset in the idt\n");
 }
 
 fn irqSetMask(irqLine: u8) void {

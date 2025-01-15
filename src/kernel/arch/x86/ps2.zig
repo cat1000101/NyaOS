@@ -259,11 +259,10 @@ pub fn initPs2(acpiTables: ?acpi.acpiTables) !void {
         ps2status.secondPort = false;
     }
 
-    const keyboardHandeler = comptime interrupt.generateCommonStub(&ps2KeyboardHandeler);
+    const keyboardHandeler = comptime interrupt.generateStub(&ps2KeyboardHandeler);
     pic.installIrq(&keyboardHandeler, 1) catch |err| {
         virtio.printf("failed to install keyboard handeler {}\n", .{err});
     };
-    virtio.printf("ps2 controller initialized and installed keyboard handeler?\n", .{});
 }
 
 fn ps2KeyboardHandeler() callconv(.C) void {

@@ -1,13 +1,63 @@
 const std = @import("std");
 const idt = @import("idt.zig");
-const isr = @import("isr.zig");
 const virtio = @import("virtio.zig");
 
-export fn Handler(cpu_state: *idt.CpuState) void {
+export fn Handler(cpu_state: *IsrCpuState) void {
     virtio.printf("interrupt has accured yippe interrupt/exeption:{}, error:{}\n", .{ cpu_state.interrupt_number, cpu_state.error_code });
 }
 
-export fn commonStub() callconv(.Naked) void {
+// cpu state when calling isr intrupt
+pub const IsrCpuState = packed struct {
+    // General-purpose registers pushed by pusha
+    edi: u32,
+    esi: u32,
+    ebp: u32,
+    esp: u32,
+    ebx: u32,
+    edx: u32,
+    ecx: u32,
+    eax: u32,
+
+    // Segment registers pushed manually
+    gs: u16,
+    fs: u16,
+    es: u16,
+    ds: u16,
+
+    interrupt_number: u32, // Interrupt number pushed by me :3
+
+    // Items pushed by the CPU during an interrupt
+    error_code: u32, // Error code pushed by the interrupt or us
+    eip: u32,
+    cs: u32,
+    eflags: u32,
+
+    // Items pushed by the CPU if a privilege level change occurs ¯\_(ツ)_/¯
+    // idk so there is the option for latter ignore for now
+    user_esp: u32, // ESP if there is a privilege level change
+    ss: u32, // SS if there is a privilege level change
+};
+
+// cpu state when using generateStub
+pub const CpuState = packed struct {
+    // General-purpose registers pushed by pusha
+    edi: u32,
+    esi: u32,
+    ebp: u32,
+    esp: u32,
+    ebx: u32,
+    edx: u32,
+    ecx: u32,
+    eax: u32,
+
+    // Segment registers pushed manually
+    gs: u16,
+    fs: u16,
+    es: u16,
+    ds: u16,
+};
+
+export fn isrCommonStub() callconv(.Naked) void {
     // push corrent state to the stack
     asm volatile (
         \\  pusha               // pushes in order: eax, ecx, edx, ebx, esp, ebp, esi, edi
@@ -55,33 +105,7 @@ export fn commonStub() callconv(.Naked) void {
     );
 }
 
-// stollen/"inspired" from https://github.com/ZystemOS/pluto it is a good zig os
-// that is a good refrence for good practive maybe idk
-pub fn generateStub(comptime interrupt_num: u32) fn () callconv(.Naked) void {
-    return struct {
-        fn func() callconv(.Naked) void {
-            asm volatile (
-                \\ cli
-            );
-
-            // These interrupts don't push an error code onto the stack, so will push a zero. meanng 0-31 other then those
-            if (interrupt_num != 8 and !(interrupt_num >= 10 and interrupt_num <= 14) and interrupt_num != 17) {
-                asm volatile (
-                    \\ pushl $0
-                );
-            }
-
-            asm volatile (
-                \\ pushl %[nr]
-                \\ jmp commonStub
-                :
-                : [nr] "n" (interrupt_num),
-            );
-        }
-    }.func;
-}
-
-pub fn generateCommonStub(function: *const fn () callconv(.C) void) fn () callconv(.Naked) void {
+pub fn generateStub(function: *const fn () callconv(.C) void) fn () callconv(.Naked) void {
     return struct {
         fn func() callconv(.Naked) void {
             asm volatile (
@@ -107,10 +131,6 @@ pub fn generateCommonStub(function: *const fn () callconv(.C) void) fn () callco
                 \\  mov %ax, %gs
             );
             asm volatile (
-                \\  push %eax
-                \\  call testInterrupt
-                \\  pop %eax
-                \\
                 \\  push %esp            // pass pointer to the cpu state
                 \\  call *%[function]
                 \\  add $4, %esp         // remove the pointer to the cpu state
@@ -137,6 +157,42 @@ pub fn generateCommonStub(function: *const fn () callconv(.C) void) fn () callco
     }.func;
 }
 
-export fn testInterrupt(number: u32) void {
-    virtio.printf("interrupts test {}\n", .{number});
+// stollen/"inspired" from https://github.com/ZystemOS/pluto it is a good zig os
+// that is a good refrence for good practive maybe idk
+fn generateIsrStub(comptime interrupt_num: u32) fn () callconv(.Naked) void {
+    return struct {
+        fn func() callconv(.Naked) void {
+            asm volatile (
+                \\ cli
+            );
+
+            // These interrupts don't push an error code onto the stack, so will push a zero. meanng 0-31 other then those
+            if (interrupt_num != 8 and !(interrupt_num >= 10 and interrupt_num <= 14) and interrupt_num != 17) {
+                asm volatile (
+                    \\ pushl $0
+                );
+            }
+
+            asm volatile (
+                \\ pushl %[nr]
+                \\ jmp isrCommonStub
+                :
+                : [nr] "n" (interrupt_num),
+            );
+        }
+    }.func;
+}
+
+pub fn installIsr() void {
+    comptime var i = 0;
+    inline while (i < 32) : (i += 1) {
+        const interrupt = generateIsrStub(i);
+        idt.openIdtGate(i, &interrupt) catch |err| switch (err) {
+            idt.InterruptError.interruptOpen => {
+                virtio.outb("wtf did u do??????????(isr interrupt already open)\n");
+            },
+        };
+    }
+
+    virtio.outb("installed isr\n");
 }
