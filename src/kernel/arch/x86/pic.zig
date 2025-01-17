@@ -42,8 +42,8 @@ pub fn picDisable() void {
 
 /// remaps the pic offsets, recommanded for master 0x20 and for the slave 0x28
 fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
-    // const a1 = port.inb(PIC_MASTER_DATA); // save masks
-    // const a2 = port.inb(PIC_SLAVE_DATA);
+    const a1 = port.inb(PIC_MASTER_DATA); // save masks
+    const a2 = port.inb(PIC_SLAVE_DATA);
 
     port.outb(PIC_MASTER_COMMAND, ICW1_INIT | ICW1_ICW4); // starts the initialization sequence (in cascade mode)
     port.io_wait();
@@ -63,8 +63,8 @@ fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
     port.outb(PIC_SLAVE_DATA, ICW4_8086);
     port.io_wait();
 
-    // port.outb(PIC_MASTER_DATA, a1); // restore saved masks.
-    // port.outb(PIC_SLAVE_DATA, a2);
+    port.outb(PIC_MASTER_DATA, a1); // restore saved masks.
+    port.outb(PIC_SLAVE_DATA, a2);
 
     picDisable();
 
@@ -74,18 +74,21 @@ fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
 fn irqSetMask(irqLine: u8) void {
     const portOfLine: u16 = if (irqLine < 8) PIC_MASTER_DATA else if (irqLine < 16) PIC_SLAVE_DATA else unreachable;
     const localIrqLine: u3 = @intCast(irqLine % 8);
-    const value = port.inb(portOfLine) | (@as(u8, 1) << localIrqLine);
+    const currentValue = port.inb(portOfLine);
 
-    virtio.printf("setting irq mask: {} {}\n", .{ irqLine, value });
+    const value = currentValue | (@as(u8, 1) << localIrqLine);
+
+    virtio.printf("Setting IRQ mask for IRQ {}: 0x{x} -> 0x{x}\n", .{ irqLine, currentValue, value });
     port.outb(portOfLine, value);
 }
 
 fn irqClearMask(irqLine: u8) void {
     const portOfLine: u16 = if (irqLine < 8) PIC_MASTER_DATA else if (irqLine < 16) PIC_SLAVE_DATA else unreachable;
     const localIrqLine: u3 = @intCast(irqLine % 8);
-    const value = port.inb(portOfLine) & ~(@as(u8, 1) << localIrqLine);
+    const currentValue = port.inb(portOfLine);
+    const value = currentValue & ~(@as(u8, 1) << localIrqLine);
 
-    virtio.printf("clearing irq mask: {} {}\n", .{ irqLine, value });
+    virtio.printf("Clearing IRQ mask for IRQ {}: 0x{x} -> 0x{x}\n", .{ irqLine, currentValue, value });
     port.outb(portOfLine, value);
 }
 
@@ -94,10 +97,10 @@ const PIC_READ_ISR = 0x0b; // OCW3 irq service next CMD read
 
 /// OCW3 to PIC CMD to get the register values.  PIC2 is chained, and
 /// represents IRQs 8-15.  PIC1 is IRQs 0-7, with 2 being the chain
-fn picGetIrqReg(ocw3: u32) u16 {
+fn picGetIrqReg(ocw3: u8) u16 {
     port.outb(PIC_MASTER_COMMAND, ocw3);
     port.outb(PIC_SLAVE_COMMAND, ocw3);
-    return (port.inb(PIC_SLAVE_COMMAND) << 8) | port.inb(PIC_MASTER_COMMAND);
+    return (@as(u16, @intCast(port.inb(PIC_SLAVE_COMMAND))) << 8) | port.inb(PIC_MASTER_COMMAND);
 }
 
 /// Returns the combined value of the cascaded PICs irq request register
@@ -112,9 +115,10 @@ pub fn picGetIsr() u16 {
 
 pub fn installIrq(interrupt: *const fn () callconv(.Naked) void, irqNumber: u8) !void {
     try idt.openIdtGate(irqNumber + PIC_MASTER_OFFSET, interrupt);
-    irqSetMask(irqNumber);
+    irqClearMask(irqNumber);
 }
 
 pub fn initPic() void {
     picRemap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
+    virtio.printf("Irr: 0x{x}\nIsr: 0x{x}\n", .{ picGetIrr(), picGetIsr() });
 }
