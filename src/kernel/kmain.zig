@@ -7,7 +7,6 @@ const acpi = @import("arch/x86/acpi.zig");
 const ps2 = @import("arch/x86/ps2.zig");
 
 export fn kmain() void {
-    virtio.printf("booted?\n", .{});
     virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
 
     tty.initialize();
@@ -23,7 +22,7 @@ export fn kmain() void {
     };
 
     asm volatile ("int $1"); // test for the interrutps
-    asm volatile ("int $33"); // test for the interrutps
+    // asm volatile ("int $33"); // test for the interrutps
 
     utils.whileTrue();
 

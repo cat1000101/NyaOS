@@ -71,25 +71,17 @@ fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
     virtio.outb("pic changed the base offset in the idt\n");
 }
 
-fn irqSetMask(irqLine: u8) void {
-    const portOfLine: u16 = if (irqLine < 8) PIC_MASTER_DATA else if (irqLine < 16) PIC_SLAVE_DATA else unreachable;
-    const localIrqLine: u3 = @intCast(irqLine % 8);
-    const currentValue = port.inb(portOfLine);
+pub fn maskIRQ(irq: u8, mask: bool) void {
+    const localPort: u16 = if (irq < 8) PIC_MASTER_DATA else PIC_SLAVE_DATA;
+    const old = port.inb(localPort);
 
-    const value = currentValue | (@as(u8, 1) << localIrqLine);
-
-    virtio.printf("Setting IRQ mask for IRQ {}: 0x{x} -> 0x{x}\n", .{ irqLine, currentValue, value });
-    port.outb(portOfLine, value);
-}
-
-fn irqClearMask(irqLine: u8) void {
-    const portOfLine: u16 = if (irqLine < 8) PIC_MASTER_DATA else if (irqLine < 16) PIC_SLAVE_DATA else unreachable;
-    const localIrqLine: u3 = @intCast(irqLine % 8);
-    const currentValue = port.inb(portOfLine);
-    const value = currentValue & ~(@as(u8, 1) << localIrqLine);
-
-    virtio.printf("Clearing IRQ mask for IRQ {}: 0x{x} -> 0x{x}\n", .{ irqLine, currentValue, value });
-    port.outb(portOfLine, value);
+    const shift: u3 = @intCast(irq % 8);
+    if (mask) {
+        port.outb(localPort, old | (@as(u8, 1) << shift));
+    } else {
+        port.outb(localPort, old & ~(@as(u8, 1) << shift));
+    }
+    virtio.printf("irq masking debug: 0x{x} -> 0x{x}\n", .{ old, port.inb(localPort) });
 }
 
 const PIC_READ_IRR = 0x0a; // OCW3 irq ready next CMD read
@@ -115,10 +107,9 @@ pub fn picGetIsr() u16 {
 
 pub fn installIrq(interrupt: *const fn () callconv(.Naked) void, irqNumber: u8) !void {
     try idt.openIdtGate(irqNumber + PIC_MASTER_OFFSET, interrupt);
-    irqClearMask(irqNumber);
+    maskIRQ(irqNumber, false);
 }
 
 pub fn initPic() void {
     picRemap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
-    virtio.printf("Irr: 0x{x}\nIsr: 0x{x}\n", .{ picGetIrr(), picGetIsr() });
 }

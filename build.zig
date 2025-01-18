@@ -18,8 +18,8 @@ pub fn build(b: *Builder) void {
     const kernel_sys = b.fmt("sysroot/boot/{s}", .{kernel.out_filename});
     const grub_sys = b.fmt("sysroot/boot/grub/{s}", .{"grub.cfg"});
     const iso_cmd = [_][]const u8{ "grub2-mkrescue", "-o" };
-    const run_cmd = [_][]const u8{ "qemu-system-i386", "-machine", "q35", "-debugcon", "stdio", "-cdrom", "zig-out/NyaOS.iso" };
-    const debug_cmd = [_][]const u8{ "qemu-system-i386", "-machine", "q35", "-d", "int", "-s", "-S", "-debugcon", "stdio", "-kernel", "zig-out/extra/kernel.elf" };
+    const run_cmd = [_][]const u8{ "qemu-system-x86_64", "-machine", "q35", "-d", "guest_errors", "-debugcon", "stdio", "-cdrom", "zig-out/NyaOS.iso" };
+    const debug_cmd = [_][]const u8{ "qemu-system-x86_64", "-machine", "q35", "-d", "guest_errors", "-s", "-S", "-debugcon", "stdio", "-kernel", "zig-out/extra/kernel.elf" };
 
     // making sysroot directoy and putting the files there
     const wf = b.addWriteFiles();

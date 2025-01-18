@@ -36,7 +36,7 @@ const Idtr = packed struct {
 };
 
 var idtr: Idtr = undefined;
-var idt: [256]IdtGateDescriptor = [_]IdtGateDescriptor{std.mem.zeroes(IdtGateDescriptor)} ** 256;
+pub var idt: [256]IdtGateDescriptor = [_]IdtGateDescriptor{std.mem.zeroes(IdtGateDescriptor)} ** 256;
 
 pub fn initIdt() void {
     idtr = .{

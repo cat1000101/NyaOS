@@ -267,4 +267,6 @@ pub fn initPs2(acpiTables: ?acpi.acpiTables) !void {
 
 fn ps2KeyboardHandeler() callconv(.C) void {
     virtio.printf("meow kayboard happend\n", .{});
+    virtio.printf("Irr: 0x{x}\nIsr: 0x{x}\n", .{ pic.picGetIrr(), pic.picGetIsr() });
+    pic.picSendEOI(1);
 }
