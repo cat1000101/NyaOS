@@ -144,8 +144,23 @@ fn sendDataPort2(data: u8) !void {
     port.outb(DATA_READ_WRITE, data);
 }
 
-pub fn initPs2(acpiTables: ?acpi.acpiTables) !void {
-    // TODO: this whole thing
+fn enableFirstPort() void {
+    sendCommand(0xAE);
+    var psConfigurationFinal: controllerConfiguration = @bitCast(reciveData());
+    psConfigurationFinal.firstPortClock = 0;
+    sendCommand(0x60);
+    sendData(@bitCast(psConfigurationFinal));
+}
+
+fn enableSecondPort() void {
+    sendCommand(0xA8);
+    var psConfigurationFinal: controllerConfiguration = @bitCast(reciveData());
+    psConfigurationFinal.secondPortClock = 0;
+    sendCommand(0x60);
+    sendData(@bitCast(psConfigurationFinal));
+}
+
+fn initializePs2(acpiTables: ?acpi.acpiTables) !void {
     // TODO: usb stuff
     if (!ps2ControllerExists(acpiTables)) {
         virtio.printf("ps2 controller not present sad\n", .{});
@@ -202,23 +217,12 @@ pub fn initPs2(acpiTables: ?acpi.acpiTables) !void {
         }
     }
 
-    // Enable Devices
     if (ps2status.firstPort) {
-        sendCommand(0xAE);
+        enableFirstPort();
     }
     if (ps2status.secondPort) {
-        sendCommand(0xA8);
+        enableSecondPort();
     }
-    sendCommand(0x20);
-    var psConfigurationFinal: controllerConfiguration = @bitCast(reciveData());
-    if (ps2status.firstPort) {
-        psConfigurationFinal.firstPortClock = 0;
-    }
-    if (ps2status.secondPort) {
-        psConfigurationFinal.secondPortClock = 0;
-    }
-    sendCommand(0x60);
-    sendData(@bitCast(psConfigurationFinal));
 
     // Reset Devices
     if (ps2status.firstPort) {
@@ -258,11 +262,18 @@ pub fn initPs2(acpiTables: ?acpi.acpiTables) !void {
         sendCommand(0xA7);
         ps2status.secondPort = false;
     }
+}
+
+pub fn initPs2(acpiTables: ?acpi.acpiTables) void {
+    initializePs2(acpiTables) catch |err| {
+        virtio.printf("failed to initialize ps2 {}\n", .{err});
+    };
 
     const keyboardHandeler = comptime interrupt.generateStub(&ps2KeyboardHandeler);
     pic.installIrq(&keyboardHandeler, 1) catch |err| {
         virtio.printf("failed to install keyboard handeler {}\n", .{err});
     };
+    enableFirstPort();
 }
 
 fn ps2KeyboardHandeler() callconv(.C) void {

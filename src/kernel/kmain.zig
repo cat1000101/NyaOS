@@ -16,10 +16,7 @@ export fn kmain() void {
 
     idt.initIdt();
 
-    const acpiInfo: ?acpi.acpiTables = acpi.initACPI() catch null;
-    ps2.initPs2(acpiInfo) catch |err| {
-        virtio.printf("ps2 error: {}\n", .{err});
-    };
+    ps2.initPs2(acpi.initACPI() catch null);
 
     asm volatile ("int $1"); // test for the interrutps
     // asm volatile ("int $33"); // test for the interrutps
