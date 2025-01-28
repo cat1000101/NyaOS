@@ -257,6 +257,8 @@ fn initializePs2() !void {
         sendCommand(0xA7);
         ps2status.secondPort = false;
     }
+
+    virtio.printf("ps2 controller initialized\n", .{});
 }
 
 pub fn initPs2() void {
