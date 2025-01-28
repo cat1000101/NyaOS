@@ -16,7 +16,9 @@ export fn kmain() void {
 
     idt.initIdt();
 
-    ps2.initPs2(acpi.initACPI() catch null);
+    acpi.initACPI();
+
+    ps2.initPs2();
 
     asm volatile ("int $1"); // test for the interrutps
     // asm volatile ("int $33"); // test for the interrutps

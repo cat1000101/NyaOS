@@ -80,11 +80,6 @@ const controllerComands = enum(u8) {
     _,
 };
 
-fn ps2ControllerExists(acpiTables: ?acpi.acpiTables) bool {
-    const LocalAcpiTables = acpiTables orelse return true;
-    return (LocalAcpiTables.fadt.iapc_boot_arch_flags & 2) == 2;
-}
-
 inline fn readStatus() statusRegister {
     return @bitCast(port.inb(STATUS_READ));
 }
@@ -160,9 +155,9 @@ fn enableSecondPort() void {
     sendData(@bitCast(psConfigurationFinal));
 }
 
-fn initializePs2(acpiTables: ?acpi.acpiTables) !void {
+fn initializePs2() !void {
     // TODO: usb stuff
-    if (!ps2ControllerExists(acpiTables)) {
+    if (!acpi.ps2ControllerExists()) {
         virtio.printf("ps2 controller not present sad\n", .{});
         return ps2Errors.ps2ControllerNotPresent;
     }
@@ -264,8 +259,8 @@ fn initializePs2(acpiTables: ?acpi.acpiTables) !void {
     }
 }
 
-pub fn initPs2(acpiTables: ?acpi.acpiTables) void {
-    initializePs2(acpiTables) catch |err| {
+pub fn initPs2() void {
+    initializePs2() catch |err| {
         virtio.printf("failed to initialize ps2 {}\n", .{err});
     };
 
