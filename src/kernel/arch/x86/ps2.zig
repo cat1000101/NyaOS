@@ -10,8 +10,8 @@ const COMMAND_WRITE = 0x64;
 var ps2status: ps2State = .{};
 
 const ps2State = packed struct {
-    firstPort: bool = true,
-    secondPort: bool = true,
+    firstPort: bool = false,
+    secondPort: bool = false,
     dualChannel: bool = false,
 };
 
@@ -85,55 +85,53 @@ inline fn readStatus() statusRegister {
 }
 
 fn sendCommand(command: u8) void {
-    while (true) {
+    var timeout: u32 = 0;
+    while (true) : (timeout += 1) {
         const status = readStatus();
         if (status.inputBufferStatus == 0) {
             break;
+        } else if (timeout == 100000) {
+            virtio.printf("ps2 sendCommand timeout status: {}\n", .{status});
         }
     }
     port.outb(COMMAND_WRITE, command);
 }
 
 fn reciveData() u8 {
-    while (true) {
+    var timeout: u32 = 0;
+    while (true) : (timeout += 1) {
         const status = readStatus();
         if (status.outputBufferStatus == 1) {
             break;
+        } else if (timeout == 100000) {
+            virtio.printf("ps2 reciveData timeout status: {}\n", .{status});
         }
     }
     return port.inb(DATA_READ_WRITE);
 }
-// fn reciveDataPort2() !u8 {
-//     if (!ps2status.dualChannel or !ps2status.secondPort) {
-//         return ps2Errors.ps2SecondPortNotPresent;
-//     }
-//     while (true) {
-//         const status = readStatus();
-//         if (status.outputBufferStatus == 1) {
-//             break;
-//         }
-//     }
-//     return port.inb(DATA_READ_WRITE);
-// }
 
 fn sendData(data: u8) void {
-    while (true) {
+    var timeout: u32 = 0;
+    while (true) : (timeout += 1) {
         const status = readStatus();
         if (status.inputBufferStatus == 0) {
             break;
+        } else if (timeout == 100000) {
+            virtio.printf("ps2 sendData timeout status: {}\n", .{status});
         }
     }
     port.outb(DATA_READ_WRITE, data);
 }
-fn sendDataPort2(data: u8) !void {
-    if (!ps2status.dualChannel or !ps2status.secondPort) {
-        return ps2Errors.ps2SecondPortNotPresent;
-    }
+
+fn sendDataPort2(data: u8) void {
+    var timeout: u32 = 0;
     sendCommand(0xD4);
-    while (true) {
+    while (true) : (timeout += 1) {
         const status = readStatus();
         if (status.inputBufferStatus == 0) {
             break;
+        } else if (timeout == 100000) {
+            virtio.printf("ps2 sendDataPort2 timeout status: {}\n", .{status});
         }
     }
     port.outb(DATA_READ_WRITE, data);
@@ -141,6 +139,7 @@ fn sendDataPort2(data: u8) !void {
 
 fn enableFirstPort() void {
     sendCommand(0xAE);
+    sendCommand(0x20);
     var psConfigurationFinal: controllerConfiguration = @bitCast(reciveData());
     psConfigurationFinal.firstPortClock = 0;
     sendCommand(0x60);
@@ -149,6 +148,7 @@ fn enableFirstPort() void {
 
 fn enableSecondPort() void {
     sendCommand(0xA8);
+    sendCommand(0x20);
     var psConfigurationFinal: controllerConfiguration = @bitCast(reciveData());
     psConfigurationFinal.secondPortClock = 0;
     sendCommand(0x60);
@@ -200,15 +200,17 @@ fn initializePs2() !void {
 
     // Perform Interface Tests
     sendCommand(0xAB);
-    if (reciveData() != 0) {
+    if (reciveData() == 0) {
+        ps2status.firstPort = true;
+    } else {
         virtio.printf("ps2 first channel/port not aviable/not pasted the self test\n", .{});
-        ps2status.firstPort = false;
     }
     if (ps2status.dualChannel) {
         sendCommand(0xA9);
-        if (reciveData() != 0) {
+        if (reciveData() == 0) {
+            ps2status.secondPort = true;
+        } else {
             virtio.printf("ps2 second channel/port not aviable/not pasted the self test\n", .{});
-            ps2status.secondPort = false;
         }
     }
 
@@ -235,13 +237,10 @@ fn initializePs2() !void {
             }
         }
     }
-    if (ps2status.secondPort) secondPortReset: {
-        sendDataPort2(0xFF) catch |err| {
-            virtio.printf("ps2 second port reset failed {}\n", .{err});
-            break :secondPortReset;
-        };
+    if (ps2status.secondPort) {
         var checklist: u32 = 0;
         while (checklist != 3) {
+            sendDataPort2(0xFF);
             const data = reciveData();
             if (data == 0xFA) {
                 checklist |= 1;
@@ -252,10 +251,6 @@ fn initializePs2() !void {
                 break;
             }
         }
-    }
-    if (ps2status.secondPort) {
-        sendCommand(0xA7);
-        ps2status.secondPort = false;
     }
 
     virtio.printf("ps2 controller initialized\n", .{});
