@@ -111,6 +111,8 @@ pub fn initPic() void {
     virtio.printf("disabled the APIC\n", .{}); // should make the system/cpu emualte 8259 pic
 
     picRemap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
+
+    asm volatile ("sti");
 }
 
 fn disableApic() void {

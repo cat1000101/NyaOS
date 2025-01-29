@@ -7,7 +7,13 @@ export fn Handler(cpu_state: *IsrCpuState) void {
 }
 
 // cpu state when calling isr intrupt
-pub const IsrCpuState = packed struct {
+pub const IsrCpuState = extern struct {
+    // Segment registers pushed manually
+    gs: u16,
+    fs: u16,
+    es: u16,
+    ds: u16,
+
     // General-purpose registers pushed by pusha
     edi: u32,
     esi: u32,
@@ -17,12 +23,6 @@ pub const IsrCpuState = packed struct {
     edx: u32,
     ecx: u32,
     eax: u32,
-
-    // Segment registers pushed manually
-    gs: u16,
-    fs: u16,
-    es: u16,
-    ds: u16,
 
     interrupt_number: u32, // Interrupt number pushed by me :3
 
@@ -39,7 +39,13 @@ pub const IsrCpuState = packed struct {
 };
 
 // cpu state when using generateStub
-pub const CpuState = packed struct {
+pub const CpuState = extern struct {
+    // Segment registers pushed manually
+    gs: u16,
+    fs: u16,
+    es: u16,
+    ds: u16,
+
     // General-purpose registers pushed by pusha
     edi: u32,
     esi: u32,
@@ -49,12 +55,6 @@ pub const CpuState = packed struct {
     edx: u32,
     ecx: u32,
     eax: u32,
-
-    // Segment registers pushed manually
-    gs: u16,
-    fs: u16,
-    es: u16,
-    ds: u16,
 };
 
 export fn isrCommonStub() callconv(.Naked) void {

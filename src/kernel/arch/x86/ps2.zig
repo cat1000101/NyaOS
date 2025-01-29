@@ -225,10 +225,10 @@ fn initializePs2() !void {
         enableFirstPort();
         enablePsInterruptsConfig.firstPortInterrupt = 1;
     }
-    if (ps2status.secondPort) {
-        enableSecondPort();
-        enablePsInterruptsConfig.secondPortInterrupt = 1;
-    }
+    // if (ps2status.secondPort) {
+    //     enableSecondPort();
+    //     enablePsInterruptsConfig.secondPortInterrupt = 1;
+    // }
     sendCommand(0x60);
     sendData(@bitCast(newPsconfiguration));
 
