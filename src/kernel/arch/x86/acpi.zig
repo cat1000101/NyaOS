@@ -43,6 +43,7 @@ pub const SDTHeader align(1) = extern struct {
     creator_id: u32,
     creator_revision: u32,
 };
+
 pub const RSDT align(1) = extern struct {
     h: SDTHeader,
     entries: u32, // [(@This().h.length - @sizeOf(SDTHeader)) / @sizeOf(u32)]*SDTHeader,
@@ -127,6 +128,17 @@ pub const FADT align(1) = extern struct {
     x_gpe1_block: genericAddressStructure,
 };
 
+const recordHeader = struct {
+    recordType: u8,
+    recordLength: u8,
+};
+
+pub const MADT align(1) = packed struct {
+    h: SDTHeader,
+    local_controller_address: u32,
+    flags: u32,
+};
+
 const CHECKSUM_LENGTH_V1: usize = @offsetOf(RSDP, "length");
 const CHECKSUM_LENGTH_V2: usize = @sizeOf(RSDP);
 
@@ -194,6 +206,10 @@ pub fn ps2ControllerExists() bool {
     } else {
         return true;
     }
+}
+
+fn extraTables() void {
+    return;
 }
 
 pub fn initACPI() void {

@@ -1,6 +1,7 @@
 const port = @import("port.zig");
 const virtio = @import("virtio.zig");
 const idt = @import("idt.zig");
+const utils = @import("utils.zig");
 
 pub const PIC_MASTER_OFFSET: u8 = 0x20;
 pub const PIC_SLAVE_OFFSET: u8 = 0x28;
@@ -112,5 +113,13 @@ pub fn installIrq(interrupt: *const fn () callconv(.Naked) void, irqNumber: u8) 
 }
 
 pub fn initPic() void {
+    disableApic();
+    virtio.printf("disabled the APIC\n", .{}); // should make the system/cpu emualte 8259 pic
+
     picRemap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
+}
+
+fn disableApic() void {
+    const apicBase = utils.cpuGetMSR(0x1B);
+    utils.cpuSetMSR(0x1B, apicBase & ~@as(u64, 1 << 11));
 }
