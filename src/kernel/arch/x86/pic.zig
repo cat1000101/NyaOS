@@ -43,9 +43,6 @@ pub fn picDisable() void {
 
 /// remaps the pic offsets, recommanded for master 0x20 and for the slave 0x28
 fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
-    // const a1 = port.inb(PIC_MASTER_DATA); // save masks
-    // const a2 = port.inb(PIC_SLAVE_DATA);
-
     port.outb(PIC_MASTER_COMMAND, ICW1_INIT | ICW1_ICW4); // starts the initialization sequence (in cascade mode)
     port.io_wait();
     port.outb(PIC_SLAVE_COMMAND, ICW1_INIT | ICW1_ICW4);
@@ -63,9 +60,6 @@ fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
     port.io_wait();
     port.outb(PIC_SLAVE_DATA, ICW4_8086);
     port.io_wait();
-
-    // port.outb(PIC_MASTER_DATA, a1); // restore saved masks.
-    // port.outb(PIC_SLAVE_DATA, a2);
 
     picDisable();
     port.outb(PIC_SLAVE_DATA, port.inb(PIC_SLAVE_DATA) & ~@as(u8, 0x10)); // idk Enable cascade interrupt?

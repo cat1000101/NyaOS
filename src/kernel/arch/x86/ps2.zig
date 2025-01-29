@@ -146,6 +146,10 @@ fn enableFirstPort() void {
     sendData(@bitCast(psConfigurationFinal));
 }
 
+fn enableKeyboard() void {
+    sendData(0xF4);
+}
+
 fn enableSecondPort() void {
     sendCommand(0xA8);
     sendCommand(0x20);
@@ -214,12 +218,19 @@ fn initializePs2() !void {
         }
     }
 
+    // enable ports and interrupts for them
+    sendCommand(0x20);
+    var enablePsInterruptsConfig = @as(controllerConfiguration, @bitCast(reciveData()));
     if (ps2status.firstPort) {
         enableFirstPort();
+        enablePsInterruptsConfig.firstPortInterrupt = 1;
     }
     if (ps2status.secondPort) {
         enableSecondPort();
+        enablePsInterruptsConfig.secondPortInterrupt = 1;
     }
+    sendCommand(0x60);
+    sendData(@bitCast(newPsconfiguration));
 
     // Reset Devices
     if (ps2status.firstPort) {
@@ -253,6 +264,10 @@ fn initializePs2() !void {
         }
     }
 
+    // final flush and status
+    virtio.printf("final ps2 controller status: 0x{x}\n", .{@as(u8, @bitCast(readStatus()))});
+    _ = port.inb(DATA_READ_WRITE);
+
     virtio.printf("ps2 controller initialized\n", .{});
 }
 
@@ -261,11 +276,17 @@ pub fn initPs2() void {
         virtio.printf("failed to initialize ps2 {}\n", .{err});
     };
 
+    initializeKeyboard();
+}
+
+// -------------------- Keyboard/Mice driver --------------------
+
+fn initializeKeyboard() void {
     const keyboardHandeler = comptime interrupt.generateStub(&ps2KeyboardHandeler);
     pic.installIrq(&keyboardHandeler, 1) catch |err| {
         virtio.printf("failed to install keyboard handeler {}\n", .{err});
     };
-    enableFirstPort();
+    enableKeyboard();
 }
 
 fn ps2KeyboardHandeler() callconv(.C) void {
