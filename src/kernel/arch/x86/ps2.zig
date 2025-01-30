@@ -139,13 +139,22 @@ fn sendDataPort2(data: u8) void {
     port.outb(DATA_READ_WRITE, data);
 }
 
+fn getControllerConfiguration() controllerConfiguration {
+    sendCommand(0x20);
+    return @bitCast(reciveData());
+}
+
+fn setControllerConfiguration(config: controllerConfiguration) void {
+    sendCommand(0x60);
+    sendData(@bitCast(config));
+}
+
 fn enableFirstPort() void {
     sendCommand(0xAE);
-    sendCommand(0x20);
-    var psConfigurationFinal: controllerConfiguration = @bitCast(reciveData());
-    psConfigurationFinal.firstPortClock = 0;
-    sendCommand(0x60);
-    sendData(@bitCast(psConfigurationFinal));
+}
+
+fn disableFirstPort() void {
+    sendCommand(0xAD);
 }
 
 fn enableKeyboard() void {
@@ -154,11 +163,10 @@ fn enableKeyboard() void {
 
 fn enableSecondPort() void {
     sendCommand(0xA8);
-    sendCommand(0x20);
-    var psConfigurationFinal: controllerConfiguration = @bitCast(reciveData());
-    psConfigurationFinal.secondPortClock = 0;
-    sendCommand(0x60);
-    sendData(@bitCast(psConfigurationFinal));
+}
+
+fn disableSecondPort() void {
+    sendCommand(0xA7);
 }
 
 fn initializePs2() !void {
@@ -168,43 +176,37 @@ fn initializePs2() !void {
         return ps2Errors.ps2ControllerNotPresent;
     }
 
-    virtio.printf("initial status: 0x{x}\n", .{@as(u8, @bitCast(readStatus()))});
+    virtio.printf("initial config: 0x{x}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
 
-    sendCommand(0xAD); // disable first port
-    sendCommand(0xA7); // disable second port
+    disableFirstPort(); // disable first port
+    disableSecondPort(); // disable second port
 
     _ = port.inb(DATA_READ_WRITE); // flush
 
     // Set the Controller Configuration Byte
-    sendCommand(0x20);
-    var psConfiguration: controllerConfiguration = @bitCast(reciveData()); // read controller configuration
+    var psConfiguration = getControllerConfiguration(); // read controller configuration
     var newPsconfiguration = psConfiguration;
     newPsconfiguration.firstPortInterrupt = 0;
-    // newPsconfiguration.firstPortTranslation = 0;
-    // newPsconfiguration.firstPortClock = 0;
-    sendCommand(0x60);
-    sendData(@bitCast(newPsconfiguration));
+    newPsconfiguration.secondPortInterrupt = 0;
+    setControllerConfiguration(newPsconfiguration);
 
     // self test
     sendCommand(0xAA);
     if (reciveData() != 0x55) {
         virtio.printf("ps2 self test failed\n", .{});
-        sendCommand(0x60);
-        sendData(@bitCast(psConfiguration));
+        setControllerConfiguration(psConfiguration);
         return ps2Errors.ps2SelfTestFailed;
     }
 
     // Determine If There Are 2 Channels
-    sendCommand(0xA8);
-    sendCommand(0x20);
-    psConfiguration = @bitCast(reciveData());
-    if (psConfiguration.secondPortClock == 1) {
-        sendCommand(0xA7);
-        // psConfiguration.secondPortClock = 0;
-        psConfiguration.secondPortInterrupt = 0;
-        sendCommand(0x60);
-        sendData(@bitCast(psConfiguration));
+    enableSecondPort();
+
+    psConfiguration = getControllerConfiguration();
+    if (psConfiguration.secondPortClock != 1) {
+        disableSecondPort();
         ps2status.dualChannel = true;
+    } else {
+        virtio.printf("single channel\n", .{});
     }
 
     // Perform Interface Tests
@@ -224,8 +226,7 @@ fn initializePs2() !void {
     }
 
     // enable ports and interrupts for them
-    sendCommand(0x20);
-    psConfiguration = @bitCast(reciveData());
+    psConfiguration = getControllerConfiguration();
     if (ps2status.firstPort) {
         enableFirstPort();
         psConfiguration.firstPortInterrupt = 1;
@@ -234,8 +235,7 @@ fn initializePs2() !void {
         enableSecondPort();
         psConfiguration.secondPortInterrupt = 1;
     }
-    sendCommand(0x60);
-    sendData(@bitCast(newPsconfiguration));
+    setControllerConfiguration(psConfiguration);
 
     // Reset Devices
     if (ps2status.firstPort) {
@@ -266,7 +266,8 @@ fn initializePs2() !void {
     }
 
     // final flush and status
-    virtio.printf("final ps2 controller status: 0x{x}\n", .{@as(u8, @bitCast(readStatus()))});
+    virtio.printf("final ps2 controller config: 0x{x}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
+
     _ = port.inb(DATA_READ_WRITE);
 
     virtio.printf("ps2 controller initialized\n", .{});
