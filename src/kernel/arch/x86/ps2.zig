@@ -176,8 +176,6 @@ fn initializePs2() !void {
         return ps2Errors.ps2ControllerNotPresent;
     }
 
-    virtio.printf("initial config: 0x{x}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
-
     disableFirstPort(); // disable first port
     disableSecondPort(); // disable second port
 
@@ -289,6 +287,7 @@ fn initializeKeyboard() void {
         virtio.printf("failed to install keyboard handeler {}\n", .{err});
     };
     enableKeyboard();
+    virtio.printf("keyboard initialized? config: 0x{x}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
 }
 
 fn ps2KeyboardHandeler() callconv(.C) void {
