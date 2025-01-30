@@ -21,6 +21,8 @@ const ps2Errors = error{
     ps2SelfTestFailed,
     ps2SecondPortNotPresent,
     ps2FirstPortNotPresent,
+    ps2FirstPortResetFailed,
+    ps2SecondPortResetFailed,
 };
 
 const statusRegister = packed struct {
@@ -165,6 +167,9 @@ fn initializePs2() !void {
         virtio.printf("ps2 controller not present sad\n", .{});
         return ps2Errors.ps2ControllerNotPresent;
     }
+
+    virtio.printf("initial status: 0x{x}\n", .{@as(u8, @bitCast(readStatus()))});
+
     sendCommand(0xAD); // disable first port
     sendCommand(0xA7); // disable second port
 
@@ -172,11 +177,11 @@ fn initializePs2() !void {
 
     // Set the Controller Configuration Byte
     sendCommand(0x20);
-    const psConfiguration: controllerConfiguration = @bitCast(reciveData()); // read controller configuration
+    var psConfiguration: controllerConfiguration = @bitCast(reciveData()); // read controller configuration
     var newPsconfiguration = psConfiguration;
     newPsconfiguration.firstPortInterrupt = 0;
-    newPsconfiguration.firstPortTranslation = 0;
-    newPsconfiguration.firstPortClock = 0;
+    // newPsconfiguration.firstPortTranslation = 0;
+    // newPsconfiguration.firstPortClock = 0;
     sendCommand(0x60);
     sendData(@bitCast(newPsconfiguration));
 
@@ -192,13 +197,13 @@ fn initializePs2() !void {
     // Determine If There Are 2 Channels
     sendCommand(0xA8);
     sendCommand(0x20);
-    var secondPortConfiguration: controllerConfiguration = @bitCast(reciveData());
-    if (secondPortConfiguration.secondPortClock == 1) {
+    psConfiguration = @bitCast(reciveData());
+    if (psConfiguration.secondPortClock == 1) {
         sendCommand(0xA7);
-        secondPortConfiguration.secondPortClock = 0;
-        secondPortConfiguration.secondPortInterrupt = 0;
+        // psConfiguration.secondPortClock = 0;
+        psConfiguration.secondPortInterrupt = 0;
         sendCommand(0x60);
-        sendData(@bitCast(secondPortConfiguration));
+        sendData(@bitCast(psConfiguration));
         ps2status.dualChannel = true;
     }
 
@@ -220,47 +225,43 @@ fn initializePs2() !void {
 
     // enable ports and interrupts for them
     sendCommand(0x20);
-    var enablePsInterruptsConfig = @as(controllerConfiguration, @bitCast(reciveData()));
+    psConfiguration = @bitCast(reciveData());
     if (ps2status.firstPort) {
         enableFirstPort();
-        enablePsInterruptsConfig.firstPortInterrupt = 1;
+        psConfiguration.firstPortInterrupt = 1;
     }
-    // if (ps2status.secondPort) {
-    //     enableSecondPort();
-    //     enablePsInterruptsConfig.secondPortInterrupt = 1;
-    // }
+    if (ps2status.secondPort) {
+        enableSecondPort();
+        psConfiguration.secondPortInterrupt = 1;
+    }
     sendCommand(0x60);
     sendData(@bitCast(newPsconfiguration));
 
     // Reset Devices
     if (ps2status.firstPort) {
         sendData(0xFF);
-        var checklist: u32 = 0;
-        while (checklist != 3) {
-            const data = reciveData();
-            if (data == 0xFA) {
-                checklist |= 1;
-            } else if (data == 0xAA) {
-                checklist |= 2;
-            } else {
-                virtio.printf("ps2 first port reset failed\n", .{});
-                break;
-            }
+        var data = reciveData();
+        if (data != 0xFA) {
+            virtio.printf("ps2 first port reset failed\n", .{});
+            return ps2Errors.ps2FirstPortResetFailed;
+        }
+        data = reciveData();
+        if (data != 0xAA) {
+            virtio.printf("ps2 first port reset failed\n", .{});
+            return ps2Errors.ps2FirstPortResetFailed;
         }
     }
     if (ps2status.secondPort) {
-        var checklist: u32 = 0;
-        while (checklist != 3) {
-            sendDataPort2(0xFF);
-            const data = reciveData();
-            if (data == 0xFA) {
-                checklist |= 1;
-            } else if (data == 0xAA) {
-                checklist |= 2;
-            } else {
-                virtio.printf("ps2 second port reset failed\n", .{});
-                break;
-            }
+        sendDataPort2(0xFF);
+        var data = reciveData();
+        if (data != 0xFA) {
+            virtio.printf("ps2 second port reset failed\n", .{});
+            return ps2Errors.ps2SecondPortResetFailed;
+        }
+        data = reciveData();
+        if (data != 0xAA) {
+            virtio.printf("ps2 second port reset failed\n", .{});
+            return ps2Errors.ps2SecondPortResetFailed;
         }
     }
 
