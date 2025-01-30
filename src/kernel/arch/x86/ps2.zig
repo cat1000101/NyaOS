@@ -82,6 +82,24 @@ const controllerComands = enum(u8) {
     _,
 };
 
+pub const keyboardIdentifier = enum(u16) {
+    standardPs2Mouse = 0x00FF,
+    scrollWheelMouse = 0x03FF,
+    fiveButtonMouse = 0x04FF,
+    MF2keyboard = 0xAB83,
+    MF2keyboard2 = 0xABC1,
+    MF2keyboard3 = 0xAB41,
+    IBMshortKeyboard = 0xAB84,
+    NCDkeyboard = 0xAB85,
+    kayboard122 = 0xAB86,
+    japaneaseKeyboardG = 0xAB90,
+    japaneaseKeyboardP = 0xAB91,
+    japaneaseKeyboardA = 0xAB92,
+    NCDsunKeyboard = 0xACA1,
+    bleh = 0xFFFF,
+    _,
+};
+
 inline fn readStatus() statusRegister {
     return @bitCast(port.inb(STATUS_READ));
 }
@@ -109,6 +127,10 @@ fn reciveData() u8 {
             virtio.printf("ps2 reciveData timeout status: {}\n", .{status});
         }
     }
+    return port.inb(DATA_READ_WRITE);
+}
+
+pub fn readData() u8 {
     return port.inb(DATA_READ_WRITE);
 }
 
@@ -149,6 +171,24 @@ fn setControllerConfiguration(config: controllerConfiguration) void {
     sendData(@bitCast(config));
 }
 
+fn getDeviceId() keyboardIdentifier {
+    sendCommand(0xF5);
+    if (reciveData() != 0xFA) {
+        virtio.printf("ps2 getDeviceId failed\n", .{});
+        return .bleh;
+    }
+    sendCommand(0xF2);
+    if (reciveData() != 0xFA) {
+        virtio.printf("ps2 getDeviceId failed2\n", .{});
+        return .bleh;
+    }
+    var data: [2]u8 = undefined;
+    data[0] = reciveData();
+    data[1] = reciveData();
+    sendData(0xF4);
+    return @enumFromInt(@as(u16, @bitCast(data)));
+}
+
 fn enableFirstPort() void {
     sendCommand(0xAE);
 }
@@ -158,6 +198,11 @@ fn disableFirstPort() void {
 }
 
 fn enableKeyboard() void {
+    // virtio.printf("the keyboard type: {s}\n", .{@tagName(getDeviceId())});
+    var newConfig = getControllerConfiguration();
+    newConfig.firstPortInterrupt = 1;
+    setControllerConfiguration(newConfig);
+    enableFirstPort();
     sendData(0xF4);
 }
 
@@ -291,7 +336,8 @@ fn initializeKeyboard() void {
 }
 
 fn ps2KeyboardHandeler() callconv(.C) void {
-    virtio.printf("meow kayboard happend\n", .{});
-    virtio.printf("Irr: 0x{x}\nIsr: 0x{x}\n", .{ pic.picGetIrr(), pic.picGetIsr() });
+    const data = readData();
+    virtio.printf("omg keyboard called with data: {x}\n", .{data});
+    // virtio.printf("Irr: 0x{x}\nIsr: 0x{x}\n", .{ pic.picGetIrr(), pic.picGetIsr() });
     pic.picSendEOI(1);
 }
