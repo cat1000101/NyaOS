@@ -83,24 +83,6 @@ const controllerComands = enum(u8) {
     _,
 };
 
-pub const keyboardIdentifier = enum(u16) {
-    standardPs2Mouse = 0x00FF,
-    scrollWheelMouse = 0x03FF,
-    fiveButtonMouse = 0x04FF,
-    MF2keyboard = 0xAB83,
-    MF2keyboard2 = 0xABC1,
-    MF2keyboard3 = 0xAB41,
-    IBMshortKeyboard = 0xAB84,
-    NCDkeyboard = 0xAB85,
-    kayboard122 = 0xAB86,
-    japaneaseKeyboardG = 0xAB90,
-    japaneaseKeyboardP = 0xAB91,
-    japaneaseKeyboardA = 0xAB92,
-    NCDsunKeyboard = 0xACA1,
-    bleh = 0xFFFF,
-    _,
-};
-
 inline fn readStatus() statusRegister {
     return @bitCast(port.inb(STATUS_READ));
 }
@@ -172,27 +154,6 @@ fn setControllerConfiguration(config: controllerConfiguration) void {
     sendCommand(0x60);
     sendData(@bitCast(config));
     enableFirstPort();
-}
-
-fn getDeviceId() keyboardIdentifier {
-    disableFirstPort();
-    sendCommand(0xF5);
-    if (reciveData() != 0xFA) {
-        virtio.printf("ps2 getDeviceId failed\n", .{});
-        return .bleh;
-    }
-    sendCommand(0xF2);
-    if (reciveData() != 0xFA) {
-        virtio.printf("ps2 getDeviceId failed2\n", .{});
-        return .bleh;
-    }
-    var data: [2]u8 = undefined;
-    data[0] = reciveData();
-    data[1] = reciveData();
-    sendData(0xF4);
-    const ret: keyboardIdentifier = @enumFromInt(@as(u16, @bitCast(data)));
-    enableFirstPort();
-    return ret;
 }
 
 fn enableFirstPort() void {
@@ -336,6 +297,45 @@ pub fn initPs2() void {
 }
 
 // -------------------- Keyboard/Mice driver --------------------
+
+const keyboardIdentifier = enum(u16) {
+    standardPs2Mouse = 0x00FF,
+    scrollWheelMouse = 0x03FF,
+    fiveButtonMouse = 0x04FF,
+    MF2keyboard = 0xAB83,
+    MF2keyboard2 = 0xABC1,
+    MF2keyboard3 = 0xAB41,
+    IBMshortKeyboard = 0xAB84,
+    NCDkeyboard = 0xAB85,
+    kayboard122 = 0xAB86,
+    japaneaseKeyboardG = 0xAB90,
+    japaneaseKeyboardP = 0xAB91,
+    japaneaseKeyboardA = 0xAB92,
+    NCDsunKeyboard = 0xACA1,
+    bleh = 0xFFFF,
+    _,
+};
+
+fn getDeviceId() keyboardIdentifier {
+    disableFirstPort();
+    sendCommand(0xF5);
+    if (reciveData() != 0xFA) {
+        virtio.printf("ps2 getDeviceId failed\n", .{});
+        return .bleh;
+    }
+    sendCommand(0xF2);
+    if (reciveData() != 0xFA) {
+        virtio.printf("ps2 getDeviceId failed2\n", .{});
+        return .bleh;
+    }
+    var data: [2]u8 = undefined;
+    data[0] = reciveData();
+    data[1] = reciveData();
+    sendData(0xF4);
+    const ret: keyboardIdentifier = @enumFromInt(@as(u16, @bitCast(data)));
+    enableFirstPort();
+    return ret;
+}
 
 fn initializeKeyboard() void {
     const keyboardHandeler = comptime interrupt.generateStub(&ps2KeyboardHandeler);

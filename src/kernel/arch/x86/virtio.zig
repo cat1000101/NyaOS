@@ -1,7 +1,7 @@
 const fmt = @import("std").fmt;
 const Writer = @import("std").io.Writer;
 
-fn outb(s: []const u8) void {
+fn print(s: []const u8) void {
     for (s) |char| {
         putcharAsm(char);
     }
@@ -14,10 +14,10 @@ pub fn putcharAsm(c: u8) void {
     );
 }
 
-pub const writer = Writer(void, error{}, callback){ .context = {} };
+const writer = Writer(void, error{}, callback){ .context = {} };
 
 fn callback(_: void, string: []const u8) error{}!usize {
-    outb(string);
+    print(string);
     return string.len;
 }
 

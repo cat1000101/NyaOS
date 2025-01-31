@@ -4,11 +4,11 @@ const gdt = @import("gdt.zig");
 const int = @import("interrupts.zig");
 const pic = @import("pic.zig");
 
-pub const TASK_GATE: u4 = 0x5;
-pub const INTERRUPT_GATE_16: u4 = 0x6;
-pub const TRAP_GATE_16: u4 = 0x7;
-pub const INTERRUPT_GATE: u4 = 0xE;
-pub const TRAP_GATE: u4 = 0xF;
+const TASK_GATE: u4 = 0x5;
+const INTERRUPT_GATE_16: u4 = 0x6;
+const TRAP_GATE_16: u4 = 0x7;
+const INTERRUPT_GATE: u4 = 0xE;
+const TRAP_GATE: u4 = 0xF;
 
 pub const PRIVLIGE_RING_0: u2 = 0x0;
 pub const PRIVLIGE_RING_1: u2 = 0x1;
