@@ -5,8 +5,10 @@ const gdt = @import("arch/x86/gdt.zig");
 const idt = @import("arch/x86/idt.zig");
 const acpi = @import("arch/x86/acpi.zig");
 const ps2 = @import("arch/x86/ps2.zig");
+const multiboot = @import("multiboot.zig");
 
-export fn kmain() void {
+export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
+    _ = multiboot.checkMultibootHeader(mbd, magic);
     virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
 
     tty.initialize();
