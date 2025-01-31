@@ -49,7 +49,7 @@ pub fn initIdt() void {
     pic.initPic();
 
     loadIdt(&idtr);
-    virtio.outb("initialized idt\n");
+    virtio.printf("initialized idt\n", .{});
 }
 
 pub fn openIdtGate(index: usize, interrupt: *const fn () callconv(.Naked) void) InterruptError!void {

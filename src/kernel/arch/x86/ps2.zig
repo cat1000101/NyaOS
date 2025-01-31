@@ -3,6 +3,7 @@ const port = @import("port.zig");
 const virtio = @import("virtio.zig");
 const interrupt = @import("interrupts.zig");
 const pic = @import("pic.zig");
+const tty = @import("../../drivers/tty.zig");
 
 const DATA_READ_WRITE = 0x60;
 const STATUS_READ = 0x64;
@@ -127,11 +128,8 @@ fn reciveData() u8 {
             virtio.printf("ps2 reciveData timeout status: {}\n", .{status});
         }
     }
-    return port.inb(DATA_READ_WRITE);
-}
-
-pub fn readData() u8 {
-    return port.inb(DATA_READ_WRITE);
+    const data = port.inb(DATA_READ_WRITE);
+    return data;
 }
 
 fn sendData(data: u8) void {
@@ -162,16 +160,22 @@ fn sendDataPort2(data: u8) void {
 }
 
 fn getControllerConfiguration() controllerConfiguration {
+    disableFirstPort();
     sendCommand(0x20);
-    return @bitCast(reciveData());
+    const ret: controllerConfiguration = @bitCast(reciveData());
+    enableFirstPort();
+    return ret;
 }
 
 fn setControllerConfiguration(config: controllerConfiguration) void {
+    disableFirstPort();
     sendCommand(0x60);
     sendData(@bitCast(config));
+    enableFirstPort();
 }
 
 fn getDeviceId() keyboardIdentifier {
+    disableFirstPort();
     sendCommand(0xF5);
     if (reciveData() != 0xFA) {
         virtio.printf("ps2 getDeviceId failed\n", .{});
@@ -186,7 +190,9 @@ fn getDeviceId() keyboardIdentifier {
     data[0] = reciveData();
     data[1] = reciveData();
     sendData(0xF4);
-    return @enumFromInt(@as(u16, @bitCast(data)));
+    const ret: keyboardIdentifier = @enumFromInt(@as(u16, @bitCast(data)));
+    enableFirstPort();
+    return ret;
 }
 
 fn enableFirstPort() void {
@@ -199,11 +205,14 @@ fn disableFirstPort() void {
 
 fn enableKeyboard() void {
     // virtio.printf("the keyboard type: {s}\n", .{@tagName(getDeviceId())});
+    sendData(0xF4);
     var newConfig = getControllerConfiguration();
     newConfig.firstPortInterrupt = 1;
     setControllerConfiguration(newConfig);
-    enableFirstPort();
-    sendData(0xF4);
+}
+
+fn disableKeyboard() void {
+    sendData(0xF5);
 }
 
 fn enableSecondPort() void {
@@ -221,10 +230,12 @@ fn initializePs2() !void {
         return ps2Errors.ps2ControllerNotPresent;
     }
 
+    disableKeyboard();
+
     disableFirstPort(); // disable first port
     disableSecondPort(); // disable second port
 
-    _ = port.inb(DATA_READ_WRITE); // flush
+    _ = reciveData(); // flush
 
     // Set the Controller Configuration Byte
     var psConfiguration = getControllerConfiguration(); // read controller configuration
@@ -309,9 +320,9 @@ fn initializePs2() !void {
     }
 
     // final flush and status
-    virtio.printf("final ps2 controller config: 0x{x}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
+    // virtio.printf("final ps2 controller config: 0x{x}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
 
-    _ = port.inb(DATA_READ_WRITE);
+    _ = reciveData();
 
     virtio.printf("ps2 controller initialized\n", .{});
 }
@@ -332,12 +343,19 @@ fn initializeKeyboard() void {
         virtio.printf("failed to install keyboard handeler {}\n", .{err});
     };
     enableKeyboard();
-    virtio.printf("keyboard initialized? config: 0x{x}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
+    virtio.printf("keyboard initialized!!!\n", .{});
 }
 
 fn ps2KeyboardHandeler() callconv(.C) void {
-    const data = readData();
-    virtio.printf("omg keyboard called with data: {x}\n", .{data});
-    // virtio.printf("Irr: 0x{x}\nIsr: 0x{x}\n", .{ pic.picGetIrr(), pic.picGetIsr() });
+    if (readStatus().outputBufferStatus == 0) {
+        virtio.printf("keyboard handeler called with no data\n", .{});
+        pic.picSendEOI(1);
+        return;
+    }
+
+    const data = reciveData();
+    virtio.putcharAsm(data);
+    tty.putChar(data);
+
     pic.picSendEOI(1);
 }

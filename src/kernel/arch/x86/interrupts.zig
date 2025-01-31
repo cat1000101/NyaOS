@@ -189,10 +189,10 @@ pub fn installIsr() void {
         const interrupt = generateIsrStub(i);
         idt.openIdtGate(i, &interrupt) catch |err| switch (err) {
             idt.InterruptError.interruptOpen => {
-                virtio.outb("wtf did u do??????????(isr interrupt already open)\n");
+                virtio.printf("wtf did u do??????????(isr interrupt already open)\n", .{});
             },
         };
     }
 
-    virtio.outb("installed isr\n");
+    virtio.printf("installed isr\n", .{});
 }

@@ -1,7 +1,7 @@
 const fmt = @import("std").fmt;
 const Writer = @import("std").io.Writer;
 
-pub fn outb(s: []const u8) void {
+fn outb(s: []const u8) void {
     for (s) |char| {
         putcharAsm(char);
     }

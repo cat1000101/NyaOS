@@ -32,7 +32,7 @@ pub fn picSendEOI(irq: u8) void {
     if (irq >= 8)
         port.outb(PIC_SLAVE_COMMAND, PIC_EOI);
 
-    port.outb(PIC_MASTER_DATA, PIC_EOI);
+    port.outb(PIC_MASTER_COMMAND, PIC_EOI);
 }
 
 /// disables the pic
@@ -64,7 +64,7 @@ fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
     picDisable();
     port.outb(PIC_SLAVE_DATA, port.inb(PIC_SLAVE_DATA) & ~@as(u8, 0x10)); // idk Enable cascade interrupt?
 
-    virtio.outb("pic changed the base offset in the idt\n");
+    virtio.printf("pic changed the base offset in the idt\n", .{});
 }
 
 pub fn maskIRQ(irq: u8, mask: bool) void {
