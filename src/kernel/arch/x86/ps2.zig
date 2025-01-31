@@ -164,18 +164,6 @@ fn disableFirstPort() void {
     sendCommand(0xAD);
 }
 
-fn enableKeyboard() void {
-    // virtio.printf("the keyboard type: {s}\n", .{@tagName(getDeviceId())});
-    sendData(0xF4);
-    var newConfig = getControllerConfiguration();
-    newConfig.firstPortInterrupt = 1;
-    setControllerConfiguration(newConfig);
-}
-
-fn disableKeyboard() void {
-    sendData(0xF5);
-}
-
 fn enableSecondPort() void {
     sendCommand(0xA8);
 }
@@ -316,6 +304,17 @@ const keyboardIdentifier = enum(u16) {
     _,
 };
 
+const scanCodeSet2 = [_]u8{
+    0,   0,   '1', '2', '3', '4', '5', '6', '7',  '8', '9', '0',  '-', '=', 0,   0,
+    'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O',  'P', '[', ']',  0,   0,   'A', 'S',
+    'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', '\'', '`', 0,   '\\', 'Z', 'X', 'C', 'V',
+    'B', 'N', 'M', ',', '.', '/', 0,   '*', 0,    ' ', 0,   0,    0,   0,   0,   0,
+    0,   0,   0,   0,   0,   0,   0,   0,   0,    0,   0,   0,    0,   0,   0,   0,
+    0,   0,   0,   0,   0,   0,   0,   0,   0,    0,   0,   0,    0,   0,   0,   0,
+    0,   0,   0,   0,   0,   0,   0,   0,   0,    0,   0,   0,    0,   0,   0,   0,
+    0,   0,   0,   0,   0,   0,   0,   0,   0,    0,   0,   0,
+};
+
 fn getDeviceId() keyboardIdentifier {
     disableFirstPort();
     sendCommand(0xF5);
@@ -337,6 +336,18 @@ fn getDeviceId() keyboardIdentifier {
     return ret;
 }
 
+fn enableKeyboard() void {
+    // virtio.printf("the keyboard type: {s}\n", .{@tagName(getDeviceId())});
+    sendData(0xF4);
+    var newConfig = getControllerConfiguration();
+    newConfig.firstPortInterrupt = 1;
+    setControllerConfiguration(newConfig);
+}
+
+fn disableKeyboard() void {
+    sendData(0xF5);
+}
+
 fn initializeKeyboard() void {
     const keyboardHandeler = comptime interrupt.generateStub(&ps2KeyboardHandeler);
     pic.installIrq(&keyboardHandeler, 1) catch |err| {
@@ -354,8 +365,12 @@ fn ps2KeyboardHandeler() callconv(.C) void {
     }
 
     const data = reciveData();
-    virtio.putcharAsm(data);
-    tty.putChar(data);
+    const char = scanCodeSet2[data & 0x7f];
+    const release = data & 0x80 != 0;
+    if (!release) {
+        virtio.putcharAsm(char);
+        tty.putChar(char);
+    }
 
     pic.picSendEOI(1);
 }
