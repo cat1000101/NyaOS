@@ -3,8 +3,8 @@ const virtio = @import("arch/x86/virtio.zig");
 const utils = @import("arch/x86/utils.zig");
 const gdt = @import("arch/x86/gdt.zig");
 const idt = @import("arch/x86/idt.zig");
-const acpi = @import("arch/x86/acpi.zig");
-const ps2 = @import("arch/x86/ps2.zig");
+const acpi = @import("drivers/acpi.zig");
+const ps2 = @import("drivers/ps2.zig");
 const multiboot = @import("multiboot.zig");
 
 export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {

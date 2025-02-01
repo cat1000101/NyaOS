@@ -1,5 +1,5 @@
-const virtio = @import("virtio.zig");
-const port = @import("port.zig");
+const virtio = @import("../arch/x86/virtio.zig");
+const port = @import("../arch/x86/port.zig");
 const std = @import("std");
 
 const RSDP_FINDING_POSITION: [2]u32 = [2]u32{ 0x000E0000, 0x000FFFFF };

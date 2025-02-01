@@ -1,6 +1,5 @@
-set -x
-set -e
+set -xe
 
-./clean.sh
+rm -rf zig-out .zig-cache
 
 zig build run

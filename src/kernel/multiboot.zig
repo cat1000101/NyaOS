@@ -169,6 +169,11 @@ pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
                 entry.addr,
                 entry.len,
                 entry.type,
+                //  MULTIBOOT_MEMORY_AVAILABLE              1
+                //  MULTIBOOT_MEMORY_RESERVED               2
+                //  MULTIBOOT_MEMORY_ACPI_RECLAIMABLE       3
+                //  MULTIBOOT_MEMORY_NVS                    4
+                //  MULTIBOOT_MEMORY_BADRAM                 5
             },
         );
     }

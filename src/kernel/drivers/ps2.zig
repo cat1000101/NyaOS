@@ -1,9 +1,9 @@
 const acpi = @import("acpi.zig");
-const port = @import("port.zig");
-const virtio = @import("virtio.zig");
-const interrupt = @import("interrupts.zig");
-const pic = @import("pic.zig");
-const tty = @import("../../drivers/tty.zig");
+const port = @import("../arch/x86/port.zig");
+const virtio = @import("../arch/x86/virtio.zig");
+const interrupt = @import("../arch/x86/interrupts.zig");
+const pic = @import("../arch/x86/pic.zig");
+const tty = @import("tty.zig");
 
 const DATA_READ_WRITE = 0x60;
 const STATUS_READ = 0x64;
