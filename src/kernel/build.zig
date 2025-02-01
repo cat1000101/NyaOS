@@ -1,10 +1,12 @@
 const std = @import("std");
 const Builder = std.Build;
 const Target = std.Target;
-const CrossTarget = std.zig.CrossTarget;
 const Feature = std.Target.Cpu.Feature;
 
-pub fn build(b: *Builder) void {
+pub fn getKernel(b: *Builder) struct {
+    *std.Build.Step.Compile,
+    *std.Build.Step,
+} {
     const features = Target.x86.Feature;
 
     var disabled_features = Feature.Set.empty;
@@ -29,15 +31,22 @@ pub fn build(b: *Builder) void {
 
     const kernel = b.addExecutable(.{
         .name = "kernel.elf",
-        .root_source_file = b.path("main.zig"),
+        .root_source_file = b.path("src/kernel/main.zig"),
         .target = b.resolveTargetQuery(target_query),
         .optimize = .Debug,
         .code_model = .kernel,
     });
 
-    kernel.setLinkerScript(b.path("arch/x86/linker.ld"));
-    b.installArtifact(kernel);
+    kernel.setLinkerScript(b.path("src/kernel/arch/x86/linker.ld"));
 
     const kernel_step = b.step("kernel", "Build the kernel");
-    kernel_step.dependOn(&kernel.step);
+    kernel_step.dependOn(&b.addInstallArtifact(kernel, .{ .dest_dir = .{
+        .override = .{
+            .custom = "/extra/",
+        },
+    } }).step);
+
+    b.getInstallStep().dependOn(kernel_step);
+
+    return .{ kernel, kernel_step };
 }

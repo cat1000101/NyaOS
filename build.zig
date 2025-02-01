@@ -2,15 +2,13 @@ const std = @import("std");
 const print = std.debug.print;
 const Builder = std.Build;
 const Target = std.Target;
-const CrossTarget = std.zig.CrossTarget;
 const Feature = std.Target.Cpu.Feature;
-// const disk_image_step = @import("disk-image-step");
+const kernelBuild = @import("src/kernel/build.zig");
 
 pub fn build(b: *Builder) void {
     // building the kernel into a kernel.elf
-    const kernel_dep = b.dependency("kernel", .{});
-    const kernel = kernel_dep.artifact("kernel.elf");
-    const kernel_step = b.addInstallArtifact(kernel, .{ .dest_dir = .{ .override = .{ .custom = "/extra/" } } });
+
+    const kernel, const kernel_step = kernelBuild.getKernel(b);
 
     // setting the paths and commands
     const kernel_path = kernel.getEmittedBin();
@@ -18,8 +16,9 @@ pub fn build(b: *Builder) void {
     const kernel_sys = b.fmt("sysroot/boot/{s}", .{kernel.out_filename});
     const grub_sys = b.fmt("sysroot/boot/grub/{s}", .{"grub.cfg"});
     const iso_cmd = [_][]const u8{ "grub2-mkrescue", "-o" };
-    const run_cmd = [_][]const u8{ "qemu-system-i386", "-machine", "q35", "-d", "guest_errors,int,pcall,strace", "-D", "qemu.log", "-debugcon", "stdio", "-cdrom", "zig-out/NyaOS.iso" };
-    const debug_cmd = [_][]const u8{ "qemu-system-i386", "-machine", "q35", "-d", "guest_errors,int,pcall,strace", "-D", "qemu.log", "-s", "-S", "-debugcon", "stdio", "-kernel", "zig-out/extra/kernel.elf" };
+    const common_qemu_args = [_][]const u8{ "-machine", "q35", "-d", "guest_errors,int,pcall,strace", "-D", "qemu.log", "-debugcon", "stdio" };
+    const run_cmd = [_][]const u8{"qemu-system-i386"} ++ common_qemu_args ++ .{ "-cdrom", "zig-out/NyaOS.iso" };
+    const debug_cmd = [_][]const u8{"qemu-system-i386"} ++ common_qemu_args ++ .{ "-s", "-S", "-kernel", "zig-out/extra/kernel.elf" };
 
     // making sysroot directoy and putting the files there
     const wf = b.addWriteFiles();
@@ -36,7 +35,7 @@ pub fn build(b: *Builder) void {
 
     // step to make everything
     const all_step = b.step("all", "does everything");
-    const steps: []const *std.Build.Step = &.{ &kernel.step, &install_iso.step, &kernel_step.step };
+    const steps: []const *std.Build.Step = &.{ &kernel.step, &install_iso.step, kernel_step };
     for (steps) |step| all_step.dependOn(step);
 
     // step and commands to run the iso in qemu

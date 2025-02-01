@@ -6,9 +6,9 @@
     .minimum_zig_version = "0.13.0",
 
     .dependencies = .{
-        .kernel = .{
-            .path = "src/kernel",
-        },
+        // .kernel = .{
+        //     .path = "src/kernel",
+        // },
         // Externel deps:
         // .@"disk-image-step" = .{
         //     .url = "https://github.com/zig-osdev/disk-image-step/archive/04881824f85e2eac0caf3ddf52c462d3d38a78f6.tar.gz",
