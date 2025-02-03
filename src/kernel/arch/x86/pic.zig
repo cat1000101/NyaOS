@@ -77,7 +77,7 @@ pub fn maskIRQ(irq: u8, mask: bool) void {
     } else {
         port.outb(localPort, old & ~(@as(u8, 1) << shift));
     }
-    virtio.printf("irq masking debug: 0x{x} -> 0x{x}\n", .{ old, port.inb(localPort) });
+    // virtio.printf("irq masking debug: 0x{x} -> 0x{x}\n", .{ old, port.inb(localPort) });
 }
 
 const PIC_READ_IRR = 0x0a; // OCW3 irq ready next CMD read

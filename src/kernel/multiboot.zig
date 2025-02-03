@@ -150,6 +150,8 @@ pub const multiboot_apm_info = extern struct {
     dseg_len: u16 = 0,
 };
 
+pub var multibootInfo: *multiboot_info = undefined;
+
 pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
         virtio.printf("Invalid magic number: {d}\n", .{magic});
@@ -159,6 +161,14 @@ pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
         virtio.printf("No memory map provided by GRUB sad\n", .{});
         return false;
     }
+
+    multibootInfo = header;
+    getMemoryMap();
+    return true;
+}
+
+pub fn getMemoryMap() void {
+    const header = multibootInfo;
     const mmm: [*]multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
     for (mmm, 0..(header.mmap_length / @sizeOf(multiboot_mmap_entry))) |entry, i| {
         virtio.printf(
@@ -177,5 +187,4 @@ pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
             },
         );
     }
-    return true;
 }
