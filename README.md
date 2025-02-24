@@ -8,8 +8,11 @@ NyaOS is a passion project built with Zig that aims to be an oparating system th
 
 ### Roadmap
 Current: PMM, VMM, fs, Shell/REPL
+
 Completed: VGA output, QEMU debug, GDB, printf, GDT, IDT, PIC, ACPI, PS/2
+
 Extra: Syscalls, Scheduler, Apps, Port Doom
+
 TODO (Maybe): PIT/timer, APIC, VFS, 64-bit
 
 ### Build and Run Instructions
