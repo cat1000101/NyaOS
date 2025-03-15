@@ -118,7 +118,7 @@ pub const multiboot_info = extern struct {
     cmdline: u32 = 0,
     mods_count: u32 = 0,
     mods_addr: u32 = 0,
-    u: union_unnamed_1 = union_unnamed_1{ .aout_sym = .{} }, // need to made this generic
+    u: union_unnamed_1, // need to made this generic and deafult being 0?
     mmap_length: u32 = 0,
     mmap_addr: u32 = 0,
     drives_length: u32 = 0,
@@ -138,7 +138,7 @@ pub const multiboot_info = extern struct {
     framebuffer_height: u32 = 0,
     framebuffer_bpp: u8 = 0,
     framebuffer_type: u8 = 0,
-    unnamed_0: union_unnamed_2 = union_unnamed_2{ .unnamed_0 = .{} },
+    unnamed_0: union_unnamed_2, // need to made this generic and deafult being 0?
 };
 
 pub const multiboot_color = extern struct {
