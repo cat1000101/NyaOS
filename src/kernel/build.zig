@@ -19,7 +19,7 @@ pub fn getKernel(b: *Builder) struct {
     disabled_features.addFeature(@intFromEnum(features.avx2));
     enabled_features.addFeature(@intFromEnum(features.soft_float));
 
-    const target_query = .{
+    const target_query = Target.Query{
         .cpu_arch = Target.Cpu.Arch.x86,
         .os_tag = Target.Os.Tag.freestanding,
         .abi = Target.Abi.none,

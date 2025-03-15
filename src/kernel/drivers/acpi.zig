@@ -19,7 +19,7 @@ pub const acpiTables = struct {
     fadt: ?*FADT,
 };
 
-pub const RSDP align(1) = extern struct {
+pub const RSDP = extern struct {
     signature: [8]u8,
     checksum: u8,
     oem_id: [6]u8,
@@ -32,7 +32,7 @@ pub const RSDP align(1) = extern struct {
     reserved: [3]u8,
 };
 
-pub const SDTHeader align(1) = extern struct {
+pub const SDTHeader = extern struct {
     signature: [4]u8,
     length: u32,
     revision: u8,
@@ -44,17 +44,17 @@ pub const SDTHeader align(1) = extern struct {
     creator_revision: u32,
 };
 
-pub const RSDT align(1) = extern struct {
+pub const RSDT = extern struct {
     h: SDTHeader,
     entries: u32, // [(@This().h.length - @sizeOf(SDTHeader)) / @sizeOf(u32)]*SDTHeader,
 };
 
-pub const XSDT align(1) = extern struct {
+pub const XSDT = extern struct {
     h: SDTHeader,
     entries: u64, // [(@This().h.length - @sizeOf(SDTHeader)) / @sizeOf(u32)]*SDTHeader,
 };
 
-pub const genericAddressStructure align(1) = extern struct {
+pub const genericAddressStructure = extern struct {
     address_space: u8,
     bit_width: u8,
     bit_offset: u8,
@@ -63,7 +63,7 @@ pub const genericAddressStructure align(1) = extern struct {
 };
 
 // TODO: fix this bug alignment being weird in zig maybe will be fixed through a bug report
-pub const FADT align(1) = extern struct {
+pub const FADT = extern struct {
     h: SDTHeader,
     firmware_control: u32,
     dsdt: u32,
