@@ -16,7 +16,7 @@ pub fn build(b: *Builder) void {
     const kernel_sys = b.fmt("sysroot/boot/{s}", .{kernel.out_filename});
     const grub_sys = b.fmt("sysroot/boot/grub/{s}", .{"grub.cfg"});
     const iso_cmd = [_][]const u8{ "grub2-mkrescue", "-o" };
-    const common_qemu_args = [_][]const u8{ "-machine", "q35", "-d", "guest_errors,int,pcall,strace", "-D", "qemu.log", "-debugcon", "stdio", "-m", "256M", "-no-reboot", "-no-shutdown" };
+    const common_qemu_args = [_][]const u8{ "-machine", "q35", "-d", "guest_errors,int,pcall,strace", "-D", "qemu.log", "-debugcon", "stdio", "-m", "256M", "-no-reboot", "-no-shutdown", "-M", "smm=off" };
     const run_cmd = [_][]const u8{"qemu-system-i386"} ++ common_qemu_args ++ .{ "-cdrom", "zig-out/NyaOS.iso" };
     const debug_cmd = [_][]const u8{"qemu-system-i386"} ++ common_qemu_args ++ .{ "-s", "-S", "-kernel", "zig-out/extra/kernel.elf" };
 
