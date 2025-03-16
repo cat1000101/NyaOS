@@ -1,6 +1,6 @@
 .{
-    .name = .NyaOS,
-    .fingerprint = 0xfb400cb0b79c876a,
+    .name = "NyaOS",
+    // .fingerprint = 0xfb400cb0b79c876a,
 
     .version = "0.3.0",
 
