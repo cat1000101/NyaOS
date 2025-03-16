@@ -213,7 +213,3 @@ fn printRawMemoryMap() void {
         );
     }
 }
-
-pub fn getUsableMemoryMap() [*]multiboot_mmap_entry {
-    return @ptrFromInt(multibootInfo.mmap_addr);
-}
