@@ -30,18 +30,19 @@ const IdtGateDescriptor = packed struct {
     offset_high: u16, // offset higher half
 };
 
+// TODO: this is a bug? change the oofset to pointer when fixed https://github.com/ziglang/zig/issues/21463
 const Idtr = packed struct {
     size: u16, // size of the IDT in bytes - 1
-    offset: *[256]IdtGateDescriptor, // address of the IDT (not the physical address, paging applies)
+    offset: u32, // *[256]IdtGateDescriptor, // address of the IDT (not the physical address, paging applies)
 };
 
-var idtr: Idtr = undefined;
 pub var idt: [256]IdtGateDescriptor = [_]IdtGateDescriptor{std.mem.zeroes(IdtGateDescriptor)} ** 256;
+var idtr: Idtr = undefined;
 
 pub fn initIdt() void {
     idtr = .{
         .size = @sizeOf(IdtGateDescriptor) * 256 - 1,
-        .offset = &idt,
+        .offset = @intFromPtr(&idt),
     };
 
     int.installIsr();
@@ -54,7 +55,6 @@ pub fn initIdt() void {
 
 pub fn openIdtGate(index: usize, interrupt: *const fn () callconv(.Naked) void) InterruptError!void {
     if (idt[index].p == 1) return InterruptError.interruptOpen;
-    virtio.printf("debug opening idt gate function location: 0x{x}\n", .{@intFromPtr(interrupt)});
     setIdtGate(
         index,
         @intFromPtr(interrupt),

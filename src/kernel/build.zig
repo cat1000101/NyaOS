@@ -39,14 +39,15 @@ pub fn getKernel(b: *Builder) struct {
 
     kernel.setLinkerScript(b.path("src/kernel/arch/x86/linker.ld"));
 
-    const kernel_step = b.step("kernel", "Build the kernel");
-    kernel_step.dependOn(&b.addInstallArtifact(kernel, .{ .dest_dir = .{
-        .override = .{
-            .custom = "/extra/",
+    const kernel_artifact_step = &b.addInstallArtifact(kernel, .{
+        .dest_dir = .{
+            .override = .{
+                .custom = "/extra/",
+            },
         },
-    } }).step);
+    }).step;
 
-    b.getInstallStep().dependOn(kernel_step);
+    b.getInstallStep().dependOn(kernel_artifact_step);
 
-    return .{ kernel, kernel_step };
+    return .{ kernel, kernel_artifact_step };
 }
