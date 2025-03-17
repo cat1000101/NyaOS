@@ -21,6 +21,7 @@ export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
     idt.initIdt();
 
     acpi.initACPI();
+    asm volatile ("int $1"); // test for the interrutps
 
     ps2.initPs2();
 

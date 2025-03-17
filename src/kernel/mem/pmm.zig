@@ -65,7 +65,7 @@ var physBitMap = BitMapAllocatorPageSize.initFull(physPageSizes);
 
 pub fn initPmm() void {
     setUsableMemory(&physBitMap);
-    virtio.printf("kernel start: 0x{x} kernel end: 0x{x}\n", .{ @intFromPtr(&kernel_start), @intFromPtr(&kernel_end) });
+    // virtio.printf("kernel start: 0x{x} kernel end: 0x{x}\n", .{ @intFromPtr(&kernel_start), @intFromPtr(&kernel_end) });
 }
 
 fn setUsableMemory(bitMap: *BitMapAllocatorPageSize) void {
@@ -89,5 +89,5 @@ fn setUsableMemory(bitMap: *BitMapAllocatorPageSize) void {
             }
         }
     }
-    virtio.printf("usable memory set?: {}\n", .{bitMap});
+    virtio.printf("finished usable memory setting?\n", .{}); //.{bitMap});
 }
