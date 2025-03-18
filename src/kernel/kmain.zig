@@ -7,6 +7,7 @@ const acpi = @import("drivers/acpi.zig");
 const ps2 = @import("drivers/ps2.zig");
 const multiboot = @import("multiboot.zig");
 const pmm = @import("mem/pmm.zig");
+const paging = @import("arch/x86/paging.zig");
 
 const panic = @import("panic.zig");
 
@@ -15,6 +16,8 @@ export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
     _ = multiboot.checkMultibootHeader(mbd, magic);
 
     pmm.initPmm();
+
+    paging.setPageDirectoryEntery(0, 0, .{});
 
     tty.initialize();
     tty.printf("meow i like {any} cats\n", .{69});

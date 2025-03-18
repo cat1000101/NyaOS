@@ -1,4 +1,5 @@
 const kmain = @import("kmain.zig");
+const paging = @import("arch/x86/paging.zig");
 
 // multiboot headers values
 const ALIGN = 1 << 0;
@@ -53,7 +54,6 @@ comptime {
         \\.global _start
         \\.type _start, @function
         \\_start:
-        \\
         \\
         \\  jmp high_half_entery
         \\  cli
