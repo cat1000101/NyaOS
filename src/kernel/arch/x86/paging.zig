@@ -50,8 +50,9 @@ pub const firstHigherHalfPageNumber: u32 = 768;
 pub const PageTable = [1024]Pte;
 pub const PageDirectory = [1024]Pde;
 
-pub var higherHalfPage: PageTable = Pte{0} ** 1024;
-pub var gageDirectory: PageDirectory = Pde{0} ** 1024;
+pub var pageDirectory: PageDirectory align(4096) = Pde{0} ** 1024;
+pub var higherHalfPage: PageTable align(4096) = Pte{0} ** 1024;
+pub var firstPage: PageTable align(4096) = Pte{0} ** 1024;
 
 fn idPaging(pt: PageTable, vaddr: u32, size: u32) void {
     var pageIdentety: u32 = vaddr & 0xfffff000;
