@@ -8,9 +8,12 @@ const ps2 = @import("drivers/ps2.zig");
 const multiboot = @import("multiboot.zig");
 const pmm = @import("mem/pmm.zig");
 
+const panic = @import("panic.zig");
+
 export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
     virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
     _ = multiboot.checkMultibootHeader(mbd, magic);
+
     pmm.initPmm();
 
     tty.initialize();

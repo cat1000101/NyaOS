@@ -179,16 +179,16 @@ pub var multibootInfo: *multiboot_info = undefined;
 
 pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        virtio.printf("Invalid magic number: {d}\n", .{magic});
+        virtio.printf("bootloader multiboot2 header invalid magic number: {d}\n", .{magic});
         return false;
     }
     if (header.flags >> 6 & 1 == 0) {
-        virtio.printf("No memory map provided by GRUB sad\n", .{});
+        virtio.printf("No memory map provided by GRUB or other multiboot2 bootloader sad\n", .{});
         return false;
     }
 
     multibootInfo = header;
-    printRawMemoryMap();
+    // printRawMemoryMap();
     return true;
 }
 
