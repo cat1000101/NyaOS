@@ -17,8 +17,6 @@ export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
 
     pmm.initPmm();
 
-    paging.setPageDirectoryEntery(0, 0, .{});
-
     tty.initialize();
     tty.printf("meow i like {any} cats\n", .{69});
 

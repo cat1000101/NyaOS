@@ -1,7 +1,5 @@
 const virtio = @import("virtio.zig");
 
-const std = @import("std");
-
 pub const PageDirectoryEntery = packed struct {
     flags: PageDirectoryEnteryFlags = .{},
     MINE: u1 = 0, // i do whatever i want to store data or something
@@ -58,9 +56,42 @@ pub const PageTableEnteryFlags = packed struct {
     global: u1 = 0,
 };
 
-extern const kernel_start: u32;
-extern const kernel_physical_start: u32;
-pub const firstHigherHalfPageNumber: u32 = 768;
+// stolen from https://github.com/ZystemOS/pluto
+// The bitmasks for the bits in a DirectoryEntry
+pub const DENTRY_PRESENT: u32 = 0x1;
+pub const DENTRY_READ_WRITE: u32 = 0x2;
+pub const DENTRY_USER: u32 = 0x4;
+pub const DENTRY_WRITE_THROUGH: u32 = 0x8;
+pub const DENTRY_CACHE_DISABLED: u32 = 0x10;
+pub const DENTRY_ACCESSED: u32 = 0x20;
+pub const DENTRY_ZERO: u32 = 0x40;
+pub const DENTRY_4MB_PAGES: u32 = 0x80;
+pub const DENTRY_IGNORED: u32 = 0x100;
+pub const DENTRY_AVAILABLE: u32 = 0xE00;
+pub const DENTRY_PAGE_ADDR: u32 = 0xFFFFF000;
+
+// The bitmasks for the bits in a TableEntry
+pub const TENTRY_PRESENT: u32 = 0x1;
+pub const TENTRY_READ_WRITE: u32 = 0x2;
+pub const TENTRY_USER: u32 = 0x4;
+pub const TENTRY_WRITE_THROUGH: u32 = 0x8;
+pub const TENTRY_CACHE_DISABLED: u32 = 0x10;
+pub const TENTRY_ACCESSED: u32 = 0x20;
+pub const TENTRY_DIRTY: u32 = 0x40;
+pub const TENTRY_ZERO: u32 = 0x80;
+pub const TENTRY_GLOBAL: u32 = 0x100;
+pub const TENTRY_AVAILABLE: u32 = 0xE00;
+pub const TENTRY_PAGE_ADDR: u32 = 0xFFFFF000;
+
+pub extern const kernel_start_ptr: u32;
+pub extern const kernel_physical_start_ptr: u32;
+pub extern const kernel_physical_end_ptr: u32;
+pub extern const kernel_size_in_4MIB_pages: u32;
+pub extern const kernel_size_in_4KIB_pages: u32;
+pub const FIRST_KERNEL_PAGE_NUMBER: u32 = 0xC0000000 >> 22;
+
+pub const NUMBER_OF_BYTES_IN_4MIB: u32 = 0x400000;
+pub const NUMBER_OF_BYTES_IN_4KIB: u32 = 0x1000;
 
 pub const PageTable = [1024]PageTableEntery;
 pub const PageDirectory = [1024]PageDirectoryEntery;
@@ -69,28 +100,21 @@ pub export var pageDirectory: PageDirectory align(4096) = [_]PageDirectoryEntery
 pub export var higherHalfPage: PageTable align(4096) = [_]PageTableEntery{.{}} ** 1024;
 pub export var firstPage: PageTable align(4096) = [_]PageTableEntery{.{}} ** 1024;
 
-// comptime {
-//     setPageDirectoryEntery(0, @intFromPtr(&firstPage), .{ .present = 1, .read_write = 1 });
-//     idPaging(&firstPage, 0, 0x100000);
-//     setPageDirectoryEntery(firstHigherHalfPageNumber, @intFromPtr(&higherHalfPage), .{ .present = 1, .read_write = 1 });
-//     mapHigherHalf(&pageDirectory);
-// }
-
-pub fn setPage(page: *PageTable, index: u32, address: u32, flags: PageTableEnteryFlags) void {
+fn setPage(page: *PageTable, index: u32, address: u32, flags: PageTableEnteryFlags) void {
     page[index] = PageTableEntery{
         .flags = flags,
         .address = @truncate(address >> 12),
     };
 }
 
-pub fn setPageDirectoryEntery(index: u32, address: u32, flags: PageDirectoryEnteryFlags) void {
+fn setPageDirectoryEntery(index: u32, address: u32, flags: PageDirectoryEnteryFlags) void {
     pageDirectory[index] = PageDirectoryEntery{
         .flags = flags,
         .address = @truncate(address >> 12),
     };
 }
 
-pub fn setPageDirectoryEnteryBig(index: u32, address: u32, flags: PageDirectoryEnteryFlagsBig) void {
+fn setPageDirectoryEnteryBig(index: u32, address: u32, flags: PageDirectoryEnteryFlagsBig) void {
     pageDirectory[index] = PageDirectoryEnteryBig{
         .flags = flags,
         .address_low = @truncate(address >> 12),
@@ -112,9 +136,9 @@ fn idPaging(pt: *PageTable, vaddr: u32, size: u32) void {
 }
 
 fn mapHigherHalf(pd: *PageDirectory) void {
-    var physicalAddress: u32 = @intFromPtr(&kernel_physical_start) & 0xfffff000;
+    var physicalAddress: u32 = kernel_physical_start_ptr & 0xfffff000;
     var index = 0;
-    const page: *PageTable = @ptrFromInt(@as(u32, pd[firstHigherHalfPageNumber].address) << 12);
+    const page: *PageTable = @ptrFromInt(@as(u32, pd[FIRST_KERNEL_PAGE_NUMBER].address) << 12);
     while (index < 1024) : ({
         physicalAddress += 0x1000;
         index += 1;

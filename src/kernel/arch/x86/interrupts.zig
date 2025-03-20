@@ -3,7 +3,16 @@ const idt = @import("idt.zig");
 const virtio = @import("virtio.zig");
 
 export fn Handler(cpu_state: *IsrCpuState) void {
-    virtio.printf("interrupt has accured yippe interrupt/exeption:{}, error:{}\n", .{ cpu_state.interrupt_number, cpu_state.error_code });
+    if (cpu_state.interrupt_number == 14) {
+        var faulting_address: u32 = 0;
+        asm volatile ("mov %cr2, %[faulting_address]"
+            : [faulting_address] "=r" (faulting_address),
+        );
+
+        virtio.printf("page fault error: 0x{x}, address: 0x{x}\n", .{ cpu_state.error_code, faulting_address });
+    } else {
+        virtio.printf("interrupt has accured yippe interrupt/exeption:{}, error:{}\n", .{ cpu_state.interrupt_number, cpu_state.error_code });
+    }
 }
 
 // cpu state when calling isr intrupt
