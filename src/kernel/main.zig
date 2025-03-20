@@ -22,13 +22,13 @@ export var multiboot align(4) linksection(".multiboot") = MultibootHeader{
 
 const kernelNumberOf4MIBPages = 1;
 // setting up the paging stolen from https://github.com/ZystemOS/pluto again
-export var tempBootPageDirectory: [1024]u32 align(paging.NUMBER_OF_BYTES_IN_4KIB) linksection(".boot") = init: {
+export var tempBootPageDirectory: [1024]u32 align(paging.PAGE_SIZE) linksection(".boot") = init: {
     // Increase max number of branches done by comptime evaluator
     @setEvalBranchQuota(1024);
     // Temp value
     var dir: [1024]u32 = undefined;
 
-    const basicFlags = paging.DENTRY_4MB_PAGES | paging.DENTRY_PRESENT | paging.DENTRY_READ_WRITE;
+    const basicFlags = paging.DENTRY_4MB_PAGES | paging.DENTRY_PRESENT | paging.DENTRY_READ_WRITE | paging.DENTRY_ALLOCATED;
 
     // Page for 0 -> 4 MiB. Gets unmapped later hopefully
     dir[0] = basicFlags;
@@ -37,7 +37,7 @@ export var tempBootPageDirectory: [1024]u32 align(paging.NUMBER_OF_BYTES_IN_4KIB
     var idx = 1;
 
     // Fill preceding pages with zeroes. May be unnecessary but incurs no runtime cost
-    while (i < paging.FIRST_KERNEL_PAGE_NUMBER - 1) : ({
+    while (i < paging.FIRST_KERNEL_DIR_NUMBER - 1) : ({
         i += 1;
         idx += 1;
     }) {
@@ -54,7 +54,7 @@ export var tempBootPageDirectory: [1024]u32 align(paging.NUMBER_OF_BYTES_IN_4KIB
     }
     // Fill succeeding pages with zeroes. May be unnecessary but incurs no runtime cost
     i = 0;
-    while (i < 1024 - paging.FIRST_KERNEL_PAGE_NUMBER - kernelNumberOf4MIBPages) : ({ // paging.NUMBER_OF_4MIB_KERNEL_PAGES) : ({
+    while (i < 1024 - paging.FIRST_KERNEL_DIR_NUMBER - kernelNumberOf4MIBPages) : ({ // paging.NUMBER_OF_4MIB_KERNEL_PAGES) : ({
         i += 1;
         idx += 1;
     }) {
