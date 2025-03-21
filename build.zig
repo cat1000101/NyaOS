@@ -48,7 +48,7 @@ pub fn build(b: *Builder) void {
     mkiso.addArgs(&.{"sysroot/"});
 
     const install_iso = &b.addInstallFileWithDir(out_file, .prefix, "NyaOS.iso").step;
-    install_iso.dependOn(&wf.step);
+    out_file.addStepDependencies(install_iso);
     install_iso.dependOn(kernel_step);
 
     // step to make everything
