@@ -30,25 +30,25 @@ pub fn build(b: *Builder) void {
         "-debugcon",
         "stdio",
     };
-    const run_cmd = [_][]const u8{"qemu-system-i386"} ++ common_qemu_args ++ .{ "-cdrom", "zig-out/NyaOS.iso" };
-    const debug_cmd = [_][]const u8{"qemu-system-i386"} ++ common_qemu_args ++ .{ "-s", "-S", "-kernel", "zig-out/extra/kernel.elf" };
 
     const kernel_step = b.step("kernel", "Build the kernel");
     kernel_step.dependOn(kernel_artifact_step);
+    kernel_step.dependOn(&kernel.step);
 
     // making sysroot directoy and putting the files there
     const wf = b.addWriteFiles();
+    // const sysroot_path = wf.add(sub_path: []const u8, bytes: []const u8);
     _ = wf.addCopyFile(kernel_path, kernel_sys);
     _ = wf.addCopyFile(grub_path, grub_sys);
 
     // making the iso
     const mkiso = b.addSystemCommand(&iso_cmd);
     mkiso.setCwd(wf.getDirectory());
-    const out_file = mkiso.addOutputFileArg("NyaOS.iso");
+    const nyaos_iso_file = mkiso.addOutputFileArg("NyaOS.iso");
     mkiso.addArgs(&.{"sysroot/"});
 
-    const install_iso = &b.addInstallFileWithDir(out_file, .prefix, "NyaOS.iso").step;
-    out_file.addStepDependencies(install_iso);
+    const install_iso = &b.addInstallFileWithDir(nyaos_iso_file, .prefix, "NyaOS.iso").step;
+    nyaos_iso_file.addStepDependencies(install_iso);
     install_iso.dependOn(kernel_step);
 
     // step to make everything
@@ -57,16 +57,24 @@ pub fn build(b: *Builder) void {
     for (steps) |step| all_step.dependOn(step);
 
     // step and commands to run the iso in qemu
-    const run = &b.addSystemCommand(&run_cmd).step;
-    run.dependOn(install_iso);
+    const run_cmd_args = [_][]const u8{"qemu-system-i386"} ++ common_qemu_args;
+    const run_cmd = b.addSystemCommand(&run_cmd_args);
+    run_cmd.addArg("-cdrom");
+    run_cmd.addFileArg(nyaos_iso_file);
+    run_cmd.step.dependOn(install_iso);
 
     // step and commands to run the iso in qemu
-    const debug = &b.addSystemCommand(&debug_cmd).step;
-    debug.dependOn(kernel_step);
+    const debug_cmd_args = [_][]const u8{"qemu-system-i386"} ++ common_qemu_args;
+    const debug_cmd = b.addSystemCommand(&debug_cmd_args);
+    debug_cmd.addArg("-s");
+    debug_cmd.addArg("-S");
+    debug_cmd.addArg("-kernel");
+    debug_cmd.addFileArg(kernel_path);
+    debug_cmd.step.dependOn(kernel_step);
 
     const debug_step = b.step("debug", "debugs the kernel with qemu");
-    debug_step.dependOn(debug);
+    debug_step.dependOn(&debug_cmd.step);
 
     const run_step = b.step("run", "runs the iso file with qemu");
-    run_step.dependOn(run);
+    run_step.dependOn(&run_cmd.step);
 }
