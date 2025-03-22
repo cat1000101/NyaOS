@@ -8,9 +8,9 @@ pub const PageDirectoryEntery = packed struct {
         write_through: u1 = 0, // PWT, controls Write-Through' abilities of the page.
         cache_disabled: u1 = 0, // PCD, is the 'Cache Disable' bit. If the bit is set, the page will not be cached.
         accessed: u1 = 0, // , or 'Accessed' is used to discover whether a PDE or PTE was read during virtual address translation.
-        allocated: u1 = 0, // tells if there is a data structior or not
+        reserved: u1 = 0, // reserved
         page_size: u1 = 0, // 4KiB or 4MiB diffrent struction too
-        MINE2: u4 = 0, // same as MINE
+        reserved2: u4 = 0, // same as reserved
     };
     flags: Flags = .{},
     address: u20 = 0, // the address
@@ -27,7 +27,7 @@ pub const PageDirectoryEnteryBig = packed struct {
         dirty: u1 = 0,
         page_size: u1 = 1,
         global: u1 = 0,
-        MINE2: u3 = 0,
+        reserved2: u3 = 0,
         PAT: u1 = 0,
     };
     flags: Flags = .{},
@@ -47,7 +47,7 @@ pub const PageTableEntery = packed struct {
         dirty: u1 = 0,
         PAT: u1 = 0,
         global: u1 = 0,
-        MINE: u3 = 0,
+        reserved: u3 = 0,
     };
     flags: Flags = .{},
     address: u20 = 0,
@@ -67,7 +67,7 @@ pub const DENTRY_USER: u32 = 0x4;
 pub const DENTRY_WRITE_THROUGH: u32 = 0x8;
 pub const DENTRY_CACHE_DISABLED: u32 = 0x10;
 pub const DENTRY_ACCESSED: u32 = 0x20;
-pub const DENTRY_ALLOCATED: u32 = 0x40;
+// pub const DENTRY_ALLOCATED: u32 = 0x40;
 pub const DENTRY_4MB_PAGES: u32 = 0x80;
 pub const DENTRY_IGNORED: u32 = 0x100;
 pub const DENTRY_AVAILABLE: u32 = 0xE00;
@@ -83,8 +83,8 @@ pub const TENTRY_ACCESSED: u32 = 0x20;
 pub const TENTRY_DIRTY: u32 = 0x40;
 pub const TENTRY_ZERO: u32 = 0x80;
 pub const TENTRY_GLOBAL: u32 = 0x100;
-pub const TENTRY_ALLOCATED: u32 = 0x200;
-pub const TENTRY_AVAILABLE: u32 = 0xC00;
+// pub const TENTRY_ALLOCATED: u32 = 0x200;
+// pub const TENTRY_AVAILABLE: u32 = 0xC00;
 pub const TENTRY_PAGE_ADDR: u32 = 0xFFFFF000;
 
 pub const GIB: usize = 0x40000000;
@@ -155,7 +155,7 @@ pub const PageDirectory = struct {
 
     fn getPageTable(self: *PageDirectory, index: u32) PageErrors!*PageTable {
         // virtio.printf("getPageTable:  index: {}, bigEntry: {}, normalEntry: {}\n", .{ index, self.entries[index].big, self.entries[index].normal });
-        if (self.entries[index].normal.flags.allocated == 0) {
+        if (self.entries[index].normal.address == 0) {
             return PageErrors.NoPage;
         } else if (self.entries[index].big.flags.page_size == 1) {
             return PageErrors.IsBigPage;
@@ -172,17 +172,9 @@ pub var firstPage: PageTable align(4096) = .{};
 pub fn initPaging() void {
     virtio.printf("Initializing paging\n", .{});
     defer virtio.printf("Paging initialized\n", .{});
-
-    // const correntDirectory = getPageDirectory();
-    // const firstDirectoryEntry = &correntDirectory.entries[0].big;
-    // _ = firstDirectoryEntry;
-    // for (correntDirectory.entries, 0..1024) |entery, i| {
-    //     virtio.printf("entery #{} info:  {}\n", .{ i, entery.big });
-    // }
     pageDirectory.setEntery(0, &firstPage, .{
         .present = 1,
         .read_write = 1,
-        .allocated = 1,
     }) catch |err| {
         virtio.printf("Can't set first page table error: {}\n", .{err});
         return;
@@ -190,7 +182,6 @@ pub fn initPaging() void {
     pageDirectory.setEntery(FIRST_KERNEL_DIR_NUMBER, &higherHalfPage, .{
         .present = 1,
         .read_write = 1,
-        .allocated = 1,
     }) catch |err| {
         virtio.printf("Can't set kernel page table error: {}\n", .{err});
         return;
@@ -200,6 +191,15 @@ pub fn initPaging() void {
         return;
     };
     mapHigherHalf(&pageDirectory);
+
+    // virtio.printf("page directory physical address: 0x{x} virtual address: 0x{x}\n", .{ virtualToPhysical(@intFromPtr(&pageDirectory)) catch blk: {
+    //     break :blk 0x6969;
+    // }, @intFromPtr(&pageDirectory) });
+    // for (pageDirectory.entries, 0..1024) |entery, i| {
+    //     virtio.printf("entery #{} info:  0x{x}\n", .{ i, @as(u32, @bitCast(entery.normal)) });
+    //     virtio.printf("entery #{} info:  {}\n", .{ i, entery.normal });
+    // }
+
     installPageDirectory(&pageDirectory) catch |err| {
         virtio.printf("Can't install page directory error: {}\n", .{err});
         return;
@@ -262,7 +262,7 @@ fn idPaging(pd: *PageDirectory, vaddr: u32, paddr: u32, size: u32) PageErrors!vo
             lvaddr += PAGE_SIZE;
             lsize -= PAGE_SIZE;
         }) {
-            virtio.printf("idPaging:  lpaddr: 0x{x}, lvaddr: 0x{x}, lsize: 0x{x}\n", .{ lpaddr, lvaddr, lsize });
+            // virtio.printf("idPaging:  lpaddr: 0x{x}, lvaddr: 0x{x}, lsize: 0x{x}\n", .{ lpaddr, lvaddr, lsize });
             pageTable.setEntery((lvaddr >> 12) & 1023, lpaddr, .{ .present = 1, .read_write = 1 });
         }
     }
