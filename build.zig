@@ -24,7 +24,7 @@ pub fn build(b: *Builder) void {
         "-no-reboot",
         "-no-shutdown",
         "-d",
-        "guest_errors,int,pcall,strace",
+        "guest_errors,int,mmu",
         "-D",
         "qemu.log",
         "-debugcon",
