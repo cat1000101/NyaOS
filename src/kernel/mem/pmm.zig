@@ -42,12 +42,12 @@ pub fn BitMapAllocatorGeneric(comptime dynamicSize: u32) type {
                 .bitmap = [_]u8{0x00} ** dynamicSize,
             };
         }
-        pub fn allocate(this: *@This()) AllocatorError!*u32 {
+        pub fn allocate(this: *@This()) AllocatorError!u32 {
             for (0..this.size) |index| {
                 if (this.check(index) == false) {
                     this.set(index);
                     virtio.printf("allocated memory at 0x{x} size: 0x{x}\n", .{ index * this.allocationSize, this.allocationSize });
-                    return @ptrFromInt(index * this.allocationSize);
+                    return index * this.allocationSize;
                 }
             }
             return AllocatorError.OutOfMemory;
@@ -127,7 +127,7 @@ pub fn initPmm() void {
         virtio.printf("failed to allocate memory\n", .{});
         return;
     };
-    physBitMap.free(@intFromPtr(testAllocation));
+    physBitMap.free(testAllocation);
 }
 
 fn setUsableMemory(bitMap: *BitMapAllocatorPageSize) void {

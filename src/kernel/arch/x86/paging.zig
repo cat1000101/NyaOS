@@ -270,7 +270,7 @@ pub fn initPaging() void {
         virtio.printf("Can't set kernel page table error: {}\n", .{err});
         return;
     };
-    pageDirectoryPtr.idPages(0, 0, 1 * MIB) catch |err| {
+    pageDirectoryPtr.idPages(0, 0, 4 * MIB) catch |err| {
         virtio.printf("Can't id map first page table error: {}\n", .{err});
         return;
     };
@@ -282,12 +282,14 @@ pub fn initPaging() void {
         virtio.printf("Can't install page directory error: {}\n", .{err});
         return;
     };
+
+    testPaging();
 }
 
 pub fn virtualToPhysical(address: u32) PageErrors!u32 {
     const split: AddressSplit = @bitCast(address);
     const lpageDirectory = getPageDirectory();
-    const pageTable = lpageDirectory.getPageTable(split.directoryEntry) catch |err| {
+    const pageTable = lpageDirectory.getVirtualPageTable(address) catch |err| {
         if (err == PageErrors.IsBigPage) {
             return @intCast((@as(u32, @intCast(lpageDirectory.entries[split.directoryEntry].big.address_low)) << 22) | (@as(u32, @intCast(split.pageEntry)) << 12) | split.offset);
         } else {
@@ -295,7 +297,7 @@ pub fn virtualToPhysical(address: u32) PageErrors!u32 {
             return PageErrors.NotMapped;
         }
     };
-    return @intCast((pageTable.entries[split.pageEntry].address << 12) | split.offset);
+    return (@as(u32, pageTable.entries[split.pageEntry].address) << 12) | split.offset;
 }
 
 fn getPageDirectory() *PageDirectory {
@@ -365,12 +367,44 @@ fn debugPrintPaging() void {
             if (@as(u32, @bitCast(lPTE)) == 0) {
                 continue;
             }
-            virtio.printf("debugPrintPaging:  directory entry: #{} info: 0x{x}\ndebugPrintPaging:  page entry: #{} info: 0x{x}", .{
+            virtio.printf("debugPrintPaging:  directory entry: #{} info: 0x{x}\ndebugPrintPaging:  page entry: #{} info: 0x{x}\n", .{
                 i,
                 @as(u32, @bitCast(entery.normal)),
                 j,
                 @as(u32, @bitCast(lPTE)),
             });
         }
+    }
+}
+
+var testPageTable: PageTable align(4096) = .{};
+const testPageTablePtr: *PageTable = &testPageTable;
+
+fn testPaging() void {
+    virtio.printf("testing paging by allocating a page and changing it's content\n", .{});
+    defer virtio.printf("paging test done\n", .{});
+    const physicalPage: u32 = pmm.physBitMap.allocate() catch |err| {
+        virtio.printf("Can't allocate page error: {}\n", .{err});
+        return;
+    };
+    testPageTablePtr.setEntery(0, physicalPage, .{ .present = 1, .read_write = 1 });
+    testPageTablePtr.setEntery(1, physicalPage, .{ .present = 1, .read_write = 1 });
+    const lpageDirectory = getPageDirectory();
+    const pageDirectoryIndex = 55;
+    const lvaddr0: u32 = 55 * DIR_SIZE + 4;
+    const lvaddr1: u32 = 55 * DIR_SIZE + PAGE_SIZE + 4;
+    lpageDirectory.setEntery(pageDirectoryIndex, testPageTablePtr, .{ .present = 1, .read_write = 1 }) catch |err| {
+        virtio.printf("Can't set test page table error: {}\n", .{err});
+        return;
+    };
+    forceTLBFlush();
+    // debugPrintPaging();
+    const lptr0: [*]u32 = @ptrFromInt(lvaddr0);
+    const lptr1: [*]u32 = @ptrFromInt(lvaddr1);
+    lptr0[0] = 0x6969;
+    if (lptr1[0] == 0x6969) {
+        virtio.printf("paging test passed lptr0: 0x{x} and lptr1: 0x{x}\n", .{ lptr0[0], lptr1[0] });
+    } else {
+        virtio.printf("paging test failed\n", .{});
     }
 }
