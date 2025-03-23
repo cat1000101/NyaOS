@@ -1,4 +1,4 @@
-// brain storming:
+// brain storming: (i am leaveing this here for memories of the easier times)
 // get the end of the kernel where there should be free memory that is not under 1MB
 // also get the size of the free memory fro mthe bootloader/multiboot
 // at the end i align and put the bitmap at the end of the kernel
@@ -42,17 +42,17 @@ pub fn BitMapAllocatorGeneric(comptime dynamicSize: u32) type {
                 .bitmap = [_]u8{0x00} ** dynamicSize,
             };
         }
-        pub fn allocate(this: *@This()) AllocatorError!u32 {
+        pub fn allocate(this: *@This()) AllocatorError!*u32 {
             for (0..this.size) |index| {
                 if (this.check(index) == false) {
                     this.set(index);
                     virtio.printf("allocated memory at 0x{x} size: 0x{x}\n", .{ index * this.allocationSize, this.allocationSize });
-                    return index * this.allocationSize;
+                    return @ptrFromInt(index * this.allocationSize);
                 }
             }
             return AllocatorError.OutOfMemory;
         }
-        pub fn allocateMany(this: *@This(), count: u32) AllocatorError!u32 {
+        pub fn allocateMany(this: *@This(), count: u32) AllocatorError!*u32 {
             var start: u32 = 0;
             var found: u32 = 0;
             for (0..this.size) |index| {
@@ -66,7 +66,7 @@ pub fn BitMapAllocatorGeneric(comptime dynamicSize: u32) type {
                             this.set(i);
                         }
                         virtio.printf("allocated memory at 0x{x} size: 0x{x}\n", .{ start * this.allocationSize, count * this.allocationSize });
-                        return start * this.allocationSize;
+                        return @ptrFromInt(start * this.allocationSize);
                     }
                 } else {
                     found = 0;
@@ -88,7 +88,7 @@ pub fn BitMapAllocatorGeneric(comptime dynamicSize: u32) type {
         pub fn resize(this: *@This(), newSize: u32) AllocatorError!void {
             _ = this;
             _ = newSize;
-            @panic("TODO: implement resize\n");
+            // @panic("TODO: implement resize\n");
         }
         pub fn alignAddress(this: *@This(), addr: u32) u32 {
             return addr & ~(this.allocationSize - 1);
@@ -119,7 +119,7 @@ pub fn BitMapAllocatorGeneric(comptime dynamicSize: u32) type {
 
 pub const BitMapAllocatorPageSize = BitMapAllocatorGeneric(physPageSizes);
 
-var physBitMap = BitMapAllocatorPageSize.initFull(physPageSizes);
+pub var physBitMap = BitMapAllocatorPageSize.initFull(physPageSizes);
 
 pub fn initPmm() void {
     setUsableMemory(&physBitMap);
@@ -127,7 +127,7 @@ pub fn initPmm() void {
         virtio.printf("failed to allocate memory\n", .{});
         return;
     };
-    physBitMap.free(testAllocation);
+    physBitMap.free(@intFromPtr(testAllocation));
 }
 
 fn setUsableMemory(bitMap: *BitMapAllocatorPageSize) void {
@@ -154,8 +154,8 @@ fn setUsableMemory(bitMap: *BitMapAllocatorPageSize) void {
         }
     }
     bitMap.endOfMemory = endOfMemory;
-    if (endOfMemory < 8 * physPageSizes * physPageSizes) {
-        @panic("you dont have enough memory dummy\n");
-    }
+    // if (endOfMemory < 8 * physPageSizes * physPageSizes) {
+    //     @panic("you dont have enough memory dummy\n");
+    // }
     virtio.printf("finished usable memory setting?\n", .{}); //.{bitMap});
 }

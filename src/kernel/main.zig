@@ -22,13 +22,13 @@ export var multiboot align(4) linksection(".multiboot") = MultibootHeader{
 
 const kernelNumberOf4MIBPages = 1;
 // setting up the paging stolen from https://github.com/ZystemOS/pluto again
-export var tempBootPageDirectory: [1024]u32 align(paging.PAGE_SIZE) linksection(".boot") = init: {
+pub export var tempBootPageDirectory: [1024]u32 align(paging.PAGE_SIZE) linksection(".boot") = init: {
     // Increase max number of branches done by comptime evaluator
     @setEvalBranchQuota(1024);
     // Temp value
     var dir: [1024]u32 = undefined;
 
-    const basicFlags = paging.DENTRY_4MB_PAGES | paging.DENTRY_PRESENT | paging.DENTRY_READ_WRITE | paging.DENTRY_ALLOCATED;
+    const basicFlags = paging.DENTRY_4MB_PAGES | paging.DENTRY_PRESENT | paging.DENTRY_READ_WRITE;
 
     // Page for 0 -> 4 MiB. Gets unmapped later hopefully
     dir[0] = basicFlags;

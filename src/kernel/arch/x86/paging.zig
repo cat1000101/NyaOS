@@ -1,4 +1,6 @@
 const virtio = @import("virtio.zig");
+const pmm = @import("../../mem/pmm.zig");
+const boot = @import("../../main.zig");
 
 pub const PageDirectoryEntery = packed struct {
     pub const Flags = packed struct {
@@ -102,6 +104,9 @@ pub const kernel_size_in_4MIB_pages: u32 = 1; //@extern(*u32, .{ .name = "kernel
 pub const kernel_size_in_4KIB_pages: u32 = 512; //@extern(*u32, .{ .name = "kernel_size_in_4KIB_pages" });
 pub const FIRST_KERNEL_DIR_NUMBER: u32 = kernel_start >> 22;
 
+const PAGE_TABLE_BASE = 0xFFC00000;
+const PAGE_DIRECTORY_VIRTUAL = 0xFFFFF000;
+
 pub const PageErrors = error{
     NoPage,
     IsBigPage,
@@ -113,11 +118,8 @@ pub const PageTable = struct {
     entries: [1024]PageTableEntery = [_]PageTableEntery{.{}} ** 1024,
 
     fn setEntery(self: *PageTable, index: u32, address: u32, flags: PageTableEntery.Flags) void {
-        self.entries[index] = PageTableEntery{
-            .flags = flags,
-            .address = @intCast(address >> 12),
-        };
-        // virtio.printf("set page table entery at: #{} address: 0x{x} flags: 0x{x}\n", .{ index, address, @as(u12, @bitCast(flags)) });
+        const entry: PageTableEntery = @bitCast(@as(u32, @intCast(@as(u12, @bitCast(flags)))) | address);
+        self.entries[index] = entry;
     }
 };
 
@@ -127,10 +129,11 @@ pub const PageDirectory = struct {
         big: PageDirectoryEnteryBig,
     };
     entries: [1024]DirectoryEnteryUnion = [_]DirectoryEnteryUnion{.{ .normal = .{} }} ** 1024,
+    tables: [1024]*PageTable = [_]*PageTable{undefined} ** 1024,
 
     fn setEntery(self: *PageDirectory, index: u32, pageTable: *PageTable, flags: PageDirectoryEntery.Flags) PageErrors!void {
         const physicalPageAddress: u32 = virtualToPhysical(@intFromPtr(pageTable)) catch |err| {
-            virtio.printf("can't set normal directory entery at: #{} error: {}\n", .{ index, err });
+            virtio.printf("PageDirectory.setEntery:  can't set normal directory entery at: #{} error: {}\n", .{ index, err });
             return err;
         };
         const inputAddress: u20 = @truncate(physicalPageAddress >> 12);
@@ -138,29 +141,98 @@ pub const PageDirectory = struct {
             .flags = flags,
             .address = inputAddress,
         };
-        // virtio.printf("set page directory entery at: #{} address: 0x{x} flags: 0x{x} entry: {}\n", .{
-        //     index,
-        //     @intFromPtr(pageTable),
-        //     @as(u12, @bitCast(flags)),
-        //     self.entries[index].normal,
-        // });
+        self.tables[index] = pageTable;
     }
 
-    fn setBigEntery(self: PageDirectory, index: u32, address: u32, flags: PageDirectoryEntery.Flags) void {
+    fn setBigEntery(self: *PageDirectory, index: u32, address: u32, flags: PageDirectoryEntery.Flags) void {
         self.entries[index].big = PageDirectoryEnteryBig{
             .flags = flags,
             .address_low = @truncate(address >> 22),
         };
     }
 
+    fn mapPage(self: *PageDirectory, vaddr: u32, paddr: u32, flags: PageTableEntery.Flags) PageErrors!void {
+        const pageTableIndex = (vaddr >> 12) & 1023;
+        const pageDirectoryIndex = vaddr >> 22;
+        const pageTable = self.getPageTable(pageDirectoryIndex) catch |err| {
+            virtio.printf("mapVirtualPage:  Can't get page table error: {}\n", .{err});
+            return err;
+        };
+        pageTable.setEntery(pageTableIndex, paddr, flags);
+    }
+
+    fn mapVirtualPage(self: *PageDirectory, vaddr: u32, paddr: u32, flags: PageTableEntery.Flags) PageErrors!void {
+        const pageTableIndex = (vaddr >> 12) & 1023;
+        const pageTable = self.getVirtualPageTable(vaddr) catch |err| {
+            virtio.printf("mapVirtualPage:  Can't get page table error: {}\n", .{err});
+            return err;
+        };
+        pageTable.setEntery(pageTableIndex, paddr, flags);
+    }
+
+    /// returns VIRTUAL address of the page table as pointer
     fn getPageTable(self: *PageDirectory, index: u32) PageErrors!*PageTable {
-        // virtio.printf("getPageTable:  index: {}, bigEntry: {}, normalEntry: {}\n", .{ index, self.entries[index].big, self.entries[index].normal });
-        if (self.entries[index].normal.address == 0) {
+        if (@as(u32, @bitCast(self.entries[index].normal)) == 0) {
             return PageErrors.NoPage;
         } else if (self.entries[index].big.flags.page_size == 1) {
             return PageErrors.IsBigPage;
         } else {
-            return @as(*PageTable, @ptrFromInt(@as(u32, self.entries[index].normal.address << 12)));
+            return self.tables[index];
+        }
+    }
+
+    /// should only be used at the early stages of paging
+    fn idPages(self: *PageDirectory, vaddr: u32, paddr: u32, size: u32) PageErrors!void {
+        if (!isAligned(vaddr, PAGE_SIZE) or !isAligned(paddr, PAGE_SIZE) or !isAligned(size, PAGE_SIZE)) {
+            virtio.printf("idVirtualPages:  idPaging input not aligned\n", .{});
+            return PageErrors.InputNotAligned;
+        }
+        var lpaddr: u32 = paddr;
+        var lvaddr: u32 = vaddr;
+        var lsize: u32 = size;
+        while (lsize > 0) : ({
+            lpaddr += PAGE_SIZE;
+            lvaddr += PAGE_SIZE;
+            lsize -= PAGE_SIZE;
+        }) {
+            self.mapPage(lvaddr, lpaddr, .{ .present = 1, .read_write = 1 }) catch |err| {
+                virtio.printf("idVirtualPages:  Can't map virtual page error: {}\n", .{err});
+                return err;
+            };
+        }
+    }
+
+    /// should only be used when using this page directory as the current page directory
+    /// returns VIRTUAL address of the page table
+    fn getVirtualPageTable(self: *PageDirectory, address: u32) PageErrors!*PageTable {
+        const pageDirIndex = address >> 22;
+        const pageTableAddress = PAGE_TABLE_BASE + (pageDirIndex << 12);
+        if (@as(u32, @bitCast(self.entries[pageDirIndex].normal)) == 0) {
+            return PageErrors.NoPage;
+        } else if (self.entries[pageDirIndex].big.flags.page_size == 1) {
+            return PageErrors.IsBigPage;
+        }
+        const pageTable: *PageTable = @ptrFromInt(pageTableAddress);
+        return pageTable;
+    }
+
+    fn idVirtualPages(self: *PageDirectory, vaddr: u32, paddr: u32, size: u32) PageErrors!void {
+        if (!isAligned(vaddr, PAGE_SIZE) or !isAligned(paddr, PAGE_SIZE) or !isAligned(size, PAGE_SIZE)) {
+            virtio.printf("idVirtualPages:  idPaging input not aligned\n", .{});
+            return PageErrors.InputNotAligned;
+        }
+        var lpaddr: u32 = paddr;
+        var lvaddr: u32 = vaddr;
+        var lsize: u32 = size;
+        while (lsize > 0) : ({
+            lpaddr += PAGE_SIZE;
+            lvaddr += PAGE_SIZE;
+            lsize -= PAGE_SIZE;
+        }) {
+            self.mapVirtualPage(lvaddr, lpaddr, .{ .present = 1, .read_write = 1 }) catch |err| {
+                virtio.printf("idVirtualPages:  Can't map virtual page error: {}\n", .{err});
+                return err;
+            };
         }
     }
 };
@@ -169,38 +241,44 @@ pub var pageDirectory: PageDirectory align(4096) = .{};
 pub var higherHalfPage: PageTable align(4096) = .{};
 pub var firstPage: PageTable align(4096) = .{};
 
+const pageDirectoryPtr: *PageDirectory = &pageDirectory;
+const higherHalfPagePtr: *PageTable = &higherHalfPage;
+const firstPagePtr: *PageTable = &firstPage;
+
 pub fn initPaging() void {
     virtio.printf("Initializing paging\n", .{});
     defer virtio.printf("Paging initialized\n", .{});
-    pageDirectory.setEntery(0, &firstPage, .{
+
+    pageDirectory.setEntery(1023, @ptrCast(pageDirectoryPtr), .{
+        .present = 1,
+        .read_write = 1,
+    }) catch |err| {
+        virtio.printf("Can't set recursive page table error: {}\n", .{err});
+        return;
+    };
+    pageDirectoryPtr.setEntery(0, firstPagePtr, .{
         .present = 1,
         .read_write = 1,
     }) catch |err| {
         virtio.printf("Can't set first page table error: {}\n", .{err});
         return;
     };
-    pageDirectory.setEntery(FIRST_KERNEL_DIR_NUMBER, &higherHalfPage, .{
+    pageDirectoryPtr.setEntery(FIRST_KERNEL_DIR_NUMBER, higherHalfPagePtr, .{
         .present = 1,
         .read_write = 1,
     }) catch |err| {
         virtio.printf("Can't set kernel page table error: {}\n", .{err});
         return;
     };
-    idPaging(&pageDirectory, 0, 0, 1 * MIB) catch |err| {
+    pageDirectoryPtr.idPages(0, 0, 1 * MIB) catch |err| {
         virtio.printf("Can't id map first page table error: {}\n", .{err});
         return;
     };
-    mapHigherHalf(&pageDirectory);
+    mapHigherHalf(pageDirectoryPtr);
 
-    // virtio.printf("page directory physical address: 0x{x} virtual address: 0x{x}\n", .{ virtualToPhysical(@intFromPtr(&pageDirectory)) catch blk: {
-    //     break :blk 0x6969;
-    // }, @intFromPtr(&pageDirectory) });
-    // for (pageDirectory.entries, 0..1024) |entery, i| {
-    //     virtio.printf("entery #{} info:  0x{x}\n", .{ i, @as(u32, @bitCast(entery.normal)) });
-    //     virtio.printf("entery #{} info:  {}\n", .{ i, entery.normal });
-    // }
+    // debugPrintPaging();
 
-    installPageDirectory(&pageDirectory) catch |err| {
+    installPageDirectory(pageDirectoryPtr) catch |err| {
         virtio.printf("Can't install page directory error: {}\n", .{err});
         return;
     };
@@ -213,7 +291,7 @@ pub fn virtualToPhysical(address: u32) PageErrors!u32 {
         if (err == PageErrors.IsBigPage) {
             return @intCast((@as(u32, @intCast(lpageDirectory.entries[split.directoryEntry].big.address_low)) << 22) | (@as(u32, @intCast(split.pageEntry)) << 12) | split.offset);
         } else {
-            virtio.printf("No page table found for dir: {} error: {}\n", .{ split.directoryEntry, err });
+            virtio.printf("virtualToPhysical:  No page table found for dir: {} error: {}\n", .{ split.directoryEntry, err });
             return PageErrors.NotMapped;
         }
     };
@@ -243,29 +321,19 @@ fn installPageDirectory(pd: *PageDirectory) PageErrors!void {
     );
 }
 
-fn idPaging(pd: *PageDirectory, vaddr: u32, paddr: u32, size: u32) PageErrors!void {
-    if (!isAligned(vaddr, PAGE_SIZE) or !isAligned(paddr, PAGE_SIZE) or !isAligned(size, PAGE_SIZE)) {
-        virtio.printf("idPaging input not aligned\n", .{});
-        return PageErrors.InputNotAligned;
-    }
-    const fisrtDirEnteryNum: u32 = vaddr >> 22;
-    var lpaddr: u32 = paddr;
-    var lvaddr: u32 = vaddr;
-    var lsize: u32 = size;
-    for (fisrtDirEnteryNum..(fisrtDirEnteryNum + ((size - 1) / DIR_SIZE) + 1)) |dirEntryNum| {
-        const pageTable: *PageTable = pd.getPageTable(dirEntryNum) catch |err| {
-            virtio.printf("No page table found for dir: {} error: {}\n", .{ dirEntryNum, err });
-            return;
-        };
-        while (lvaddr < (dirEntryNum + 1) << 22 and lsize > 0) : ({
-            lpaddr += PAGE_SIZE;
-            lvaddr += PAGE_SIZE;
-            lsize -= PAGE_SIZE;
-        }) {
-            // virtio.printf("idPaging:  lpaddr: 0x{x}, lvaddr: 0x{x}, lsize: 0x{x}\n", .{ lpaddr, lvaddr, lsize });
-            pageTable.setEntery((lvaddr >> 12) & 1023, lpaddr, .{ .present = 1, .read_write = 1 });
-        }
-    }
+fn forceTLBFlush() void {
+    asm volatile (
+        \\  mov %cr3, %eax
+        \\  mov %eax, %cr3
+    );
+}
+
+fn invalidatePage(address: u32) void {
+    asm volatile (
+        \\  invlpg %[address]
+        :
+        : [address] "{eax}" (address),
+    );
 }
 
 fn mapHigherHalf(pd: *PageDirectory) void {
@@ -274,7 +342,7 @@ fn mapHigherHalf(pd: *PageDirectory) void {
     const physicalAddress: u32 = kernel_physical_start & 0xfffff000;
     const virtualAddress: u32 = kernel_start & 0xfffff000;
     const size: u32 = kernel_size_in_4KIB_pages * PAGE_SIZE;
-    idPaging(pd, virtualAddress, physicalAddress, size) catch |err| {
+    pd.idPages(virtualAddress, physicalAddress, size) catch |err| {
         virtio.printf("Can't id map higher half error: {}\n", .{err});
         return;
     };
@@ -282,4 +350,27 @@ fn mapHigherHalf(pd: *PageDirectory) void {
 
 pub fn isAligned(address: u32, alignment: u32) bool {
     return (address & (alignment - 1)) == 0;
+}
+
+fn debugPrintPaging() void {
+    const lpageDirectory = getPageDirectory();
+    virtio.printf("page directory physical address: 0x{x} virtual address: 0x{x}\n", .{ virtualToPhysical(@intFromPtr(&lpageDirectory)) catch blk: {
+        break :blk 0x6969;
+    }, @intFromPtr(&lpageDirectory) });
+    for (lpageDirectory.entries, lpageDirectory.tables, 0..1024) |entery, table, i| {
+        if (@as(u32, @bitCast(entery.normal)) == 0) {
+            continue;
+        }
+        for (table.entries, 0..1024) |lPTE, j| {
+            if (@as(u32, @bitCast(lPTE)) == 0) {
+                continue;
+            }
+            virtio.printf("debugPrintPaging:  directory entry: #{} info: 0x{x}\ndebugPrintPaging:  page entry: #{} info: 0x{x}", .{
+                i,
+                @as(u32, @bitCast(entery.normal)),
+                j,
+                @as(u32, @bitCast(lPTE)),
+            });
+        }
+    }
 }

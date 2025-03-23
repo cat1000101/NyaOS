@@ -14,6 +14,10 @@ pub fn putcharAsm(c: u8) void {
     );
 }
 
+pub fn bochsBreak() void {
+    asm volatile ("xchg %bx, %bx");
+}
+
 const writer = Writer(void, error{}, callback){ .context = {} };
 
 fn callback(_: void, string: []const u8) error{}!usize {

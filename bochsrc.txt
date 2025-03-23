@@ -1,0 +1,8 @@
+romimage: file=BIOS-bochs-latest
+vgaromimage: file=VGABIOS-lgpl-latest
+ata0-slave: type=cdrom, path=zig-out/NyaOS.iso, status=inserted
+boot: cdrom
+display_library: x, options = "gui_debug"
+cpu: count = 1
+magic_break: enabled=1
+# gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0

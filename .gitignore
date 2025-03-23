@@ -55,3 +55,7 @@ dkms.conf
 
 qemu.log
 run.log
+bochs-out.txt
+BIOS-bochs-latest
+VGABIOS-lgpl-latest
+bx_enh_dbg.ini
