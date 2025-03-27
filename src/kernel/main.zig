@@ -46,7 +46,7 @@ pub export var tempBootPageDirectory: [1024]u32 align(paging.PAGE_SIZE) linksect
 
     // Map the kernel's higher half pages increasing by 4 MiB every time
     i = 0;
-    while (i < kernelNumberOf4MIBPages) : ({ //paging.kernel_size_in_4MIB_pages) : ({
+    while (i < kernelNumberOf4MIBPages) : ({
         i += 1;
         idx += 1;
     }) {
@@ -54,7 +54,7 @@ pub export var tempBootPageDirectory: [1024]u32 align(paging.PAGE_SIZE) linksect
     }
     // Fill succeeding pages with zeroes. May be unnecessary but incurs no runtime cost
     i = 0;
-    while (i < 1024 - paging.FIRST_KERNEL_DIR_NUMBER - kernelNumberOf4MIBPages) : ({ // paging.NUMBER_OF_4MIB_KERNEL_PAGES) : ({
+    while (i < 1024 - paging.FIRST_KERNEL_DIR_NUMBER - kernelNumberOf4MIBPages) : ({
         i += 1;
         idx += 1;
     }) {
@@ -65,6 +65,16 @@ pub export var tempBootPageDirectory: [1024]u32 align(paging.PAGE_SIZE) linksect
 
 // entery point and setting up paging and jumping to higher half entery point of the kernel
 export fn _start() align(16) linksection(".boot") callconv(.Naked) noreturn {
+    asm volatile (
+        \\ push %eax
+        \\ push %ebx
+    );
+    tempBootPageDirectory[1023] = @intFromPtr(&tempBootPageDirectory) | paging.DENTRY_PRESENT | paging.DENTRY_READ_WRITE;
+    asm volatile (
+        \\ pop %ebx
+        \\ pop %eax
+    );
+
     // Set the page directory to the boot directory
     asm volatile (
         \\  .extern tempBootPageDirectory

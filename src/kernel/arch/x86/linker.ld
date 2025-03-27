@@ -2,8 +2,6 @@ ENTRY(_start)
  
 SECTIONS {
     . = 2M;
-
-    kernel_physical_start = .;
  
     .multiboot : {
         KEEP(*(.multiboot))
@@ -43,6 +41,7 @@ SECTIONS {
         kernel_end = .;
     }
     
+    kernel_physical_start = kernel_start - 0xC0000000;
     kernel_physical_end = kernel_end - 0xC0000000;
 
     kernel_size_in_4MIB_pages = (kernel_physical_end >> 22) - (kernel_physical_start >> 22);
