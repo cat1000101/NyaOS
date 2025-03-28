@@ -313,12 +313,6 @@ pub fn initPaging() void {
     mapHigherHalf(pageDirectoryPtr);
 
     // debugPrintPaging(pageDirectoryPtr);
-    virtio.printf("kernel start: 0x{x} end: 0x{x}, physical start: 0x{x} end: 0x{x}\n", .{
-        @intFromPtr(kernel_start),
-        @intFromPtr(kernel_end),
-        @intFromPtr(kernel_physical_start),
-        @intFromPtr(kernel_physical_end),
-    });
 
     installPageDirectory(pageDirectoryPtr) catch |err| {
         virtio.printf("Can't install page directory error: {}\n", .{err});
@@ -379,7 +373,7 @@ fn mapHigherHalf(pd: *PageDirectory) void {
     virtio.printf("map higher half kernel\n", .{});
     defer virtio.printf("higher half kernel mapped\n", .{});
     const size: u32 = (@intFromPtr(kernel_end) - KERNEL_ADDRESS_SPACE + PAGE_SIZE) & 0xfffff000;
-    pd.idPages(KERNEL_ADDRESS_SPACE, KERNEL_ADDRESS_SPACE, size) catch |err| {
+    pd.idPages(KERNEL_ADDRESS_SPACE, 0, size) catch |err| {
         virtio.printf("Can't id map higher half error: {}\n", .{err});
         return;
     };
