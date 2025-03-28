@@ -273,9 +273,9 @@ fn getPageDirectory() *PageDirectory {
     return pd;
 }
 
-pub var pageDirectory: PageDirectory align(4096) = .{};
-pub var higherHalfPage: PageTable align(4096) = .{};
-pub var firstPage: PageTable align(4096) = .{};
+var pageDirectory: PageDirectory align(4096) = .{};
+var higherHalfPage: PageTable align(4096) = .{};
+var firstPage: PageTable align(4096) = .{};
 
 pub const pageDirectoryPtr: *PageDirectory = &pageDirectory;
 const higherHalfPagePtr: *PageTable = &higherHalfPage;
@@ -379,34 +379,8 @@ fn mapHigherHalf(pd: *PageDirectory) void {
     };
 }
 
-fn debugPrintPaging(pd: *PageDirectory) void {
-    const lpageDirectory = pd;
-    virtio.printf("page directory physical address: 0x{x} virtual address: 0x{x}\n", .{ virtualToPhysical(@intFromPtr(&lpageDirectory)) catch blk: {
-        break :blk 0x6969;
-    }, @intFromPtr(&lpageDirectory) });
-    virtio.printf("kernel start: 0x{x} end: 0x{x}, physical start: 0x{x} end: 0x{x}\n", .{
-        @intFromPtr(kernel_start),
-        @intFromPtr(kernel_end),
-        @intFromPtr(kernel_physical_start),
-        @intFromPtr(kernel_physical_end),
-    });
-    for (lpageDirectory.entries, lpageDirectory.tables, 0..1024) |entery, table, i| {
-        if (@as(u32, @bitCast(entery.normal)) == 0) {
-            continue;
-        }
-        for (table.entries, 0..1024) |lPTE, j| {
-            if (@as(u32, @bitCast(lPTE)) == 0) {
-                continue;
-            }
-            virtio.printf("debugPrintPaging:  directory entry: #{} entry data: 0x{x}\ndebugPrintPaging:  page entry: #{} entry data: 0x{x}, mapped vaddr: 0x{x}\n", .{
-                i,
-                @as(u32, @bitCast(entery.normal)),
-                j,
-                @as(u32, @bitCast(lPTE)),
-                (i << 22) | (j << 12),
-            });
-        }
-    }
+fn mapForbiddenZones(pd: PageDirectory) void {
+    _ = pd;
 }
 
 var testPageTable: PageTable align(4096) = .{};
@@ -437,5 +411,35 @@ fn testPaging() void {
         virtio.printf("paging test passed lptr0: 0x{x} and lptr1: 0x{x}\n", .{ lptr0[0], lptr1[0] });
     } else {
         virtio.printf("paging test failed\n", .{});
+    }
+}
+
+fn debugPrintPaging(pd: *PageDirectory) void {
+    const lpageDirectory = pd;
+    virtio.printf("page directory physical address: 0x{x} virtual address: 0x{x}\n", .{ virtualToPhysical(@intFromPtr(&lpageDirectory)) catch blk: {
+        break :blk 0x6969;
+    }, @intFromPtr(&lpageDirectory) });
+    virtio.printf("kernel start: 0x{x} end: 0x{x}, physical start: 0x{x} end: 0x{x}\n", .{
+        @intFromPtr(kernel_start),
+        @intFromPtr(kernel_end),
+        @intFromPtr(kernel_physical_start),
+        @intFromPtr(kernel_physical_end),
+    });
+    for (lpageDirectory.entries, lpageDirectory.tables, 0..1024) |entery, table, i| {
+        if (@as(u32, @bitCast(entery.normal)) == 0) {
+            continue;
+        }
+        for (table.entries, 0..1024) |lPTE, j| {
+            if (@as(u32, @bitCast(lPTE)) == 0) {
+                continue;
+            }
+            virtio.printf("debugPrintPaging:  directory entry: #{} entry data: 0x{x}\ndebugPrintPaging:  page entry: #{} entry data: 0x{x}, mapped vaddr: 0x{x}\n", .{
+                i,
+                @as(u32, @bitCast(entery.normal)),
+                j,
+                @as(u32, @bitCast(lPTE)),
+                (i << 22) | (j << 12),
+            });
+        }
     }
 }
