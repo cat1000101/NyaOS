@@ -3,17 +3,25 @@ const print = std.debug.print;
 const Builder = std.Build;
 const Target = std.Target;
 const Feature = std.Target.Cpu.Feature;
-const kernelBuild = @import("src/kernel/build.zig");
 
 pub fn build(b: *Builder) void {
     // building the kernel into a kernel.elf
+    const kernel_dep = b.dependency("kernel", .{});
 
-    const kernel, const kernel_artifact_step = kernelBuild.getKernel(b);
+    const kernel_exe = kernel_dep.artifact("kernel.elf");
+    const kernel_exe_step = &b.addInstallArtifact(kernel_exe, .{
+        .dest_dir = .{
+            .override = .{
+                .custom = "/extra/",
+            },
+        },
+    }).step;
+    b.getInstallStep().dependOn(kernel_exe_step);
 
     // setting the paths and commands
-    const kernel_path = kernel.getEmittedBin();
+    const kernel_path = kernel_exe.getEmittedBin();
     const grub_path = b.path("src/boot/grub.cfg");
-    const kernel_sys = b.fmt("sysroot/boot/{s}", .{kernel.out_filename});
+    const kernel_sys = b.fmt("sysroot/boot/{s}", .{kernel_exe.out_filename});
     const grub_sys = b.fmt("sysroot/boot/grub/{s}", .{"grub.cfg"});
     const iso_cmd = [_][]const u8{ "grub2-mkrescue", "-o" };
     const common_qemu_args = [_][]const u8{
@@ -31,10 +39,6 @@ pub fn build(b: *Builder) void {
         "stdio",
     };
 
-    const kernel_step = b.step("kernel", "Build the kernel");
-    kernel_step.dependOn(kernel_artifact_step);
-    kernel_step.dependOn(&kernel.step);
-
     // making sysroot directoy and putting the files there
     const wf = b.addWriteFiles();
     // const sysroot_path = wf.add(sub_path: []const u8, bytes: []const u8);
@@ -49,11 +53,11 @@ pub fn build(b: *Builder) void {
 
     const install_iso = &b.addInstallFileWithDir(nyaos_iso_file, .prefix, "NyaOS.iso").step;
     nyaos_iso_file.addStepDependencies(install_iso);
-    install_iso.dependOn(kernel_step);
+    install_iso.dependOn(kernel_exe_step);
 
     // step to make everything
     const all_step = b.step("all", "does(installs) everything");
-    const steps: []const *std.Build.Step = &.{ install_iso, kernel_step };
+    const steps: []const *std.Build.Step = &.{ install_iso, kernel_exe_step };
     for (steps) |step| all_step.dependOn(step);
 
     // step and commands to run the iso in qemu
@@ -70,7 +74,7 @@ pub fn build(b: *Builder) void {
     debug_cmd.addArg("-S");
     debug_cmd.addArg("-kernel");
     debug_cmd.addFileArg(kernel_path);
-    debug_cmd.step.dependOn(kernel_step);
+    debug_cmd.step.dependOn(kernel_exe_step);
 
     const debug_step = b.step("debug", "debugs the kernel with qemu");
     debug_step.dependOn(&debug_cmd.step);

@@ -165,7 +165,7 @@ fn testPageAllocator(allocator: *BitMapAllocatorPageSize) void {
 
 fn setUsableMemory(bitMap: *BitMapAllocatorPageSize) void {
     virtio.printf("setting usable memory for page allocator\n", .{});
-    defer virtio.printf("finished usable memory setting? data: {}\n", .{bitMap});
+    defer virtio.printf("finished usable memory setting?\n", .{}); // data: {}\n", .{bitMap});
 
     const header = multiboot.multibootInfo;
     const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);

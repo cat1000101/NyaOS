@@ -3,10 +3,7 @@ const Builder = std.Build;
 const Target = std.Target;
 const Feature = std.Target.Cpu.Feature;
 
-pub fn getKernel(b: *Builder) struct {
-    *std.Build.Step.Compile,
-    *std.Build.Step,
-} {
+pub fn build(b: *Builder) void {
     const features = Target.x86.Feature;
 
     var disabled_features = Feature.Set.empty;
@@ -19,35 +16,31 @@ pub fn getKernel(b: *Builder) struct {
     disabled_features.addFeature(@intFromEnum(features.avx2));
     enabled_features.addFeature(@intFromEnum(features.soft_float));
 
-    const target_query = Target.Query{
+    const target = b.resolveTargetQuery(Target.Query{
         .cpu_arch = Target.Cpu.Arch.x86,
         .os_tag = Target.Os.Tag.freestanding,
         .abi = Target.Abi.none,
         .cpu_features_sub = disabled_features,
         .cpu_features_add = enabled_features,
-    };
+    });
 
-    // const optimize = b.standardOptimizeOption(.{});
+    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .Debug });
 
-    const kernel = b.addExecutable(.{
-        .name = "kernel.elf",
-        .root_source_file = b.path("src/kernel/main.zig"),
-        .target = b.resolveTargetQuery(target_query),
-        .optimize = .Debug,
+    const kernelModule = b.createModule(.{
+        .optimize = optimize,
+        .target = target,
+        .root_source_file = b.path("main.zig"),
         .code_model = .kernel,
     });
 
-    kernel.setLinkerScript(b.path("src/kernel/arch/x86/linker.ld"));
+    const kernel_exe = b.addExecutable(.{
+        .name = "kernel.elf",
+        .root_module = kernelModule,
+    });
 
-    const kernel_artifact_step = &b.addInstallArtifact(kernel, .{
-        .dest_dir = .{
-            .override = .{
-                .custom = "/extra/",
-            },
-        },
-    }).step;
+    kernel_exe.root_module.addImport("kernel", kernelModule);
 
-    b.getInstallStep().dependOn(kernel_artifact_step);
+    kernel_exe.setLinkerScript(b.path("arch/x86/linker.ld"));
 
-    return .{ kernel, kernel_artifact_step };
+    b.installArtifact(kernel_exe);
 }

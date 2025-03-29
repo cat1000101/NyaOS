@@ -6,7 +6,12 @@
 
     .minimum_zig_version = "0.14.0",
 
-    .dependencies = .{},
+    .dependencies = .{
+        // local deps
+        .kernel = .{
+            .path = "src/kernel",
+        },
+    },
 
     .paths = .{
         "build.zig",

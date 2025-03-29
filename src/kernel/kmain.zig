@@ -21,6 +21,9 @@ export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
 
     tty.initialize();
     tty.printf("meow i like {any} cats\n", .{69});
+    tty.printf("meow i like {any} cats\n", .{69});
+    tty.printf("meow i like {any} cats\n", .{69});
+    tty.printf("meow i like {any} cats\n", .{69});
 
     gdt.initGdt();
 
