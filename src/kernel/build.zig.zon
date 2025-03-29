@@ -1,7 +1,0 @@
-.{
-    .name = "kernel",
-    .version = "0.4.2",
-    .paths = .{
-        ".",
-    },
-}

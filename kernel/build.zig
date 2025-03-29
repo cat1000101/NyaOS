@@ -29,7 +29,7 @@ pub fn build(b: *Builder) void {
     const kernelModule = b.createModule(.{
         .optimize = optimize,
         .target = target,
-        .root_source_file = b.path("main.zig"),
+        .root_source_file = b.path("src/main.zig"),
         .code_model = .kernel,
     });
 
@@ -40,7 +40,7 @@ pub fn build(b: *Builder) void {
 
     kernel_exe.root_module.addImport("kernel", kernelModule);
 
-    kernel_exe.setLinkerScript(b.path("arch/x86/linker.ld"));
+    kernel_exe.setLinkerScript(b.path("src/arch/x86/linker.ld"));
 
     b.installArtifact(kernel_exe);
 }

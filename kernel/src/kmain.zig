@@ -1,3 +1,4 @@
+const main = @import("main.zig");
 const tty = @import("drivers/tty.zig");
 const virtio = @import("arch/x86/virtio.zig");
 const utils = @import("arch/x86/utils.zig");
@@ -11,7 +12,7 @@ const paging = @import("arch/x86/paging.zig");
 
 const panic = @import("panic.zig");
 
-export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
+pub export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
     virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
     _ = multiboot.checkMultibootHeader(mbd, magic);
 
@@ -20,9 +21,6 @@ export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
     paging.initPaging();
 
     tty.initialize();
-    tty.printf("meow i like {any} cats\n", .{69});
-    tty.printf("meow i like {any} cats\n", .{69});
-    tty.printf("meow i like {any} cats\n", .{69});
     tty.printf("meow i like {any} cats\n", .{69});
 
     gdt.initGdt();

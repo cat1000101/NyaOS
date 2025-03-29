@@ -20,7 +20,7 @@ pub fn build(b: *Builder) void {
 
     // setting the paths and commands
     const kernel_path = kernel_exe.getEmittedBin();
-    const grub_path = b.path("src/boot/grub.cfg");
+    const grub_path = b.path("bootloader/grub.cfg");
     const kernel_sys = b.fmt("sysroot/boot/{s}", .{kernel_exe.out_filename});
     const grub_sys = b.fmt("sysroot/boot/grub/{s}", .{"grub.cfg"});
     const iso_cmd = [_][]const u8{ "grub2-mkrescue", "-o" };
@@ -34,7 +34,7 @@ pub fn build(b: *Builder) void {
         "-d",
         "guest_errors,int,mmu",
         "-D",
-        "qemu.log",
+        ".extras/qemu.log",
         "-debugcon",
         "stdio",
     };

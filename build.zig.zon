@@ -9,16 +9,17 @@
     .dependencies = .{
         // local deps
         .kernel = .{
-            .path = "src/kernel",
+            .path = "kernel",
         },
     },
 
     .paths = .{
         "build.zig",
         "build.zig.zon",
-        "src",
         "LICENSE",
         "README.md",
+        "kernel",
+        "bootloader",
         "", // maybe remove? i am not sure about conventions
     },
 }
