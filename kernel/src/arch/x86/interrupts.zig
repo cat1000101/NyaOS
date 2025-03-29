@@ -91,8 +91,10 @@ export fn isrCommonStub() callconv(.Naked) void {
         \\  mov %ax, %gs
         \\
         \\  push %esp            // pass pointer to the cpu state
-        \\  call Handler
+        \\  call %[Handler:P]
         \\  add $4, %esp         // remove the pointer to the cpu state
+        :
+        : [Handler] "X" (&Handler),
     );
     // end of black box
 
@@ -141,10 +143,10 @@ pub fn generateStub(function: *const fn () callconv(.C) void) fn () callconv(.Na
             );
             asm volatile (
                 \\  push %esp            // pass pointer to the cpu state
-                \\  call *%[function]
+                \\  call *%[function:P]
                 \\  add $4, %esp         // remove the pointer to the cpu state
                 :
-                : [function] "{eax}" (function),
+                : [function] "X" (&function),
             );
             // end of black box
 
@@ -184,9 +186,10 @@ fn generateIsrStub(comptime interrupt_num: u32) fn () callconv(.Naked) void {
 
             asm volatile (
                 \\ pushl %[nr]
-                \\ jmp isrCommonStub
+                \\ jmp %[isrCommonStub:P]
                 :
                 : [nr] "n" (interrupt_num),
+                  [isrCommonStub] "X" (&isrCommonStub),
             );
         }
     }.func;

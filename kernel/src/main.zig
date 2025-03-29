@@ -1,4 +1,4 @@
-const kmain = @import("kmain.zig");
+const kmainFile = @import("kmain.zig");
 const paging = @import("arch/x86/paging.zig");
 const multibootType = @import("multiboot.zig");
 
@@ -97,7 +97,9 @@ pub export fn _start() align(16) linksection(".boot") callconv(.Naked) noreturn 
         \\  mov %ecx, %cr0
     );
     asm volatile (
-        \\  jmp high_half_entery
+        \\  jmp %[high_half_entery:P]
+        :
+        : [high_half_entery] "X" (&high_half_entery),
     );
     while (true) {
         asm volatile ("hlt");
@@ -111,14 +113,14 @@ export const stack_top = &stack[stack.len - 1];
 // putting the stack to the stack pointer
 // jumping to the kmain lower half of the kernel?
 export fn high_half_entery() align(16) callconv(.Naked) noreturn {
-    _ = kmain.kmain;
     asm volatile (
-        \\  .extern stack_top
-        \\  .extern kmain
-        \\  mov $stack_top, %esp
+        \\  mov %[stack_top], %esp
         \\  push %eax
         \\  push %ebx
-        \\  call kmain
+        \\  call %[kmain:P]
+        :
+        : [kmain] "X" (&kmainFile.kmain),
+          [stack_top] "{edx}" (stack_top),
     );
     while (true) {
         asm volatile ("hlt");
