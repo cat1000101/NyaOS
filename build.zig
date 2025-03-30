@@ -47,9 +47,8 @@ pub fn build(b: *Builder) void {
 
     // making the iso
     const mkiso = b.addSystemCommand(&iso_cmd);
-    mkiso.setCwd(wf.getDirectory());
     const nyaos_iso_file = mkiso.addOutputFileArg("NyaOS.iso");
-    mkiso.addArgs(&.{"sysroot/"});
+    mkiso.addDirectoryArg(wf.getDirectory().path(b, "sysroot"));
 
     const install_iso = &b.addInstallFileWithDir(nyaos_iso_file, .prefix, "NyaOS.iso").step;
     nyaos_iso_file.addStepDependencies(install_iso);

@@ -38,6 +38,4 @@ pub export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
     utils.whileTrue();
 
     utils.hlt();
-
-    // @compileError("welp");
 }
