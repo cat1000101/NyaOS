@@ -2,11 +2,49 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Prelaunch32",
+            "label": "run",
             "type": "shell",
-            "isBackground": false,
             "linux": {
-                "command": "${workspaceRoot}/debug.sh"
+                "command": "zig",
+                "args": [
+                    "build",
+                    "run"
+                ]
+            },
+            "presentation": {
+                "focus": true,
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "debug",
+            "type": "shell",
+            "linux": {
+                "command": "zig",
+                "args": [
+                    "build",
+                    "debug"
+                ]
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "clear": false,
+                "revealProblems": "onProblem",
+                "close": true
+            },
+            "group": {
+                "kind": "none",
+                "isDefault": false
             }
         }
     ]
