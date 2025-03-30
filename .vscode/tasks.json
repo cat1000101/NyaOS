@@ -1,0 +1,13 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Prelaunch32",
+            "type": "shell",
+            "isBackground": false,
+            "linux": {
+                "command": "${workspaceRoot}/debug.sh"
+            }
+        }
+    ]
+}

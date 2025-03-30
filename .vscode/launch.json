@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "by-gdb",
+            "request": "launch",
+            "name": "Launch(remote)",
+            "program": "${workspaceRoot}/zig-out/extra/kernel.elf", // zig-out/NyaOS.iso
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "Prelaunch32",
+            // "postDebugTask": "CloseQemu",
+            "remote": {
+                "enabled": true,
+                "address": ":1234",
+                "mode": "remote",
+                "execfile": "${workspaceRoot}/zig-out/extra/kernel.elf", // zig-out/NyaOS.iso
+            },
+            "commandsBeforeExec": [
+                "set arch i386",
+                "set disassembly-flavor intel",
+                "set disassemble-next-line on",
+                "break kmain"
+            ],
+        }
+    ]
+}
