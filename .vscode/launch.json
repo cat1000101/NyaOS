@@ -2,23 +2,19 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "GDB Remote Attach OS",
-            "type": "cppdbg",
-            "request": "launch",
-            "externalConsole": false,
-            "stopAtEntry": true,
+            "name": "Attach to QEMU",
+            "type": "lldb",
+            "request": "attach",
             "program": "${workspaceFolder}/zig-out/extra/kernel.elf",
-            "MIMode": "gdb",
-            "cwd": "${workspaceFolder}",
-            "miDebuggerServerAddress": "localhost:1234",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
+            "processCreateCommands": [
+                "gdb-remote localhost:1234",
+                "b kmain",
+                "c"
             ],
-            "preLaunchTask": "debug"
+            "preLaunchTask": "debug",
+            "exitCommands": [
+                "process kill"
+            ]
         }
     ]
 }

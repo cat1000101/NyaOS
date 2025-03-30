@@ -11,12 +11,14 @@
                     "run"
                 ]
             },
+            "problemMatcher": [
+                "$zig"
+            ],
             "presentation": {
                 "focus": true,
                 "panel": "shared",
                 "clear": true
             },
-            "problemMatcher": [],
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -32,7 +34,10 @@
                     "debug"
                 ]
             },
-            "problemMatcher": [],
+            "isBackground": true,
+            "problemMatcher": [
+                "$zig"
+            ],
             "presentation": {
                 "echo": true,
                 "reveal": "silent",
