@@ -1,6 +1,5 @@
 pub fn hlt() void {
-    asm volatile ("hlt");
-    while (true) asm volatile ("");
+    while (true) asm volatile ("hlt");
 }
 
 pub fn whileTrue() void {

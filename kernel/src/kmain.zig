@@ -16,6 +16,10 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) void {
     virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
     _ = multiboot.checkMultibootHeader(mbh, magic);
 
+    gdt.initGdt();
+
+    idt.initIdt();
+
     pmm.initPmm();
 
     vmm.initVmm();
@@ -23,11 +27,7 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) void {
     tty.initialize();
     tty.printf("meow i like {any} cats\n", .{69});
 
-    gdt.initGdt();
-
     utils.whileTrue();
-
-    idt.initIdt();
 
     acpi.initACPI();
 

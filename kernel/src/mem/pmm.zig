@@ -7,28 +7,32 @@ const multiboot = @import("../multiboot.zig");
 const virtio = @import("../arch/x86/virtio.zig");
 const memory = @import("memory.zig");
 
-fn pageAlignAddress(addr: u32) u32 {
-    return addr & ~(memory.physPageSizes - 1);
-}
-fn pageAlignAddressDown(addr: u32) u32 {
-    return pageAlignAddress(addr - memory.physPageSizes);
-}
-fn pageAlignAddressUp(addr: u32) u32 {
-    return pageAlignAddress(addr + memory.physPageSizes);
-}
-
-pub const BitMapAllocatorPageSize = memory.BitMapAllocatorGeneric(memory.physPageSizes);
-
-pub var physBitMap = BitMapAllocatorPageSize.init(
+const BitMapAllocatorPageSize = memory.BitMapAllocatorGeneric(memory.physPageSizes);
+var physBitMap = BitMapAllocatorPageSize.init(
     memory.physPageSizes,
-    memory.physMemStart,
-    memory.physMemStart + (memory.MIB * 3),
+    memory.MIB * 4,
+    memory.MIB * 8,
     true,
 );
 
 pub fn initPmm() void {
     physBitMap.setUsableMemory(multiboot.multibootInfo);
-    testPageAllocator(&physBitMap);
+    // testPageAllocator(&physBitMap);
+}
+
+pub fn allocate() ?[*]u8 {
+    const page = physBitMap.allocate() catch {
+        virtio.printf("failed to allocate memory\n", .{});
+        return null;
+    };
+    return page;
+}
+pub fn rawAllocate() ![*]u8 {
+    return physBitMap.allocate();
+}
+
+pub fn free(page: [*]u8) void {
+    physBitMap.free(page);
 }
 
 fn testPageAllocator(allocator: *BitMapAllocatorPageSize) void {

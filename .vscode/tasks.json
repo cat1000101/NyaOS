@@ -41,15 +41,12 @@
                 ]
             },
             "isBackground": true,
-            "problemMatcher": [
-                "$zig"
-            ],
+            // "problemMatcher": [
+            //     "$zig"
+            // ],
             "presentation": {
-                "echo": true,
-                "reveal": "silent",
-                "focus": false,
+                "reveal": "never",
                 "panel": "shared",
-                "clear": false,
                 "revealProblems": "onProblem",
                 "close": true
             },

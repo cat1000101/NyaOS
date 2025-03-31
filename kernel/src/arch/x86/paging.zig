@@ -31,8 +31,8 @@ pub const TENTRY_AVIABLE: u32 = 0xE00;
 pub const TENTRY_PAGE_ADDR: u32 = 0xFFFFF000;
 
 pub const FIRST_KERNEL_DIR_NUMBER: u32 = memory.KERNEL_ADDRESS_SPACE >> 22;
-pub const RECURSIVE_PAGE_TABLE_BASE = 0xFFC00000;
-pub const RECURSIVE_PAGE_DIRECTORY_ADDRESS = 0xFFFFF000;
+pub const RECURSIVE_PAGE_TABLE_BASE: u32 = 0xFFC00000;
+pub const RECURSIVE_PAGE_DIRECTORY_ADDRESS: u32 = 0xFFFFF000;
 
 pub const PageErrors = error{
     NoPage,
@@ -42,8 +42,8 @@ pub const PageErrors = error{
     OnlyDirectDirectoryAllowed,
 };
 
-const PageDirectoryEntery = packed struct {
-    const Flags = packed struct {
+pub const PageDirectoryEntery = packed struct {
+    pub const Flags = packed struct {
         present: u1 = 0, // P, or 'Present'. If the bit is set, the page is actually in physical memory at the moment.
         read_write: u1 = 0, // R/W, the 'Read/Write' permissions flag. If the bit is set, the page is read/write.
         user_supervisor: u1 = 0, // U/S, the 'User/Supervisor' bit, controls access to the page based on privilege level.
@@ -58,8 +58,8 @@ const PageDirectoryEntery = packed struct {
     address: u20 = 0, // the address
 };
 
-const PageDirectoryEnteryBig = packed struct {
-    const Flags = packed struct {
+pub const PageDirectoryEnteryBig = packed struct {
+    pub const Flags = packed struct {
         present: u1 = 0,
         read_write: u1 = 0,
         user_supervisor: u1 = 0,
@@ -77,9 +77,8 @@ const PageDirectoryEnteryBig = packed struct {
     reserved: u1 = 0,
     address_low: u10 = 0,
 };
-
-const PageTableEntery = packed struct {
-    const Flags = packed struct {
+pub const PageTableEntery = packed struct {
+    pub const Flags = packed struct {
         present: u1 = 0, // P, or 'Present'. If the bit is set, the page is actually in physical memory at the moment.
         read_write: u1 = 0, // R/W, the 'Read/Write' permissions flag. If the bit is set, the page is read/write.
         user_supervisor: u1 = 0, // U/S, the 'User/Supervisor' bit, controls access to the page based on privilege level.
@@ -89,13 +88,14 @@ const PageTableEntery = packed struct {
         dirty: u1 = 0,
         PAT: u1 = 0,
         global: u1 = 0,
-        MINE: u3 = 0,
+        used: u1 = 0,
+        MINE: u2 = 0,
     };
     flags: Flags = .{},
     address: u20 = 0,
 };
 
-const AddressSplit = packed struct {
+pub const AddressSplit = packed struct {
     offset: u12,
     pageEntry: u10,
     directoryEntry: u10,
@@ -104,12 +104,19 @@ const AddressSplit = packed struct {
 pub const PageTable = struct {
     entries: [1024]PageTableEntery = [_]PageTableEntery{.{}} ** 1024,
 
-    fn setEntery(self: *PageTable, index: u32, address: u32, flags: PageTableEntery.Flags) void {
+    pub fn setEntery(self: *PageTable, index: u32, address: u32, flags: PageTableEntery.Flags) void {
         const entry: PageTableEntery = .{
             .address = @truncate(address >> 12),
             .flags = flags,
         };
         self.entries[index] = entry;
+    }
+
+    pub fn getEntery(self: *PageTable, index: u32) PageErrors!*PageTableEntery {
+        if (@as(u32, @bitCast(self.entries[index])) == 0) {
+            return PageErrors.NotMapped;
+        }
+        return &self.entries[index];
     }
 };
 
@@ -141,7 +148,7 @@ pub const PageDirectory = struct {
     }
 
     /// should only be used with the page directory directly and not the RECURSIVE_PAGE_TABLE_BASE or RECURSIVE_PAGE_DIRECTORY_ADDRESS
-    fn mapPage(self: *PageDirectory, vaddr: u32, paddr: u32, flags: PageTableEntery.Flags) PageErrors!void {
+    fn mapPageEntery(self: *PageDirectory, vaddr: u32, paddr: u32, flags: PageTableEntery.Flags) PageErrors!void {
         if (!isDirectDirectory(self)) {
             return PageErrors.OnlyDirectDirectoryAllowed;
         }
@@ -170,7 +177,7 @@ pub const PageDirectory = struct {
     }
 
     /// should only be used with the page directory directly and not the RECURSIVE_PAGE_TABLE_BASE or RECURSIVE_PAGE_DIRECTORY_ADDRESS
-    fn idPages(self: *PageDirectory, vaddr: u32, paddr: u32, size: u32) PageErrors!void {
+    fn idPages(self: *PageDirectory, vaddr: u32, paddr: u32, size: u32, used: bool) PageErrors!void {
         if (!isDirectDirectory(self)) {
             return PageErrors.OnlyDirectDirectoryAllowed;
         }
@@ -186,7 +193,7 @@ pub const PageDirectory = struct {
             lvaddr += memory.PAGE_SIZE;
             lsize -= memory.PAGE_SIZE;
         }) {
-            self.mapPage(lvaddr, lpaddr, .{ .present = 1, .read_write = 1 }) catch |err| {
+            self.mapPageEntery(lvaddr, lpaddr, .{ .present = 1, .read_write = 1, .used = @intFromBool(used) }) catch |err| {
                 virtio.printf("PageDirectory.idPages:  Can't map virtual page error: {}\n", .{err});
                 return err;
             };
@@ -194,33 +201,72 @@ pub const PageDirectory = struct {
     }
 };
 
+pub fn newPageTable(vaddr: u32) memory.AllocatorError!*PageTable {
+    const physPage = @intFromPtr(pmm.rawAllocate() catch |err| {
+        virtio.printf("newPageTable:  failed to allocate physical page: {}\n", .{err});
+        return err;
+    });
+    const pageIndex = (vaddr >> 22);
+    const pageTable = setPageTableRecursivly(pageIndex, physPage, .{
+        .present = 1,
+        .read_write = 1,
+    });
+    return pageTable;
+}
+
 /// should only be used when using kernel space page directory as the current page directory
-/// returns RECURSIVE page table which belongs to the vaddr
-fn getPageTableRecursivly(lvaddr: u32) PageErrors!*PageTable {
+pub fn setPageTableRecursivly(index: u32, pageTablePhysAddress: u32, flags: PageDirectoryEntery.Flags) *PageTable {
     const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
-    const pageDirIndex = lvaddr >> 22;
-    const pageTableAddress = RECURSIVE_PAGE_TABLE_BASE + (pageDirIndex << 12);
-    if (@as(u32, @bitCast(lpageDirectory.entries[pageDirIndex].normal)) == 0) {
-        return PageErrors.NoPage;
-    } else if (lpageDirectory.entries[pageDirIndex].big.flags.page_size == 1) {
-        return PageErrors.IsBigPage;
-    }
+    const entry = PageDirectoryEntery{
+        .address = @truncate(pageTablePhysAddress >> 12),
+        .flags = flags,
+    };
+    lpageDirectory.entries[index].normal = entry;
+    invalidatePage(RECURSIVE_PAGE_TABLE_BASE);
+
+    const pageTableAddress: u32 = RECURSIVE_PAGE_TABLE_BASE + (index << 12);
     const pageTable: *PageTable = @ptrFromInt(pageTableAddress);
     return pageTable;
 }
 
 /// should only be used when using kernel space page directory as the current page directory
-fn mapPageRecursivly(vaddr: u32, paddr: u32, flags: PageTableEntery.Flags) PageErrors!void {
-    const pageTableIndex = (vaddr >> 12) & 1023;
-    const pageTable = getPageTableRecursivly(vaddr) catch |err| {
-        virtio.printf("mapPageRecursivly:  Can't get page table error: {}\n", .{err});
-        return err;
-    };
-    pageTable.setEntery(pageTableIndex, paddr, flags);
+/// returns RECURSIVE page table which belongs to the vaddr
+pub fn getPageTableRecursivly(index: u32) !*PageTable {
+    const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
+    const pageTableAddress = RECURSIVE_PAGE_TABLE_BASE + (index << 12);
+    const pageTable: *PageTable = @ptrFromInt(pageTableAddress);
+    if (@as(u32, @bitCast(lpageDirectory.entries[index].normal)) == 0) {
+        return newPageTable(index << 22) catch |err| {
+            virtio.printf("getPageTableRecursivly:  Can't create new page table error: {}\n", .{err});
+            return err;
+        };
+    } else if (lpageDirectory.entries[index].big.flags.page_size == 1) {
+        return PageErrors.IsBigPage;
+    }
+    return pageTable;
 }
 
 /// should only be used when using kernel space page directory as the current page directory
-fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32) PageErrors!void {
+pub fn setPageTableEntryRecursivly(vaddr: u32, paddr: u32, flags: PageTableEntery.Flags) !void {
+    const split: AddressSplit = @bitCast(vaddr);
+    const pageTable = getPageTableRecursivly(split.directoryEntry) catch |err| {
+        virtio.printf("setPageTableEntryRecursivly:  Can't get page table error: {}\n", .{err});
+        return err;
+    };
+    pageTable.setEntery(split.pageEntry, paddr, flags);
+}
+
+pub fn getPageTableEntryRecursivly(vaddr: u32) !*PageTableEntery {
+    const split: AddressSplit = @bitCast(vaddr);
+    const pageTable = getPageTableRecursivly(split.directoryEntry) catch |err| {
+        virtio.printf("getPageEntryRecursivly:  Can't get page table error: {}\n", .{err});
+        return err;
+    };
+    return pageTable.getEntery(split.pageEntry);
+}
+
+/// should only be used when using kernel space page directory as the current page directory
+pub fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void {
     if (!isAligned(vaddr, memory.PAGE_SIZE) or !isAligned(paddr, memory.PAGE_SIZE) or !isAligned(size, memory.PAGE_SIZE)) {
         virtio.printf("idPagesRecursivly:  idPaging input not aligned\n", .{});
         return PageErrors.InputNotAligned;
@@ -233,7 +279,7 @@ fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32) PageErrors!void {
         lvaddr += memory.PAGE_SIZE;
         lsize -= memory.PAGE_SIZE;
     }) {
-        mapPageRecursivly(lvaddr, lpaddr, .{ .present = 1, .read_write = 1 }) catch |err| {
+        setPageTableEntryRecursivly(lvaddr, lpaddr, .{ .present = 1, .read_write = 1, .used = used }) catch |err| {
             virtio.printf("idPagesRecursivly:  Can't map virtual page error: {}\n", .{err});
             return err;
         };
@@ -292,7 +338,7 @@ pub fn initPaging() void {
         virtio.printf("Can't set kernel page table error: {}\n", .{err});
         return;
     };
-    pageDirectoryPtr.idPages(0, 0, 4 * memory.MIB) catch |err| {
+    pageDirectoryPtr.idPages(0, 0, 4 * memory.MIB, true) catch |err| {
         virtio.printf("Can't id map first page table error: {}\n", .{err});
         return;
     };
@@ -311,7 +357,7 @@ pub fn initPaging() void {
 pub fn virtualToPhysical(address: u32) PageErrors!u32 {
     const split: AddressSplit = @bitCast(address);
     const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
-    const pageTable = getPageTableRecursivly(address) catch |err| {
+    const pageTable = getPageTableRecursivly(split.directoryEntry) catch |err| {
         if (err == PageErrors.IsBigPage) {
             return @intCast((@as(u32, @intCast(lpageDirectory.entries[split.directoryEntry].big.address_low)) << 22) | (@as(u32, @intCast(split.pageEntry)) << 12) | split.offset);
         } else {
@@ -323,8 +369,8 @@ pub fn virtualToPhysical(address: u32) PageErrors!u32 {
 }
 
 fn installPageDirectory(pd: *PageDirectory) PageErrors!void {
-    virtio.printf("Installing page directory\n", .{});
-    defer virtio.printf("Page directory installed\n", .{});
+    // virtio.printf("Installing page directory\n", .{});
+    // defer virtio.printf("Page directory installed\n", .{});
     const pageDirectoryAddress = virtualToPhysical(@intFromPtr(pd)) catch |err| {
         virtio.printf("Can't get page directory address error: {}\n", .{err});
         return err;
@@ -345,9 +391,9 @@ inline fn forceTLBFlush() void {
 
 inline fn invalidatePage(address: u32) void {
     asm volatile (
-        \\  invlpg %[address]
+        \\  invlpg (%[address])
         :
-        : [address] "{eax}" (address),
+        : [address] "r" (address),
     );
 }
 
@@ -356,10 +402,10 @@ pub fn isAligned(address: u32, alignment: u32) bool {
 }
 
 fn mapHigherHalf(pd: *PageDirectory) void {
-    virtio.printf("map higher half kernel\n", .{});
-    defer virtio.printf("higher half kernel mapped\n", .{});
+    // virtio.printf("map higher half kernel\n", .{});
+    // defer virtio.printf("higher half kernel mapped\n", .{});
     const size: u32 = (@intFromPtr(memory.kernel_end) - memory.KERNEL_ADDRESS_SPACE + memory.PAGE_SIZE) & 0xfffff000;
-    pd.idPages(memory.KERNEL_ADDRESS_SPACE, 0, size) catch |err| {
+    pd.idPages(memory.KERNEL_ADDRESS_SPACE, 0, size, true) catch |err| {
         virtio.printf("Can't id map higher half error: {}\n", .{err});
         return;
     };
@@ -369,29 +415,27 @@ fn mapForbiddenZones(pd: PageDirectory) void {
     _ = pd;
 }
 
-var testPageTable: PageTable align(4096) = .{};
-const testPageTablePtr: *PageTable = &testPageTable;
-
 fn testPaging() void {
     virtio.printf("testing paging by allocating a page and changing it's content\n", .{});
     defer virtio.printf("paging test done\n", .{});
-    const physicalPage: u32 = pmm.physBitMap.allocate() catch |err| {
-        virtio.printf("Can't allocate page error: {}\n", .{err});
+    const physicalPage: u32 = @intFromPtr(pmm.allocate() orelse {
+        virtio.printf("Can't allocate page for test\n", .{});
+        return;
+    });
+    const lvaddr = 55 * memory.DIR_SIZE;
+    const testPageTablePtr = newPageTable(lvaddr) catch |err| {
+        virtio.printf("Can't create test page table error: {}\n", .{err});
         return;
     };
-    testPageTablePtr.setEntery(0, physicalPage, .{ .present = 1, .read_write = 1 });
-    testPageTablePtr.setEntery(1, physicalPage, .{ .present = 1, .read_write = 1 });
-    const lpageDirectory = getPageDirectory();
-    const pageDirectoryIndex = 55;
-    const lvaddr0: u32 = 55 * memory.DIR_SIZE + 4;
-    const lvaddr1: u32 = 55 * memory.DIR_SIZE + memory.PAGE_SIZE + 4;
-    lpageDirectory.setEntery(pageDirectoryIndex, testPageTablePtr, .{ .present = 1, .read_write = 1 }) catch |err| {
-        virtio.printf("Can't set test page table error: {}\n", .{err});
-        return;
-    };
+    testPageTablePtr.setEntery(0, physicalPage, .{ .present = 1, .read_write = 1, .used = 1 });
+    testPageTablePtr.setEntery(1, physicalPage, .{ .present = 1, .read_write = 1, .used = 1 });
     forceTLBFlush();
+
+    const lvaddr0: u32 = lvaddr + 4;
+    const lvaddr1: u32 = lvaddr + memory.PAGE_SIZE + 4;
     const lptr0: [*]u32 = @ptrFromInt(lvaddr0);
     const lptr1: [*]u32 = @ptrFromInt(lvaddr1);
+
     lptr0[0] = 0x6969;
     if (lptr1[0] == 0x6969) {
         virtio.printf("paging test passed lptr0: 0x{x} and lptr1: 0x{x}\n", .{ lptr0[0], lptr1[0] });

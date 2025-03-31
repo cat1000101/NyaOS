@@ -35,11 +35,13 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
         end: usize = 0,
         pub fn init(allocationSize: usize, start: usize, end: usize, full: bool) @This() {
             const byte: u8 = if (full) 0xff else 0x00;
+            const lstart = alignAddressUp(start - 1, allocationSize);
+            const lend = alignAddressDown(end, allocationSize);
             return .{
                 .allocationSize = allocationSize,
                 .bitmap = [_]u8{byte} ** dynamicInitialStaticSize,
-                .start = start,
-                .end = end,
+                .start = lstart,
+                .end = lend,
             };
         }
         pub fn allocate(this: *@This()) AllocatorError![*]u8 {
@@ -93,8 +95,8 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
             }
         }
         pub fn free(this: *@This(), buf: [*]u8) void {
-            const index = @intFromPtr(buf) / this.allocationSize;
-            virtio.printf("freeing memory at 0x{x} size: 0x{x}\n", .{ index * this.allocationSize, this.allocationSize });
+            const index = (@intFromPtr(buf) / this.allocationSize) - (this.start / this.allocationSize);
+            virtio.printf("freeing memory at 0x{x} size: 0x{x}\n", .{ @intFromPtr(buf), this.allocationSize });
             this.clear(index);
         }
         pub fn freeMany(this: *@This(), buf: [*]u8, count: usize) void {
@@ -103,7 +105,8 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
             _ = slice;
             virtio.printf("freeing memory at 0x{x} size: 0x{x}\n", .{ bufAddress, count * this.allocationSize });
             for (bufAddress / this.allocationSize..(bufAddress / this.allocationSize + count)) |i| {
-                this.clear(i);
+                const index = i - (this.start / this.allocationSize);
+                this.clear(index);
             }
         }
         pub fn resize(this: *@This(), newSize: usize) AllocatorError!void {
@@ -139,8 +142,8 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
             return this.bitmap[byteIndex] & (@as(u8, 1) << bitIndex) != 0;
         }
         pub fn setUsableMemory(bitMap: *@This(), mbh: *multiboot.multiboot_info) void {
-            virtio.printf("setting usable memory for page allocator\n", .{});
-            defer virtio.printf("finished usable memory setting?\n", .{}); // data: {}\n", .{bitMap});
+            // virtio.printf("setting usable memory for page allocator\n", .{});
+            // defer virtio.printf("finished usable memory setting?\n", .{}); // data: {}\n", .{bitMap});
 
             const header = mbh;
             const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
@@ -185,4 +188,14 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
             virtio.printf("\n", .{});
         }
     };
+}
+
+pub fn alignAddress(addr: u32, alignment: usize) u32 {
+    return addr & ~(alignment - 1);
+}
+pub fn alignAddressDown(addr: u32, alignment: usize) u32 {
+    return alignAddress(addr - physPageSizes, alignment);
+}
+pub fn alignAddressUp(addr: u32, alignment: usize) u32 {
+    return alignAddress(addr + physPageSizes, alignment);
 }
