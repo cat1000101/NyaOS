@@ -1,6 +1,7 @@
 const virtio = @import("virtio.zig");
 const pmm = @import("../../mem/pmm.zig");
 const boot = @import("../../main.zig");
+const memory = @import("../../mem/memory.zig");
 
 // stolen from https://github.com/ZystemOS/pluto
 // The bitmasks for the bits in a DirectoryEntry
@@ -29,24 +30,9 @@ pub const TENTRY_GLOBAL: u32 = 0x100;
 pub const TENTRY_AVIABLE: u32 = 0xE00;
 pub const TENTRY_PAGE_ADDR: u32 = 0xFFFFF000;
 
-pub const GIB: usize = 0x40000000;
-pub const MIB: usize = 0x100000;
-pub const KIB: usize = 0x400;
-
-pub const PAGE_SIZE: u32 = 4 * KIB;
-pub const DIR_SIZE: u32 = 4 * MIB;
-
-pub const kernel_physical_start: *anyopaque = @extern(*anyopaque, .{ .name = "kernel_physical_start" });
-pub const kernel_physical_end: *anyopaque = @extern(*anyopaque, .{ .name = "kernel_physical_end" });
-pub const kernel_start: *anyopaque = @extern(*anyopaque, .{ .name = "kernel_start" });
-pub const kernel_end: *anyopaque = @extern(*anyopaque, .{ .name = "kernel_end" });
-pub const kernel_size_in_4MIB_pages: *anyopaque = @extern(*anyopaque, .{ .name = "kernel_size_in_4MIB_pages" });
-pub const kernel_size_in_4KIB_pages: *anyopaque = @extern(*anyopaque, .{ .name = "kernel_size_in_4KIB_pages" });
-
-pub const FIRST_KERNEL_DIR_NUMBER: u32 = KERNEL_ADDRESS_SPACE >> 22;
-pub const KERNEL_ADDRESS_SPACE: u32 = 0xC0000000;
-const RECURSIVE_PAGE_TABLE_BASE = 0xFFC00000;
-const RECURSIVE_PAGE_DIRECTORY_ADDRESS = 0xFFFFF000;
+pub const FIRST_KERNEL_DIR_NUMBER: u32 = memory.KERNEL_ADDRESS_SPACE >> 22;
+pub const RECURSIVE_PAGE_TABLE_BASE = 0xFFC00000;
+pub const RECURSIVE_PAGE_DIRECTORY_ADDRESS = 0xFFFFF000;
 
 pub const PageErrors = error{
     NoPage,
@@ -188,7 +174,7 @@ pub const PageDirectory = struct {
         if (!isDirectDirectory(self)) {
             return PageErrors.OnlyDirectDirectoryAllowed;
         }
-        if (!isAligned(vaddr, PAGE_SIZE) or !isAligned(paddr, PAGE_SIZE) or !isAligned(size, PAGE_SIZE)) {
+        if (!isAligned(vaddr, memory.PAGE_SIZE) or !isAligned(paddr, memory.PAGE_SIZE) or !isAligned(size, memory.PAGE_SIZE)) {
             virtio.printf("PageDirectory.idPages:  idPaging input not aligned\n", .{});
             return PageErrors.InputNotAligned;
         }
@@ -196,9 +182,9 @@ pub const PageDirectory = struct {
         var lvaddr: u32 = vaddr;
         var lsize: u32 = size;
         while (lsize > 0) : ({
-            lpaddr += PAGE_SIZE;
-            lvaddr += PAGE_SIZE;
-            lsize -= PAGE_SIZE;
+            lpaddr += memory.PAGE_SIZE;
+            lvaddr += memory.PAGE_SIZE;
+            lsize -= memory.PAGE_SIZE;
         }) {
             self.mapPage(lvaddr, lpaddr, .{ .present = 1, .read_write = 1 }) catch |err| {
                 virtio.printf("PageDirectory.idPages:  Can't map virtual page error: {}\n", .{err});
@@ -235,7 +221,7 @@ fn mapPageRecursivly(vaddr: u32, paddr: u32, flags: PageTableEntery.Flags) PageE
 
 /// should only be used when using kernel space page directory as the current page directory
 fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32) PageErrors!void {
-    if (!isAligned(vaddr, PAGE_SIZE) or !isAligned(paddr, PAGE_SIZE) or !isAligned(size, PAGE_SIZE)) {
+    if (!isAligned(vaddr, memory.PAGE_SIZE) or !isAligned(paddr, memory.PAGE_SIZE) or !isAligned(size, memory.PAGE_SIZE)) {
         virtio.printf("idPagesRecursivly:  idPaging input not aligned\n", .{});
         return PageErrors.InputNotAligned;
     }
@@ -243,9 +229,9 @@ fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32) PageErrors!void {
     var lvaddr: u32 = vaddr;
     var lsize: u32 = size;
     while (lsize > 0) : ({
-        lpaddr += PAGE_SIZE;
-        lvaddr += PAGE_SIZE;
-        lsize -= PAGE_SIZE;
+        lpaddr += memory.PAGE_SIZE;
+        lvaddr += memory.PAGE_SIZE;
+        lsize -= memory.PAGE_SIZE;
     }) {
         mapPageRecursivly(lvaddr, lpaddr, .{ .present = 1, .read_write = 1 }) catch |err| {
             virtio.printf("idPagesRecursivly:  Can't map virtual page error: {}\n", .{err});
@@ -261,7 +247,7 @@ fn getPageDirectoryRecursivly() *PageDirectory {
 
 fn isDirectDirectory(directory: *PageDirectory) bool {
     const address: u32 = @intFromPtr(directory);
-    return address > KERNEL_ADDRESS_SPACE and address < RECURSIVE_PAGE_TABLE_BASE;
+    return address > memory.KERNEL_ADDRESS_SPACE and address < RECURSIVE_PAGE_TABLE_BASE;
 }
 
 fn getPageDirectory() *PageDirectory {
@@ -306,7 +292,7 @@ pub fn initPaging() void {
         virtio.printf("Can't set kernel page table error: {}\n", .{err});
         return;
     };
-    pageDirectoryPtr.idPages(0, 0, 4 * MIB) catch |err| {
+    pageDirectoryPtr.idPages(0, 0, 4 * memory.MIB) catch |err| {
         virtio.printf("Can't id map first page table error: {}\n", .{err});
         return;
     };
@@ -372,8 +358,8 @@ pub fn isAligned(address: u32, alignment: u32) bool {
 fn mapHigherHalf(pd: *PageDirectory) void {
     virtio.printf("map higher half kernel\n", .{});
     defer virtio.printf("higher half kernel mapped\n", .{});
-    const size: u32 = (@intFromPtr(kernel_end) - KERNEL_ADDRESS_SPACE + PAGE_SIZE) & 0xfffff000;
-    pd.idPages(KERNEL_ADDRESS_SPACE, 0, size) catch |err| {
+    const size: u32 = (@intFromPtr(memory.kernel_end) - memory.KERNEL_ADDRESS_SPACE + memory.PAGE_SIZE) & 0xfffff000;
+    pd.idPages(memory.KERNEL_ADDRESS_SPACE, 0, size) catch |err| {
         virtio.printf("Can't id map higher half error: {}\n", .{err});
         return;
     };
@@ -397,8 +383,8 @@ fn testPaging() void {
     testPageTablePtr.setEntery(1, physicalPage, .{ .present = 1, .read_write = 1 });
     const lpageDirectory = getPageDirectory();
     const pageDirectoryIndex = 55;
-    const lvaddr0: u32 = 55 * DIR_SIZE + 4;
-    const lvaddr1: u32 = 55 * DIR_SIZE + PAGE_SIZE + 4;
+    const lvaddr0: u32 = 55 * memory.DIR_SIZE + 4;
+    const lvaddr1: u32 = 55 * memory.DIR_SIZE + memory.PAGE_SIZE + 4;
     lpageDirectory.setEntery(pageDirectoryIndex, testPageTablePtr, .{ .present = 1, .read_write = 1 }) catch |err| {
         virtio.printf("Can't set test page table error: {}\n", .{err});
         return;
@@ -420,10 +406,10 @@ fn debugPrintPaging(pd: *PageDirectory) void {
         break :blk 0x6969;
     }, @intFromPtr(&lpageDirectory) });
     virtio.printf("kernel start: 0x{x} end: 0x{x}, physical start: 0x{x} end: 0x{x}\n", .{
-        @intFromPtr(kernel_start),
-        @intFromPtr(kernel_end),
-        @intFromPtr(kernel_physical_start),
-        @intFromPtr(kernel_physical_end),
+        @intFromPtr(memory.kernel_start),
+        @intFromPtr(memory.kernel_end),
+        @intFromPtr(memory.kernel_physical_start),
+        @intFromPtr(memory.kernel_physical_end),
     });
     for (lpageDirectory.entries, lpageDirectory.tables, 0..1024) |entery, table, i| {
         if (@as(u32, @bitCast(entery.normal)) == 0) {

@@ -1,5 +1,6 @@
 const kmainFile = @import("kmain.zig");
 const paging = @import("arch/x86/paging.zig");
+const memory = @import("mem/memory.zig");
 const multibootType = @import("multiboot.zig");
 
 // multiboot headers values
@@ -23,7 +24,7 @@ export var multiboot align(4) linksection(".multiboot") = MultibootHeader{
 
 const kernelNumberOf4MIBPages = 1;
 // setting up the paging stolen from https://github.com/ZystemOS/pluto again
-pub export var tempBootPageDirectory: [1024]u32 align(paging.PAGE_SIZE) linksection(".boot") = init: {
+pub export var tempBootPageDirectory: [1024]u32 align(memory.PAGE_SIZE) linksection(".boot") = init: {
     // Increase max number of branches done by comptime evaluator
     @setEvalBranchQuota(1024);
     // Temp value
