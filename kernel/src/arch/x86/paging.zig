@@ -336,14 +336,14 @@ fn installPageDirectory(pd: *PageDirectory) PageErrors!void {
     );
 }
 
-fn forceTLBFlush() void {
+inline fn forceTLBFlush() void {
     asm volatile (
         \\  mov %cr3, %eax
         \\  mov %eax, %cr3
     );
 }
 
-fn invalidatePage(address: u32) void {
+inline fn invalidatePage(address: u32) void {
     asm volatile (
         \\  invlpg %[address]
         :

@@ -1,6 +1,8 @@
 const virtio = @import("../arch/x86/virtio.zig");
+const multiboot = @import("../multiboot.zig");
 const paging = @import("../arch/x86/paging.zig");
 const memory = @import("memory.zig");
+const pmm = @import("pmm.zig");
 
 const vpageAllocatorType = memory.BitMapAllocatorGeneric(memory.physPageSizes);
 pub var vpageAllocator: vpageAllocatorType = undefined;
@@ -12,5 +14,8 @@ pub fn initVmm() void {
         memory.physPageSizes,
         @intFromPtr(memory.kernel_end),
         paging.RECURSIVE_PAGE_TABLE_BASE,
+        false,
     );
+    vpageAllocator.setUsableMemory(multiboot.multibootInfo);
+    // vpageAllocator.debugPrint();
 }

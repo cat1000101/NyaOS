@@ -8,7 +8,10 @@
                 "command": "zig",
                 "args": [
                     "build",
-                    "run"
+                    "run",
+                    "|",
+                    "tee",
+                    ".extras/run.log"
                 ]
             },
             "problemMatcher": [
@@ -31,7 +34,10 @@
                 "command": "zig",
                 "args": [
                     "build",
-                    "debug"
+                    "debug",
+                    "|",
+                    "tee",
+                    ".extras/run.log"
                 ]
             },
             "isBackground": true,

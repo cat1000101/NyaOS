@@ -23,10 +23,11 @@ pub var physBitMap = BitMapAllocatorPageSize.init(
     memory.physPageSizes,
     memory.physMemStart,
     memory.physMemStart + (memory.MIB * 3),
+    true,
 );
 
 pub fn initPmm() void {
-    setUsableMemory(&physBitMap);
+    physBitMap.setUsableMemory(multiboot.multibootInfo);
     testPageAllocator(&physBitMap);
 }
 
@@ -36,35 +37,4 @@ fn testPageAllocator(allocator: *BitMapAllocatorPageSize) void {
         return;
     };
     allocator.free(testAllocation);
-}
-
-fn setUsableMemory(bitMap: *BitMapAllocatorPageSize) void {
-    virtio.printf("setting usable memory for page allocator\n", .{});
-    defer virtio.printf("finished usable memory setting?\n", .{}); // data: {}\n", .{bitMap});
-
-    const header = multiboot.multibootInfo;
-    const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
-    var endOfMemory: u32 = 0;
-    for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
-        if (entry.type == 1) {
-            const start = bitMap.alignUp(@intCast(entry.addr));
-            const end = bitMap.alignDown(@intCast(entry.addr + entry.len));
-            endOfMemory = end;
-            for ((start / memory.physPageSizes)..(end / memory.physPageSizes)) |index| {
-                const address = index * memory.physPageSizes;
-                if (address <= memory.physMemStart) {
-                    continue;
-                } else if ((index - bitMap.start / memory.physPageSizes) >= bitMap.size) {
-                    break;
-                } else if (address >= @intFromPtr(memory.kernel_physical_start) and address <= @intFromPtr(memory.kernel_physical_end)) {
-                    continue;
-                }
-                bitMap.clear(index - bitMap.start / memory.physPageSizes);
-            }
-        }
-    }
-    if (endOfMemory < 8 * memory.physPageSizes * memory.physPageSizes) {
-        virtio.printf("you dont have enough memory dummy\n", .{});
-        // @panic("you dont have enough memory dummy\n");
-    }
 }

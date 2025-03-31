@@ -1,4 +1,5 @@
 const virtio = @import("../arch/x86/virtio.zig");
+const multiboot = @import("../multiboot.zig");
 
 pub const kernel_physical_start: *anyopaque = @extern(*anyopaque, .{ .name = "kernel_physical_start" });
 pub const kernel_physical_end: *anyopaque = @extern(*anyopaque, .{ .name = "kernel_physical_end" });
@@ -32,10 +33,11 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
         start: usize = 0,
         /// exclusive
         end: usize = 0,
-        pub fn init(allocationSize: usize, start: usize, end: usize) @This() {
+        pub fn init(allocationSize: usize, start: usize, end: usize, full: bool) @This() {
+            const byte: u8 = if (full) 0xff else 0x00;
             return .{
                 .allocationSize = allocationSize,
-                .bitmap = [_]u8{0xFF} ** dynamicInitialStaticSize,
+                .bitmap = [_]u8{byte} ** dynamicInitialStaticSize,
                 .start = start,
                 .end = end,
             };
@@ -135,6 +137,52 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
             const byteIndex = index / 8;
             const bitIndex: u3 = @intCast(index % 8);
             return this.bitmap[byteIndex] & (@as(u8, 1) << bitIndex) != 0;
+        }
+        pub fn setUsableMemory(bitMap: *@This(), mbh: *multiboot.multiboot_info) void {
+            virtio.printf("setting usable memory for page allocator\n", .{});
+            defer virtio.printf("finished usable memory setting?\n", .{}); // data: {}\n", .{bitMap});
+
+            const header = mbh;
+            const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
+            var endOfMemory: u32 = 0;
+            for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
+                if (entry.type == 1) {
+                    const start = bitMap.alignUp(@intCast(entry.addr));
+                    const end = bitMap.alignDown(@intCast(entry.addr + entry.len));
+                    endOfMemory = end;
+                    for ((start / physPageSizes)..(end / physPageSizes)) |index| {
+                        const startIndex = bitMap.start / physPageSizes;
+                        const endIndex = bitMap.end / physPageSizes;
+                        if (index < startIndex or index >= endIndex) {
+                            continue;
+                        }
+                        const address = index * physPageSizes;
+                        if (address <= physMemStart or (address >= @intFromPtr(kernel_physical_start) and address <= @intFromPtr(kernel_physical_end))) {
+                            bitMap.set(index - startIndex);
+                        } else if ((index - startIndex) >= bitMap.size) {
+                            break;
+                        }
+                        bitMap.clear(index - startIndex);
+                    }
+                }
+            }
+            if (endOfMemory < 8 * physPageSizes * physPageSizes) {
+                virtio.printf("you dont have enough memory dummy\n", .{});
+                // @panic("you dont have enough memory dummy\n");
+            }
+        }
+        pub fn debugPrint(this: *@This()) void {
+            for (0..this.size) |index| {
+                const address: usize = (index * this.allocationSize) + this.start;
+                if (address >= this.start and address < this.end) {
+                    if (this.check(index) == false) {
+                        virtio.printf("00x{x} ", .{address});
+                    } else {
+                        virtio.printf("10x{x} ", .{address});
+                    }
+                }
+            }
+            virtio.printf("\n", .{});
         }
     };
 }

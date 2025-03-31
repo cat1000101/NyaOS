@@ -12,9 +12,9 @@ const vmm = @import("mem/vmm.zig");
 
 const panic = @import("panic.zig");
 
-pub export fn kmain(mbd: *multiboot.multiboot_info, magic: u32) void {
+pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) void {
     virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
-    _ = multiboot.checkMultibootHeader(mbd, magic);
+    _ = multiboot.checkMultibootHeader(mbh, magic);
 
     pmm.initPmm();
 
