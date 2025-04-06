@@ -1,6 +1,7 @@
 const virtio = @import("../arch/x86/virtio.zig");
 const port = @import("../arch/x86/port.zig");
 const std = @import("std");
+const vmm = @import("../mem/vmm.zig");
 
 const RSDP_FINDING_POSITION: [2]u32 = [2]u32{ 0x000E0000, 0x000FFFFF };
 const IDENTIFIER = "RSD PTR ";
@@ -142,8 +143,6 @@ pub const MADT align(1) = packed struct {
 const CHECKSUM_LENGTH_V1: usize = @offsetOf(RSDP, "length");
 const CHECKSUM_LENGTH_V2: usize = @sizeOf(RSDP);
 
-pub var tables: acpiTables = .{ .fadt = null, .rsdp = null };
-
 fn findRSDP() ?*RSDP {
     var i = RSDP_FINDING_POSITION[0];
     while (i <= RSDP_FINDING_POSITION[1]) : (i += 16) {
@@ -211,6 +210,8 @@ pub fn ps2ControllerExists() bool {
 fn extraTables() void {
     return;
 }
+
+pub var tables: acpiTables = .{ .fadt = null, .rsdp = null };
 
 pub fn initACPI() void {
     const rsdp: *RSDP = findRSDP() orelse return;

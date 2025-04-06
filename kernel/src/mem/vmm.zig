@@ -3,6 +3,7 @@ const multiboot = @import("../multiboot.zig");
 const paging = @import("../arch/x86/paging.zig");
 const memory = @import("memory.zig");
 const pmm = @import("pmm.zig");
+const acpi = @import("../drivers/acpi.zig");
 
 const vpageAllocatorType = memory.BitMapAllocatorGeneric(memory.physPageSizes);
 var vpageAllocator: vpageAllocatorType = undefined;
@@ -19,6 +20,7 @@ pub fn initVmm() void {
     vpageAllocator.setUsableMemory(multiboot.multibootInfo);
     // vpageAllocator.debugPrint();
     // testVmmAlloc();
+    paging.mapForbiddenZones(multiboot.multibootInfo);
 }
 
 pub fn allocatePage() ?[*]u8 {
@@ -27,7 +29,16 @@ pub fn allocatePage() ?[*]u8 {
         return null;
     };
     const pageAddr = @intFromPtr(page);
-    const pageTableEntry = paging.getPageTableEntryRecursivly(pageAddr) catch |err| {
+    if (paging.getPageTableEntryRecursivly(pageAddr)) |pageTableEntry| {
+        if (pageTableEntry.flags.used == 0) {
+            pageTableEntry.flags.used = 1;
+            virtio.printf("vmm.allocatePage:  allocated page at: 0x{x} size: 0x{x}\n", .{ pageAddr, memory.physPageSizes });
+            return page;
+        } else {
+            virtio.printf("vmm.allocatePage:  page is already used\n", .{});
+            return null;
+        }
+    } else |err| {
         if (err == paging.PageErrors.IsBigPage) {
             virtio.printf("vmm.allocatePage:  allocated page at: 0x{x} size: 0x{x}\n", .{ pageAddr, memory.physPageSizes });
             return page;
@@ -50,14 +61,6 @@ pub fn allocatePage() ?[*]u8 {
             virtio.printf("vmm.allocatePage:  failed to get page table, error: {}\n\n", .{err});
             return null;
         }
-    };
-    if (pageTableEntry.flags.used == 0) {
-        pageTableEntry.flags.used = 1;
-        virtio.printf("vmm.allocatePage:  allocated page at: 0x{x} size: 0x{x}\n", .{ pageAddr, memory.physPageSizes });
-        return page;
-    } else {
-        virtio.printf("vmm.allocatePage:  page is already used\n", .{});
-        return null;
     }
 }
 

@@ -2,6 +2,7 @@ const virtio = @import("virtio.zig");
 const pmm = @import("../../mem/pmm.zig");
 const boot = @import("../../main.zig");
 const memory = @import("../../mem/memory.zig");
+const multiboot = @import("../../multiboot.zig");
 
 // stolen from https://github.com/ZystemOS/pluto
 // The bitmasks for the bits in a DirectoryEntry
@@ -40,6 +41,7 @@ pub const PageErrors = error{
     InputNotAligned,
     NotMapped,
     OnlyDirectDirectoryAllowed,
+    Used,
 };
 
 pub const PageDirectoryEntery = packed struct {
@@ -69,7 +71,8 @@ pub const PageDirectoryEnteryBig = packed struct {
         dirty: u1 = 0,
         page_size: u1 = 1,
         global: u1 = 0,
-        MINE: u3 = 0,
+        used: u1 = 0,
+        MINE: u2 = 0,
         PAT: u1 = 0,
     };
     flags: Flags = .{},
@@ -229,6 +232,21 @@ pub fn setPageTableRecursivly(index: u32, pageTablePhysAddress: u32, flags: Page
     return pageTable;
 }
 
+pub fn setBigEntryRecursivly(vaddr: u32, paddr: u32, flags: PageDirectoryEnteryBig.Flags) PageErrors!void {
+    const split: AddressSplit = @bitCast(vaddr);
+    const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
+    const entry = PageDirectoryEnteryBig{
+        .address_low = @truncate(paddr >> 22),
+        .flags = flags,
+    };
+    if ((lpageDirectory.entries[split.directoryEntry].big.flags.page_size == 1 and lpageDirectory.entries[split.directoryEntry].big.flags.used == 0) or (@as(u32, @bitCast(lpageDirectory.entries[split.directoryEntry].normal)) == 0)) {
+        lpageDirectory.entries[split.directoryEntry].big = entry;
+        invalidatePage(RECURSIVE_PAGE_TABLE_BASE);
+    } else {
+        return PageErrors.Used;
+    }
+}
+
 /// should only be used when using kernel space page directory as the current page directory
 /// returns RECURSIVE page table which belongs to the vaddr
 pub fn getPageTableRecursivly(index: u32) !*PageTable {
@@ -274,13 +292,35 @@ pub fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void {
     var lpaddr: u32 = paddr;
     var lvaddr: u32 = vaddr;
     var lsize: u32 = size;
+    virtio.printf("idPagesRecursivly:  idPaging vaddr: 0x{x} paddr: 0x{x} size: 0x{x}\n", .{ lvaddr, lpaddr, lsize });
     while (lsize > 0) : ({
         lpaddr += memory.PAGE_SIZE;
         lvaddr += memory.PAGE_SIZE;
         lsize -= memory.PAGE_SIZE;
     }) {
-        setPageTableEntryRecursivly(lvaddr, lpaddr, .{ .present = 1, .read_write = 1, .used = used }) catch |err| {
+        setPageTableEntryRecursivly(lvaddr, lpaddr, .{ .present = 1, .read_write = 1, .used = @intFromBool(used) }) catch |err| {
             virtio.printf("idPagesRecursivly:  Can't map virtual page error: {}\n", .{err});
+            return err;
+        };
+    }
+}
+
+pub fn idBigPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void {
+    if (!isAligned(vaddr, memory.DIR_SIZE) or !isAligned(paddr, memory.DIR_SIZE) or !isAligned(size, memory.DIR_SIZE)) {
+        virtio.printf("idBigPagesRecursivly:  idPaging input not aligned\n", .{});
+        return PageErrors.InputNotAligned;
+    }
+    var lpaddr: u32 = paddr;
+    var lvaddr: u32 = vaddr;
+    var lsize: u32 = size;
+    virtio.printf("idBigPagesRecursivly:  idPaging vaddr: 0x{x} paddr: 0x{x} size: 0x{x}\n", .{ lvaddr, lpaddr, lsize });
+    while (lsize > 0) : ({
+        lpaddr += memory.DIR_SIZE;
+        lvaddr += memory.DIR_SIZE;
+        lsize -= memory.DIR_SIZE;
+    }) {
+        setBigEntryRecursivly(lvaddr, lpaddr, .{ .present = 1, .read_write = 1, .used = @intFromBool(used) }) catch |err| {
+            virtio.printf("idBigPagesRecursivly:  Can't map virtual page error: {}\n", .{err});
             return err;
         };
     }
@@ -357,15 +397,16 @@ pub fn initPaging() void {
 pub fn virtualToPhysical(address: u32) PageErrors!u32 {
     const split: AddressSplit = @bitCast(address);
     const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
-    const pageTable = getPageTableRecursivly(split.directoryEntry) catch |err| {
+    if (getPageTableRecursivly(split.directoryEntry)) |pageTable| {
+        return (@as(u32, pageTable.entries[split.pageEntry].address) << 12) | split.offset;
+    } else |err| {
         if (err == PageErrors.IsBigPage) {
             return @intCast((@as(u32, @intCast(lpageDirectory.entries[split.directoryEntry].big.address_low)) << 22) | (@as(u32, @intCast(split.pageEntry)) << 12) | split.offset);
         } else {
             virtio.printf("virtualToPhysical:  No page table found for dir: {} error: {}\n", .{ split.directoryEntry, err });
             return PageErrors.NotMapped;
         }
-    };
-    return (@as(u32, pageTable.entries[split.pageEntry].address) << 12) | split.offset;
+    }
 }
 
 fn installPageDirectory(pd: *PageDirectory) PageErrors!void {
@@ -411,8 +452,35 @@ fn mapHigherHalf(pd: *PageDirectory) void {
     };
 }
 
-fn mapForbiddenZones(pd: PageDirectory) void {
-    _ = pd;
+pub fn mapForbiddenZones(mbh: *multiboot.multiboot_info) void {
+    const header = mbh;
+    const memorySize: u32 = header.mem_upper * 1024 + 1 * memory.MIB;
+    virtio.printf("ram size: 0x{x}\n", .{memorySize});
+    const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
+    for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
+        const entryLen: u32 = @as(u32, @truncate(entry.len));
+        const paddr: u32 = @as(u32, @truncate(entry.addr));
+        const entryEnd = @addWithOverflow(paddr, entryLen);
+        if (entry.type == 1) {
+            continue;
+        } else if (entryEnd[0] >= RECURSIVE_PAGE_DIRECTORY_ADDRESS or entryEnd[1] == 1) {
+            continue;
+        } else if (entryLen >= memory.DIR_SIZE) {
+            idBigPagesRecursivly(paddr, paddr, entryLen, true) catch |err| {
+                virtio.printf("mapForbiddenZones:  Can't big id map forbidden zone error: {}\n", .{err});
+            };
+            continue;
+        }
+        idPagesRecursivly(
+            memory.alignAddress(paddr, memory.PAGE_SIZE),
+            memory.alignAddress(paddr, memory.PAGE_SIZE),
+            memory.alignAddressUp(entryLen - 1, memory.PAGE_SIZE),
+            true,
+        ) catch |err| {
+            virtio.printf("mapForbiddenZones:  Can't id map forbidden zone error: {}\n", .{err});
+            return;
+        };
+    }
 }
 
 fn testPaging() void {
