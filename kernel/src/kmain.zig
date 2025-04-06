@@ -27,8 +27,6 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) void {
     tty.initialize();
     tty.printf("meow i like {any} cats\n", .{69});
 
-    asm volatile ("int $1"); // test for the interrutps
-
     acpi.initACPI();
 
     ps2.initPs2();

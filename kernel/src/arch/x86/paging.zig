@@ -292,7 +292,7 @@ pub fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void {
     var lpaddr: u32 = paddr;
     var lvaddr: u32 = vaddr;
     var lsize: u32 = size;
-    virtio.printf("idPagesRecursivly:  idPaging vaddr: 0x{x} paddr: 0x{x} size: 0x{x}\n", .{ lvaddr, lpaddr, lsize });
+    // virtio.printf("idPagesRecursivly:  idPaging vaddr: 0x{x} paddr: 0x{x} size: 0x{x}\n", .{ lvaddr, lpaddr, lsize });
     while (lsize > 0) : ({
         lpaddr += memory.PAGE_SIZE;
         lvaddr += memory.PAGE_SIZE;
@@ -313,7 +313,7 @@ pub fn idBigPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void
     var lpaddr: u32 = paddr;
     var lvaddr: u32 = vaddr;
     var lsize: u32 = size;
-    virtio.printf("idBigPagesRecursivly:  idPaging vaddr: 0x{x} paddr: 0x{x} size: 0x{x}\n", .{ lvaddr, lpaddr, lsize });
+    // virtio.printf("idBigPagesRecursivly:  idPaging vaddr: 0x{x} paddr: 0x{x} size: 0x{x}\n", .{ lvaddr, lpaddr, lsize });
     while (lsize > 0) : ({
         lpaddr += memory.DIR_SIZE;
         lvaddr += memory.DIR_SIZE;
@@ -455,7 +455,7 @@ fn mapHigherHalf(pd: *PageDirectory) void {
 pub fn mapForbiddenZones(mbh: *multiboot.multiboot_info) void {
     const header = mbh;
     const memorySize: u32 = header.mem_upper * 1024 + 1 * memory.MIB;
-    virtio.printf("ram size: 0x{x}\n", .{memorySize});
+    virtio.printf("usable ram size: 0x{x}\n", .{memorySize});
     const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
     for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
         const entryLen: u32 = @as(u32, @truncate(entry.len));

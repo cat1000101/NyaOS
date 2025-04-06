@@ -51,6 +51,8 @@ pub fn initIdt() void {
 
     loadIdt(&idtr);
     virtio.printf("initialized idt\n", .{});
+
+    asm volatile ("int $1"); // test for the interrutps
 }
 
 pub fn openIdtGate(index: usize, interrupt: *const fn () callconv(.Naked) void) InterruptError!void {
