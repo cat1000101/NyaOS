@@ -66,7 +66,7 @@ pub export var tempBootPageDirectory: [1024]u32 align(memory.PAGE_SIZE) linksect
 };
 
 // entery point and setting up paging and jumping to higher half entery point of the kernel
-pub export fn _start() align(16) linksection(".boot") callconv(.Naked) noreturn {
+pub export fn _start() align(16) linksection(".boot") callconv(.naked) noreturn {
     asm volatile (
         \\  push %eax
         \\  push %ebx
@@ -113,7 +113,7 @@ export const stack_top = &stack[stack.len - 1];
 
 // putting the stack to the stack pointer
 // jumping to the kmain lower half of the kernel?
-export fn high_half_entery() align(16) callconv(.Naked) noreturn {
+export fn high_half_entery() align(16) callconv(.naked) noreturn {
     asm volatile (
         \\  mov %[stack_top], %esp
         \\  push %eax

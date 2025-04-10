@@ -49,12 +49,12 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
                 const address: usize = (index * this.allocationSize) + this.start;
                 if (this.check(index) == false and address >= this.start and address < this.end) {
                     this.set(index);
-                    virtio.printf("allocated memory at 0x{x} size: 0x{x}\n", .{ address, this.allocationSize });
+                    virtio.printf("allocated memory at 0x{X} size: 0x{X}\n", .{ address, this.allocationSize });
                     return @ptrFromInt(address);
                 }
             }
             if (this.end > (this.size * this.allocationSize) + this.start) {
-                virtio.printf("TODO: need to realocate the bitmap to make it bigger, needed size: 0x{x}\n", .{
+                virtio.printf("TODO: need to realocate the bitmap to make it bigger, needed size: 0x{X}\n", .{
                     (this.end - this.start) / (this.allocationSize * 8),
                 });
                 return AllocatorError.AllocatorResizeError;
@@ -77,7 +77,7 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
                         for (start..(start + count)) |i| {
                             this.set(i);
                         }
-                        virtio.printf("allocated memory at 0x{x} size: 0x{x}\n", .{ address, count * this.allocationSize });
+                        virtio.printf("allocated memory at 0x{X} size: 0x{X}\n", .{ address, count * this.allocationSize });
                         return @ptrFromInt(address);
                     }
                 } else {
@@ -85,7 +85,7 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
                 }
             }
             if (this.end > (this.size * this.allocationSize) + this.start) {
-                virtio.printf("TODO: need to realocate the bitmap to make it bigger, needed size: 0x{x}\n", .{
+                virtio.printf("TODO: need to realocate the bitmap to make it bigger, needed size: 0x{X}\n", .{
                     (this.end - this.start) / (this.allocationSize * 8),
                 });
                 return AllocatorError.AllocatorResizeError;
@@ -96,14 +96,14 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
         }
         pub fn free(this: *@This(), buf: [*]u8) void {
             const index = (@intFromPtr(buf) / this.allocationSize) - (this.start / this.allocationSize);
-            virtio.printf("freeing memory at 0x{x} size: 0x{x}\n", .{ @intFromPtr(buf), this.allocationSize });
+            virtio.printf("freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(buf), this.allocationSize });
             this.clear(index);
         }
         pub fn freeMany(this: *@This(), buf: [*]u8, count: usize) void {
             const bufAddress = @intFromPtr(buf);
             const slice: []u4096 = buf[0 .. count * this.allocationSize];
             _ = slice;
-            virtio.printf("freeing memory at 0x{x} size: 0x{x}\n", .{ bufAddress, count * this.allocationSize });
+            virtio.printf("freeing memory at 0x{X} size: 0x{X}\n", .{ bufAddress, count * this.allocationSize });
             for (bufAddress / this.allocationSize..(bufAddress / this.allocationSize + count)) |i| {
                 const index = i - (this.start / this.allocationSize);
                 this.clear(index);
@@ -179,9 +179,9 @@ pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
                 const address: usize = (index * this.allocationSize) + this.start;
                 if (address >= this.start and address < this.end) {
                     if (this.check(index) == false) {
-                        virtio.printf("00x{x} ", .{address});
+                        virtio.printf("00x{X} ", .{address});
                     } else {
-                        virtio.printf("10x{x} ", .{address});
+                        virtio.printf("10x{X} ", .{address});
                     }
                 }
             }

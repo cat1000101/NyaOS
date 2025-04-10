@@ -32,7 +32,7 @@ pub fn allocatePage() ?[*]u8 {
     if (paging.getPageTableEntryRecursivly(pageAddr)) |pageTableEntry| {
         if (pageTableEntry.flags.used == 0) {
             pageTableEntry.flags.used = 1;
-            virtio.printf("vmm.allocatePage:  allocated page at: 0x{x} size: 0x{x}\n", .{ pageAddr, memory.physPageSizes });
+            virtio.printf("vmm.allocatePage:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
             return page;
         } else {
             virtio.printf("vmm.allocatePage:  page is already used\n", .{});
@@ -40,7 +40,7 @@ pub fn allocatePage() ?[*]u8 {
         }
     } else |err| {
         if (err == paging.PageErrors.IsBigPage) {
-            virtio.printf("vmm.allocatePage:  allocated page at: 0x{x} size: 0x{x}\n", .{ pageAddr, memory.physPageSizes });
+            virtio.printf("vmm.allocatePage:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
             return page;
         } else if (err == paging.PageErrors.NotMapped) {
             const physPage = @intFromPtr(pmm.rawAllocate() catch |allocatePhysErr| {
@@ -55,7 +55,7 @@ pub fn allocatePage() ?[*]u8 {
                 virtio.printf("vmm.allocatePage:  failed to set page table entry: {}\n", .{setErr});
                 return null;
             };
-            virtio.printf("vmm.allocatePage:  allocated page at: 0x{x} size: 0x{x}\n", .{ pageAddr, memory.physPageSizes });
+            virtio.printf("vmm.allocatePage:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
             return page;
         } else {
             virtio.printf("vmm.allocatePage:  failed to get page table, error: {}\n\n", .{err});
@@ -79,6 +79,6 @@ fn testVmmAlloc() void {
     };
     const pageAddr = @intFromPtr(page);
     page[0] = 69;
-    virtio.printf("testing vmm alloc success:  allocated address: 0x{x} first byte: {}\n", .{ pageAddr, page[0] });
+    virtio.printf("testing vmm alloc success:  allocated address: 0x{X} first byte: {}\n", .{ pageAddr, page[0] });
     free(page);
 }

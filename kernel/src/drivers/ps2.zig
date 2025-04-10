@@ -269,7 +269,7 @@ fn initializePs2() !void {
     }
 
     // final flush and status
-    // virtio.printf("final ps2 controller config: 0x{x}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
+    // virtio.printf("final ps2 controller config: 0x{X}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
 
     _ = reciveData();
 
@@ -357,7 +357,7 @@ fn initializeKeyboard() void {
     virtio.printf("keyboard initialized!!!\n", .{});
 }
 
-fn ps2KeyboardHandeler() callconv(.C) void {
+fn ps2KeyboardHandeler() callconv(.c) void {
     if (readStatus().outputBufferStatus == 0) {
         virtio.printf("keyboard handeler called with no data\n", .{});
         pic.picSendEOI(1);

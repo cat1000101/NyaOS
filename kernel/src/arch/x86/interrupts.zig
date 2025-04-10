@@ -6,7 +6,7 @@ export fn Handler(cpu_state: *IsrCpuState) void {
     switch (cpu_state.interrupt_number) {
         0x00...0x1F => {
             // half stolen thing for the printing: https://github.com/Ashet-Technologies/Ashet-OS/blob/9b595e38815dcc1ed1f7e20abd44ab43c1a63012/src/kernel/port/platform/x86/idt.zig#L67
-            virtio.printf("Unhandled exception 0x{x}: {s}\n", .{ cpu_state.interrupt_number, @as([]const u8, switch (cpu_state.interrupt_number) {
+            virtio.printf("Unhandled exception 0x{X}: {s}\n", .{ cpu_state.interrupt_number, @as([]const u8, switch (cpu_state.interrupt_number) {
                 0x00 => "Divide By Zero",
                 0x01 => "Debug",
                 0x02 => "Non Maskable Interrupt",
@@ -104,7 +104,7 @@ pub const CpuState = extern struct {
     eax: u32,
 };
 
-export fn isrCommonStub() callconv(.Naked) void {
+export fn isrCommonStub() callconv(.naked) void {
     // push corrent state to the stack
     asm volatile (
         \\  pusha               // pushes in order: eax, ecx, edx, ebx, esp, ebp, esi, edi
@@ -154,9 +154,9 @@ export fn isrCommonStub() callconv(.Naked) void {
     );
 }
 
-pub fn generateStub(function: *const fn () callconv(.C) void) fn () callconv(.Naked) void {
+pub fn generateStub(function: *const fn () callconv(.c) void) fn () callconv(.naked) void {
     return struct {
-        fn func() callconv(.Naked) void {
+        fn func() callconv(.naked) void {
             asm volatile (
                 \\  pusha               // pushes in order: eax, ecx, edx, ebx, esp, ebp, esi, edi
                 \\
@@ -208,9 +208,9 @@ pub fn generateStub(function: *const fn () callconv(.C) void) fn () callconv(.Na
 
 // stollen/"inspired" from https://github.com/ZystemOS/pluto it is a good zig os
 // that is a good refrence for good practive maybe idk
-fn generateIsrStub(comptime interrupt_num: u32) fn () callconv(.Naked) void {
+fn generateIsrStub(comptime interrupt_num: u32) fn () callconv(.naked) void {
     return struct {
-        fn func() callconv(.Naked) void {
+        fn func() callconv(.naked) void {
             asm volatile (
                 \\ cli
             );

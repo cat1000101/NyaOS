@@ -55,7 +55,7 @@ pub fn initIdt() void {
     asm volatile ("int $1"); // test for the interrutps
 }
 
-pub fn openIdtGate(index: usize, interrupt: *const fn () callconv(.Naked) void) InterruptError!void {
+pub fn openIdtGate(index: usize, interrupt: *const fn () callconv(.naked) void) InterruptError!void {
     if (idt[index].p == 1) return InterruptError.interruptOpen;
     setIdtGate(
         index,

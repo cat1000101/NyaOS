@@ -197,7 +197,7 @@ fn printRawMemoryMap() void {
     const mmm: [*]multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
     for (mmm, 0..(header.mmap_length / @sizeOf(multiboot_mmap_entry))) |entry, i| {
         virtio.printf(
-            "Memory map entry {d}: size: 0x{x} address: 0x{x} len: 0x{x} type: 0x{x}\n",
+            "Memory map entry {d}: size: 0x{X} address: 0x{X} len: 0x{X} type: 0x{X}\n",
             .{
                 i,
                 entry.size,

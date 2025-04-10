@@ -292,7 +292,7 @@ pub fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void {
     var lpaddr: u32 = paddr;
     var lvaddr: u32 = vaddr;
     var lsize: u32 = size;
-    // virtio.printf("idPagesRecursivly:  idPaging vaddr: 0x{x} paddr: 0x{x} size: 0x{x}\n", .{ lvaddr, lpaddr, lsize });
+    // virtio.printf("idPagesRecursivly:  idPaging vaddr: 0x{X} paddr: 0x{X} size: 0x{X}\n", .{ lvaddr, lpaddr, lsize });
     while (lsize > 0) : ({
         lpaddr += memory.PAGE_SIZE;
         lvaddr += memory.PAGE_SIZE;
@@ -313,7 +313,7 @@ pub fn idBigPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void
     var lpaddr: u32 = paddr;
     var lvaddr: u32 = vaddr;
     var lsize: u32 = size;
-    // virtio.printf("idBigPagesRecursivly:  idPaging vaddr: 0x{x} paddr: 0x{x} size: 0x{x}\n", .{ lvaddr, lpaddr, lsize });
+    // virtio.printf("idBigPagesRecursivly:  idPaging vaddr: 0x{X} paddr: 0x{X} size: 0x{X}\n", .{ lvaddr, lpaddr, lsize });
     while (lsize > 0) : ({
         lpaddr += memory.DIR_SIZE;
         lvaddr += memory.DIR_SIZE;
@@ -455,7 +455,7 @@ fn mapHigherHalf(pd: *PageDirectory) void {
 pub fn mapForbiddenZones(mbh: *multiboot.multiboot_info) void {
     const header = mbh;
     const memorySize: u32 = header.mem_upper * 1024 + 1 * memory.MIB;
-    virtio.printf("usable ram size: 0x{x}\n", .{memorySize});
+    virtio.printf("usable ram size: 0x{X}\n", .{memorySize});
     const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
     for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
         const entryLen: u32 = @as(u32, @truncate(entry.len));
@@ -506,7 +506,7 @@ fn testPaging() void {
 
     lptr0[0] = 0x6969;
     if (lptr1[0] == 0x6969) {
-        virtio.printf("paging test passed lptr0: 0x{x} and lptr1: 0x{x}\n", .{ lptr0[0], lptr1[0] });
+        virtio.printf("paging test passed lptr0: 0x{X} and lptr1: 0x{X}\n", .{ lptr0[0], lptr1[0] });
     } else {
         virtio.printf("paging test failed\n", .{});
     }
@@ -514,10 +514,10 @@ fn testPaging() void {
 
 fn debugPrintPaging(pd: *PageDirectory) void {
     const lpageDirectory = pd;
-    virtio.printf("page directory physical address: 0x{x} virtual address: 0x{x}\n", .{ virtualToPhysical(@intFromPtr(&lpageDirectory)) catch blk: {
+    virtio.printf("page directory physical address: 0x{X} virtual address: 0x{X}\n", .{ virtualToPhysical(@intFromPtr(&lpageDirectory)) catch blk: {
         break :blk 0x6969;
     }, @intFromPtr(&lpageDirectory) });
-    virtio.printf("kernel start: 0x{x} end: 0x{x}, physical start: 0x{x} end: 0x{x}\n", .{
+    virtio.printf("kernel start: 0x{X} end: 0x{X}, physical start: 0x{X} end: 0x{X}\n", .{
         @intFromPtr(memory.kernel_start),
         @intFromPtr(memory.kernel_end),
         @intFromPtr(memory.kernel_physical_start),
@@ -531,7 +531,7 @@ fn debugPrintPaging(pd: *PageDirectory) void {
             if (@as(u32, @bitCast(lPTE)) == 0) {
                 continue;
             }
-            virtio.printf("debugPrintPaging:  directory entry: #{} entry data: 0x{x}\ndebugPrintPaging:  page entry: #{} entry data: 0x{x}, mapped vaddr: 0x{x}\n", .{
+            virtio.printf("debugPrintPaging:  directory entry: #{} entry data: 0x{X}\ndebugPrintPaging:  page entry: #{} entry data: 0x{X}, mapped vaddr: 0x{X}\n", .{
                 i,
                 @as(u32, @bitCast(entery.normal)),
                 j,
