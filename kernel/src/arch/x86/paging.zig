@@ -205,12 +205,13 @@ pub const PageDirectory = struct {
 };
 
 pub fn newPageTable(vaddr: u32) memory.AllocatorError!*PageTable {
-    const physPage = @intFromPtr(pmm.rawAllocate() catch |err| {
+    const physPage = pmm.physBitMapAllocator.alloc(u8, memory.PAGE_SIZE) catch |err| {
         virtio.printf("newPageTable:  failed to allocate physical page: {}\n", .{err});
         return err;
-    });
+    };
+    const physPageAddress = @intFromPtr(physPage.ptr);
     const pageIndex = (vaddr >> 22);
-    const pageTable = setPageTableRecursivly(pageIndex, physPage, .{
+    const pageTable = setPageTableRecursivly(pageIndex, physPageAddress, .{
         .present = 1,
         .read_write = 1,
     });

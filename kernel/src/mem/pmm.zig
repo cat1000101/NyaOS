@@ -14,31 +14,21 @@ var physBitMap = BitMapAllocatorPageSize.init(
     memory.MIB * 8,
     true,
 );
+pub var physBitMapAllocator = physBitMap.allocator();
 
 pub fn initPmm() void {
     physBitMap.setUsableMemory(multiboot.multibootInfo);
     // testPageAllocator(&physBitMap);
 }
 
-pub fn allocate() ?[*]u8 {
-    const page = physBitMap.allocate() catch {
-        virtio.printf("failed to allocate memory\n", .{});
-        return null;
-    };
-    return page;
-}
-pub fn rawAllocate() ![*]u8 {
-    return physBitMap.allocate();
-}
-
-pub fn free(page: [*]u8) void {
-    physBitMap.free(page);
-}
-
-fn testPageAllocator(allocator: *BitMapAllocatorPageSize) void {
-    const testAllocation = allocator.allocate() catch {
+pub fn testPageAllocator() void {
+    const testAllocation = physBitMapAllocator.alloc(u8, memory.PAGE_SIZE) catch {
         virtio.printf("failed to allocate memory\n", .{});
         return;
     };
-    allocator.free(testAllocation);
+    virtio.printf("allocated memory at: 0x{X} size: 0x{X}\n", .{
+        @intFromPtr(testAllocation.ptr),
+        @import("std").mem.sliceAsBytes(memory).len,
+    });
+    physBitMapAllocator.free(testAllocation);
 }
