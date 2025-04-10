@@ -6,29 +6,29 @@ const memory = @import("memory.zig");
 const pmm = @import("pmm.zig");
 const acpi = @import("../drivers/acpi.zig");
 
-const vpageAllocatorType = memory.BitMapAllocatorGeneric(memory.physPageSizes);
-var virtualBitMap: vpageAllocatorType = undefined;
+var tempBuffer: [memory.PAGE_SIZE]u8 = [_]u8{0xff} ** memory.PAGE_SIZE;
+var tempBufferSlice: []u8 = &tempBuffer;
+
+pub var virtualBitMap: memory.BitMapAllocatorGeneric = undefined;
 
 pub fn initVmm() void {
     paging.initPaging();
 
-    virtualBitMap = vpageAllocatorType.init(
+    virtualBitMap = memory.BitMapAllocatorGeneric.init(
+        tempBufferSlice,
         memory.physPageSizes,
         @intFromPtr(memory.kernel_end),
         paging.RECURSIVE_PAGE_TABLE_BASE,
         false,
     );
-
-    virtualBitMap.setUsableMemory(multiboot.multibootInfo);
     // vpageAllocator.debugPrint();
-    // testVmmAlloc();
+    testVmmAlloc();
     paging.mapForbiddenZones(multiboot.multibootInfo);
 }
 
 pub fn allocatePage() ?[*]u8 {
-    const virtualBitMapAllocator = virtualBitMap.allocator();
-    const page = virtualBitMapAllocator.alloc(u8, memory.PAGE_SIZE) catch {
-        virtio.printf("vmm.allocatePage:  failed to allocate memory\n", .{});
+    const page = virtualBitMap.alloc(1) catch |err| {
+        virtio.printf("vmm.allocatePage:  failed to allocate memory error: {}\n", .{err});
         return null;
     };
     const pageAddr = @intFromPtr(page);
@@ -46,8 +46,8 @@ pub fn allocatePage() ?[*]u8 {
             virtio.printf("vmm.allocatePage:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
             return page;
         } else if (err == paging.PageErrors.NotMapped) {
-            const physPage = pmm.physBitMapAllocator.alloc(u8, memory.PAGE_SIZE) catch |allocatePhysErr| {
-                virtio.printf("vmm.allocatePage:  failed to allocate physical page: {}\n", .{allocatePhysErr});
+            const physPage = pmm.physBitMap.alloc(1) catch |physAllocErr| {
+                virtio.printf("vmm.allocatePage:  failed to allocate physical page error: {}\n", .{physAllocErr});
                 return null;
             };
             const physPageAddr = @intFromPtr(physPage);
@@ -69,21 +69,26 @@ pub fn allocatePage() ?[*]u8 {
 }
 
 pub fn freePage(address: [*]u8) void {
+    const physAddr = paging.virtualToPhysical(@intFromPtr(address)) catch |err| {
+        virtio.printf("vmm.freePage:  failed to get physical address: {}\n", .{err});
+        return;
+    };
+    pmm.physBitMap.free(@ptrFromInt(physAddr), 1);
+
     _ = paging.setPageTableEntryRecursivly(@intFromPtr(address), 0, .{}) catch |setErr| {
         virtio.printf("vmm.allocatePage:  failed to set page table entry: {}\n", .{setErr});
     };
-    const virtualBitMapAllocator = virtualBitMap.allocator();
-    virtualBitMapAllocator.free(address);
+    virtualBitMap.free(address, 1);
 }
 
 fn testVmmAlloc() void {
-    virtio.printf("testing vmm alloc:  start test\n", .{});
+    virtio.printf("vmm.testVmmAlloc:  start test\n", .{});
     const page = allocatePage() orelse {
-        virtio.printf("testVmmAlloc:  failed to allocate memory\n", .{});
+        virtio.printf("vmm.testVmmAlloc:  failed to allocate memory\n", .{});
         return;
     };
     const pageAddr = @intFromPtr(page);
     page[0] = 69;
-    virtio.printf("testing vmm alloc success:  allocated address: 0x{X} first byte: {}\n", .{ pageAddr, page[0] });
+    virtio.printf("vmm.testVmmAlloc: success:  allocated address: 0x{X} first byte: {}\n", .{ pageAddr, page[0] });
     freePage(page);
 }

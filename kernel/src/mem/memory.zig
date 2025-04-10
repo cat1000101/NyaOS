@@ -33,275 +33,247 @@ pub const AllocatorError = error{
 // remap: resize or try to alloc without the expand allocator/get more memory
 // free: free the memory from the allocator
 
-pub fn BitMapAllocatorGeneric(comptime dynamicInitialStaticSize: usize) type {
-    return struct {
-        bitmap: [dynamicInitialStaticSize]u8,
-        size: usize = dynamicInitialStaticSize * 8,
-        allocationSize: usize,
-        /// inclusive
-        start: usize = 0,
-        /// exclusive
-        end: usize = 0,
-        pub fn init(allocationSize: usize, start: usize, end: usize, full: bool) @This() {
-            const byte: u8 = if (full) 0xff else 0x00;
-            const lstart = alignAddressUp(start - 1, allocationSize);
-            const lend = alignAddressDown(end, allocationSize);
-            return .{
-                .allocationSize = allocationSize,
-                .bitmap = [_]u8{byte} ** dynamicInitialStaticSize,
-                .start = lstart,
-                .end = lend,
-            };
+pub const BitMapAllocatorGeneric = struct {
+    bitmap: []u8,
+    size: usize = 0,
+    allocationSize: usize,
+    /// inclusive
+    start: usize = 0,
+    /// exclusive
+    end: usize = 0,
+    pub fn init(bitmap: []u8, allocationSize: usize, start: usize, end: usize, full: bool) @This() {
+        const byte: u8 = if (full) 0xff else 0x00;
+        const lstart = alignAddressUp(start - 1, allocationSize);
+        const lend = alignAddressDown(end, allocationSize);
+        for (bitmap) |*byteView| {
+            byteView.* = byte;
         }
+        var retAllocator: @This() = .{
+            .bitmap = bitmap,
+            .size = bitmap.len * 8,
+            .allocationSize = allocationSize,
+            .start = lstart,
+            .end = lend,
+        };
+        retAllocator.setUsableMemory(multiboot.multibootInfo);
+        // retAllocator.debugPrint();
+        return retAllocator;
+    }
 
-        pub fn allocator(self: *@This()) mem.Allocator {
-            return .{
-                .ptr = self,
-                .vtable = &.{
-                    .alloc = alloc,
-                    .resize = resize,
-                    .remap = remap,
-                    .free = free,
-                },
-            };
-        }
-
-        pub fn alloc(ctx: *anyopaque, len: usize, alignment: mem.Alignment, ret_addr: usize) ?[*]u8 {
-            const this: *@This() = @ptrCast(@alignCast(ctx));
-            if (len == 0) {
-                virtio.printf("bitmap: alloc:  got 0 length\n", .{});
-                return null;
-            } else if (!this.isAligned(len)) {
-                virtio.printf("bitmap: alloc:  got length not alighned\n", .{});
-                return null;
+    pub fn alloc(this: *@This(), amount: usize) AllocatorError![*]u8 {
+        if (this.find(amount)) |address| {
+            const start: usize = (@intFromPtr(address) - this.start) / this.allocationSize;
+            for (start..(start + amount)) |i| {
+                this.set(i);
             }
+            virtio.printf("allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), amount * this.allocationSize });
+            return address;
+        } else {
+            virtio.printf("TODO: make resize/realloc of the allocator or allocator buffer or whatever\n", .{});
+            return AllocatorError.OutOfMemory;
+        }
+    }
 
-            if (find(ctx, len, alignment, ret_addr)) |address| {
-                const start: usize = (@intFromPtr(address) - this.start) / this.allocationSize;
-                const count: usize = len / this.allocationSize;
-                if (start + count > this.size) {
-                    virtio.printf("bitmap: alloc:  got length not in range\n", .{});
-                    return null;
+    fn find(this: *@This(), amount: usize) ?[*]u8 {
+        var start: usize = 0;
+        var found: usize = 0;
+        for (0..this.size) |index| {
+            if (this.check(index) == false) {
+                if (found == 0) {
+                    start = index;
                 }
-                for (start..(start + count)) |i| {
-                    this.set(i);
+                found += 1;
+                const address: usize = (start * this.allocationSize) + this.start;
+                if (found == amount and address < this.end) {
+                    // virtio.printf("allocator found not used memory at 0x{X} size: 0x{X}\n", .{ address, amount * this.allocationSize });
+                    return @ptrFromInt(address);
                 }
-                virtio.printf("allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), count * this.allocationSize });
-                return address;
             } else {
-                virtio.printf("TODO: make resize/realloc of the allocator or allocator buffer or whatever\n", .{});
-                return null;
+                found = 0;
+                start = 0;
             }
         }
+        return null;
+    }
 
-        fn find(ctx: *anyopaque, len: usize, alignment: mem.Alignment, ret_addr: usize) ?[*]u8 {
-            const this: *@This() = @ptrCast(@alignCast(ctx));
-            _ = ret_addr;
-            _ = alignment;
-            if (len == 0) {
-                virtio.printf("bitmap: find:  got 0 length\n", .{});
-                return null;
-            } else if (!this.isAligned(len)) {
-                virtio.printf("bitmap: find:  got length not alighned\n", .{});
-                return null;
-            }
+    pub fn resize(this: *@This(), memory: []u8, new_amount: usize) bool {
+        const indexAllocated: usize = (@intFromPtr(memory.ptr) / this.allocationSize) - (this.start / this.allocationSize);
+        const oldCount: usize = memory.len / this.allocationSize;
+        const count: usize = new_amount;
 
-            const count: usize = len / this.allocationSize;
-            var start: usize = 0;
-            var found: usize = 0;
-            for (0..this.size) |index| {
-                if (this.check(index) == false) {
-                    if (found == 0) {
-                        start = index;
-                    }
-                    found += 1;
-                    const address: usize = (start * this.allocationSize) + this.start;
-                    if (found == count and address < this.end) {
-                        virtio.printf("allocator found not used memory at 0x{X} size: 0x{X}\n", .{ address, count * this.allocationSize });
-                        return @ptrFromInt(address);
-                    }
-                } else {
-                    found = 0;
-                    start = 0;
-                }
+        if (count == oldCount) {
+            return true;
+        } else if (count < oldCount) {
+            for ((indexAllocated + count)..(indexAllocated + oldCount)) |index| {
+                this.clear(index);
             }
-            return null;
+            return true;
         }
 
-        pub fn resize(ctx: *anyopaque, memory: []u8, alignment: mem.Alignment, new_len: usize, ret_addr: usize) bool {
-            _ = ret_addr;
-            _ = alignment;
-            const this: *@This() = @ptrCast(@alignCast(ctx));
-            if (new_len == 0 or memory.len == 0) {
-                virtio.printf("bitmap: resize:  got 0 length\n", .{});
-                return false;
-            } else if (!this.isAligned(new_len) or !this.isAligned(memory.len)) {
-                virtio.printf("bitmap: resize:  got length not alighned\n", .{});
-                return false;
-            } else if (!this.isAligned(@intFromPtr(memory.ptr))) {
-                virtio.printf("bitmap: resize:  got address not alighned\n", .{});
-                return false;
-            }
-
-            const indexAllocated: usize = (@intFromPtr(memory.ptr) / this.allocationSize) - (this.start / this.allocationSize);
-            const oldCount: usize = memory.len / this.allocationSize;
-            const count: usize = new_len / this.allocationSize;
-
-            if (count == oldCount) {
-                return true;
-            } else if (count < oldCount) {
-                for ((indexAllocated + count)..(indexAllocated + oldCount)) |index| {
-                    this.clear(index);
-                }
-                return true;
-            }
-
-            if (indexAllocated + count > this.size) {
-                return false;
-            }
-
-            const resizeAtPlacePossible = for ((indexAllocated + oldCount)..(indexAllocated + count)) |i| {
-                if (this.check(i) == true) {
-                    break false;
-                }
-            } else true;
-            if (resizeAtPlacePossible) {
-                for ((indexAllocated + oldCount)..(indexAllocated + count)) |i| {
-                    this.set(i);
-                }
-                return true;
-            } else {
-                return false;
-            }
+        if (indexAllocated + count > this.size) {
+            return false;
         }
 
-        pub fn remap(ctx: *anyopaque, memory: []u8, alignment: mem.Alignment, new_len: usize, ret_addr: usize) ?[*]u8 {
-            const this: *@This() = @ptrCast(@alignCast(ctx));
-            if (new_len == 0 or memory.len == 0) {
-                virtio.printf("bitmap: remap:  got 0 length\n", .{});
-                return null;
-            } else if (!this.isAligned(new_len) or !this.isAligned(memory.len)) {
-                virtio.printf("bitmap: remap:  got length not alighned\n", .{});
-                return null;
-            } else if (!this.isAligned(@intFromPtr(memory.ptr))) {
-                virtio.printf("bitmap: remap:  got address not alighned\n", .{});
-                return null;
+        const resizeAtPlacePossible = for ((indexAllocated + oldCount)..(indexAllocated + count)) |i| {
+            if (this.check(i) == true) {
+                break false;
             }
+        } else true;
+        if (resizeAtPlacePossible) {
+            for ((indexAllocated + oldCount)..(indexAllocated + count)) |i| {
+                this.set(i);
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
 
-            if (resize(ctx, memory, alignment, new_len, ret_addr)) {
-                return memory.ptr;
-            }
-
-            if (find(ctx, new_len, alignment, ret_addr)) |address| {
-                const start: usize = (@intFromPtr(address) - this.start) / this.allocationSize;
-                const count: usize = new_len / this.allocationSize;
-                if (start + count > this.size) {
-                    virtio.printf("bitmap: remap:  got length not in range\n", .{});
-                    return null;
-                }
-                for (start..(start + count)) |i| {
-                    this.set(i);
-                }
-                for ((@intFromPtr(memory.ptr) / this.allocationSize) - (this.start / this.allocationSize)..(@intFromPtr(memory.ptr) / this.allocationSize) - this.start / this.allocationSize + memory.len / this.allocationSize) |i| {
-                    this.clear(i);
-                }
-                virtio.printf("allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), count * this.allocationSize });
-                virtio.printf("freed memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(memory.ptr), memory.len });
-                return address;
-            } else {
-                return null;
-            }
+    pub fn remap(this: *@This(), memory: []u8, new_amount: usize) ?[*]u8 {
+        if (this.resize(memory, new_amount)) {
+            return memory.ptr;
         }
 
-        pub fn free(ctx: *anyopaque, memory: []u8, alignment: mem.Alignment, ret_addr: usize) void {
-            const this: *@This() = @ptrCast(@alignCast(ctx));
-            _ = ret_addr;
-            _ = alignment;
-            if (memory.len == 0) {
-                virtio.printf("bitmap: free:  got 0 length\n", .{});
-                return;
+        if (this.find(new_amount)) |address| {
+            const start: usize = (@intFromPtr(address) - this.start) / this.allocationSize;
+            const count: usize = new_amount;
+            if (start + count > this.size) {
+                virtio.printf("bitmap: remap:  got length not in range\n", .{});
+                return null;
             }
-            if (!this.isAligned(memory.len)) {
-                virtio.printf("bitmap: free:  got length not alighned\n", .{});
-                return;
+            for (start..(start + count)) |i| {
+                this.set(i);
             }
-            if (!this.isAligned(@intFromPtr(memory.ptr))) {
-                virtio.printf("bitmap: free:  got address not alighned\n", .{});
-                return;
-            }
-            virtio.printf("freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(memory.ptr), memory.len });
-            const index = (@intFromPtr(memory.ptr) / this.allocationSize) - (this.start / this.allocationSize);
-            for (index..(index + memory.len / this.allocationSize)) |i| {
+            for ((@intFromPtr(memory.ptr) / this.allocationSize) - (this.start / this.allocationSize)..(@intFromPtr(memory.ptr) / this.allocationSize) - this.start / this.allocationSize + memory.len / this.allocationSize) |i| {
                 this.clear(i);
             }
+            virtio.printf("allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), count * this.allocationSize });
+            virtio.printf("freed memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(memory.ptr), memory.len });
+            return address;
+        } else {
+            return null;
+        }
+    }
+
+    pub fn free(this: *@This(), address: [*]u8, size: usize) void {
+        if (size == 0) {
+            virtio.printf("bitmap: free:  got 0 length\n", .{});
+            return;
+        }
+        if (!this.isAligned(@intFromPtr(address))) {
+            virtio.printf("bitmap: free:  got address not alighned\n", .{});
+            return;
         }
 
-        pub fn isAligned(this: *@This(), addr: usize) bool {
-            return (addr & (this.allocationSize - 1)) == 0;
+        virtio.printf("freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), size });
+        const index = (@intFromPtr(address) / this.allocationSize) - (this.start / this.allocationSize);
+        for (index..(index + size)) |i| {
+            this.clear(i);
         }
-        pub fn set(this: *@This(), index: usize) void {
-            const byteIndex = index / 8;
-            const bitIndex: u3 = @intCast(index % 8);
-            this.bitmap[byteIndex] |= @as(u8, 1) << bitIndex;
-        }
-        pub fn clear(this: *@This(), index: usize) void {
-            const byteIndex = index / 8;
-            const bitIndex: u3 = @intCast(index % 8);
-            this.bitmap[byteIndex] &= ~(@as(u8, 1) << bitIndex);
-        }
-        pub fn check(this: *@This(), index: usize) bool {
-            const byteIndex = index / 8;
-            const bitIndex: u3 = @intCast(index % 8);
-            return this.bitmap[byteIndex] & (@as(u8, 1) << bitIndex) == 1;
-        }
-        pub fn setUsableMemory(bitMap: *@This(), mbh: *multiboot.multiboot_info) void {
-            // virtio.printf("setting usable memory for page allocator\n", .{});
-            // defer virtio.printf("finished usable memory setting?\n", .{}); // data: {}\n", .{bitMap});
+    }
 
-            const header = mbh;
-            const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
-            var endOfMemory: u32 = 0;
-            for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
-                if (entry.type == 1) {
-                    const start = alignAddressUp(@intCast(entry.addr), bitMap.allocationSize);
-                    const end = alignAddressDown(@intCast(entry.addr + entry.len), bitMap.allocationSize);
-                    endOfMemory = end;
-                    for ((start / physPageSizes)..(end / physPageSizes)) |index| {
-                        const startIndex = bitMap.start / physPageSizes;
-                        const endIndex = bitMap.end / physPageSizes;
-                        if (index < startIndex or index >= endIndex) {
-                            continue;
-                        }
-                        const address = index * physPageSizes;
-                        if (address <= physMemStart or (address >= @intFromPtr(kernel_physical_start) and address <= @intFromPtr(kernel_physical_end))) {
-                            bitMap.set(index - startIndex);
-                        } else if ((index - startIndex) >= bitMap.size) {
-                            break;
-                        }
-                        bitMap.clear(index - startIndex);
-                    }
-                }
-            }
-            if (endOfMemory < 8 * physPageSizes * physPageSizes) {
-                virtio.printf("you dont have enough memory dummy\n", .{});
-                // @panic("you dont have enough memory dummy\n");
+    pub fn reallocAllocatorBuffer(this: *@This(), newBuffer: []u8) bool {
+        if (newBuffer.len * 8 * this.allocationSize + this.start > this.end) {
+            return false;
+        }
+        for (this.bitmap, newBuffer) |byte, *byteView| {
+            byteView.* = byte;
+        }
+        if (this.bitmap.len < newBuffer.len) {
+            for (this.bitmap.len..newBuffer.len) |i| {
+                this.bitmap[i] = 0x00;
             }
         }
-        pub fn debugPrint(this: *@This()) void {
-            for (0..this.size) |index| {
-                const address: usize = (index * this.allocationSize) + this.start;
-                if (address >= this.start and address < this.end) {
-                    if (this.check(index) == false) {
-                        virtio.printf("00x{X} ", .{address});
-                    } else {
-                        virtio.printf("10x{X} ", .{address});
+        this.bitmap = newBuffer;
+        this.size = newBuffer.len * 8;
+
+        this.setUsableMemory(multiboot.multibootInfo);
+
+        return true;
+    }
+
+    pub fn isAligned(this: *@This(), addr: usize) bool {
+        return (addr & (this.allocationSize - 1)) == 0;
+    }
+    pub fn set(this: *@This(), index: usize) void {
+        const byteIndex = index / 8;
+        const bitIndex: u3 = @intCast(index % 8);
+        this.bitmap[byteIndex] |= (@as(u8, 1) << bitIndex);
+    }
+    pub fn clear(this: *@This(), index: usize) void {
+        const byteIndex = index / 8;
+        const bitIndex: u3 = @intCast(index % 8);
+        this.bitmap[byteIndex] &= ~(@as(u8, 1) << bitIndex);
+    }
+    pub fn check(this: *@This(), index: usize) bool {
+        const byteIndex = index / 8;
+        const bitIndex: u3 = @intCast(index % 8);
+        return (this.bitmap[byteIndex] & (@as(u8, 1) << bitIndex)) != 0;
+    }
+    pub fn setUsableMemory(this: *@This(), mbh: *multiboot.multiboot_info) void {
+        // virtio.printf("setting usable memory for page allocator\n", .{});
+        // defer virtio.printf("finished usable memory setting?\n", .{}); // data: {}\n", .{this});
+
+        const header = mbh;
+        const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
+        for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
+            const start = alignAddressUp(@intCast(entry.addr), this.allocationSize);
+            const end = alignAddressDown(@intCast(entry.addr + entry.len), this.allocationSize);
+            const startIndex = this.start / this.allocationSize;
+            const endIndex = this.end / this.allocationSize;
+            if (end / this.allocationSize < startIndex) {
+                continue;
+            } else if (start / this.allocationSize >= endIndex) {
+                break;
+            } else if ((start / this.allocationSize - startIndex) >= this.size) {
+                break;
+            }
+            if (entry.type == 1) {
+                for ((start / this.allocationSize)..(end / this.allocationSize)) |index| {
+                    if (index < startIndex) {
+                        continue;
+                    } else if (index >= endIndex) {
+                        break;
+                    } else if ((index - startIndex) >= this.size) {
+                        break;
                     }
+
+                    const address = index * this.allocationSize;
+                    if (address <= physMemStart or (address >= @intFromPtr(kernel_physical_start) and address <= @intFromPtr(kernel_physical_end)) or (address >= @intFromPtr(kernel_start) and address <= @intFromPtr(kernel_end))) {
+                        this.set(index - startIndex);
+                        continue;
+                    }
+                    this.clear(index - startIndex);
+                }
+            } else {
+                for ((start / this.allocationSize)..(end / this.allocationSize)) |index| {
+                    if (index < startIndex) {
+                        continue;
+                    } else if (index >= endIndex) {
+                        break;
+                    } else if ((index - startIndex) >= this.size) {
+                        break;
+                    }
+                    this.set(index - startIndex);
                 }
             }
-            virtio.printf("\n", .{});
         }
-    };
-}
+    }
+    pub fn debugPrint(this: *@This()) void {
+        virtio.printf("bitmap: debugPrint:  size: {}\n", .{this.size});
+        for (0..this.size) |index| {
+            const address: usize = (index * this.allocationSize) + this.start;
+            if (address < this.end) {
+                if (this.check(index) == true) {
+                    virtio.printf("10x{X} ", .{address});
+                } else {
+                    // virtio.printf("00x{X} ", .{address});
+                }
+            }
+        }
+        virtio.printf("\n", .{});
+    }
+};
 
 pub fn alignAddress(addr: u32, alignment: usize) u32 {
     return addr & ~(alignment - 1);

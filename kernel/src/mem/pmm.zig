@@ -7,28 +7,32 @@ const multiboot = @import("../multiboot.zig");
 const virtio = @import("../arch/x86/virtio.zig");
 const memory = @import("memory.zig");
 
-const BitMapAllocatorPageSize = memory.BitMapAllocatorGeneric(memory.physPageSizes);
-var physBitMap = BitMapAllocatorPageSize.init(
-    memory.physPageSizes,
-    memory.MIB * 4,
-    memory.MIB * 8,
-    true,
-);
-pub var physBitMapAllocator = physBitMap.allocator();
+var tempBuffer: [memory.PAGE_SIZE]u8 = [_]u8{0xff} ** memory.PAGE_SIZE;
+var tempBufferSlice: []u8 = &tempBuffer;
+
+pub var physBitMap: memory.BitMapAllocatorGeneric = undefined;
 
 pub fn initPmm() void {
-    physBitMap.setUsableMemory(multiboot.multibootInfo);
-    // testPageAllocator(&physBitMap);
+    physBitMap = memory.BitMapAllocatorGeneric.init(
+        tempBufferSlice,
+        memory.physPageSizes,
+        memory.MIB * 1,
+        memory.MIB * 8,
+        false,
+    );
+    // physBitMap.debugPrint();
+    // testPageAllocator();
 }
 
 pub fn testPageAllocator() void {
-    const testAllocation = physBitMapAllocator.alloc(u8, memory.PAGE_SIZE) catch {
-        virtio.printf("failed to allocate memory\n", .{});
+    const testAllocation = physBitMap.alloc(1) catch |err| {
+        virtio.printf("pmm.testPageAllocator:  failed to allocate memory error: {}\n", .{err});
         return;
     };
-    virtio.printf("allocated memory at: 0x{X} size: 0x{X}\n", .{
-        @intFromPtr(testAllocation.ptr),
-        @import("std").mem.sliceAsBytes(memory).len,
+    virtio.printf("pmm.testPageAllocator:  allocated memory at: 0x{X} size: 0x{X}\n", .{
+        @intFromPtr(testAllocation),
+        physBitMap.allocationSize,
+            // @import("std").mem.sliceAsBytes(memory).len,
     });
-    physBitMapAllocator.free(testAllocation);
+    physBitMap.free(testAllocation, 1);
 }

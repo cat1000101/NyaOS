@@ -205,11 +205,11 @@ pub const PageDirectory = struct {
 };
 
 pub fn newPageTable(vaddr: u32) memory.AllocatorError!*PageTable {
-    const physPage = pmm.physBitMapAllocator.alloc(u8, memory.PAGE_SIZE) catch |err| {
-        virtio.printf("newPageTable:  failed to allocate physical page: {}\n", .{err});
+    const physPage = pmm.physBitMap.alloc(1) catch |err| {
+        virtio.printf("newPageTable:  failed to allocate physical page error: {}\n", .{err});
         return err;
     };
-    const physPageAddress = @intFromPtr(physPage.ptr);
+    const physPageAddress = @intFromPtr(physPage);
     const pageIndex = (vaddr >> 22);
     const pageTable = setPageTableRecursivly(pageIndex, physPageAddress, .{
         .present = 1,
@@ -487,8 +487,8 @@ pub fn mapForbiddenZones(mbh: *multiboot.multiboot_info) void {
 fn testPaging() void {
     virtio.printf("testing paging by allocating a page and changing it's content\n", .{});
     defer virtio.printf("paging test done\n", .{});
-    const physicalPage: u32 = @intFromPtr(pmm.allocate() orelse {
-        virtio.printf("Can't allocate page for test\n", .{});
+    const physicalPage: u32 = @intFromPtr(pmm.physBitMap.alloc(1) catch |err| {
+        virtio.printf("Can't allocate page for test: {}\n", .{err});
         return;
     });
     const lvaddr = 55 * memory.DIR_SIZE;
