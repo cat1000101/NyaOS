@@ -66,10 +66,10 @@ pub const BitMapAllocatorGeneric = struct {
             for (start..(start + amount)) |i| {
                 this.set(i);
             }
-            virtio.printf("allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), amount * this.allocationSize });
+            virtio.printf("memory.alloc:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), amount * this.allocationSize });
             return address;
         } else {
-            virtio.printf("TODO: make resize/realloc of the allocator or allocator buffer or whatever\n", .{});
+            virtio.printf("memory.alloc:  TODO: make resize/realloc of the allocator or allocator buffer or whatever\n", .{});
             return AllocatorError.OutOfMemory;
         }
     }
@@ -85,7 +85,7 @@ pub const BitMapAllocatorGeneric = struct {
                 found += 1;
                 const address: usize = (start * this.allocationSize) + this.start;
                 if (found == amount and address < this.end) {
-                    // virtio.printf("allocator found not used memory at 0x{X} size: 0x{X}\n", .{ address, amount * this.allocationSize });
+                    // virtio.printf("memory.find:  allocator found not used memory at 0x{X} size: 0x{X}\n", .{ address, amount * this.allocationSize });
                     return @ptrFromInt(address);
                 }
             } else {
@@ -138,7 +138,7 @@ pub const BitMapAllocatorGeneric = struct {
             const start: usize = (@intFromPtr(address) - this.start) / this.allocationSize;
             const count: usize = new_amount;
             if (start + count > this.size) {
-                virtio.printf("bitmap: remap:  got length not in range\n", .{});
+                virtio.printf("memory.remap:  got length not in range\n", .{});
                 return null;
             }
             for (start..(start + count)) |i| {
@@ -147,8 +147,8 @@ pub const BitMapAllocatorGeneric = struct {
             for ((@intFromPtr(memory.ptr) / this.allocationSize) - (this.start / this.allocationSize)..(@intFromPtr(memory.ptr) / this.allocationSize) - this.start / this.allocationSize + memory.len / this.allocationSize) |i| {
                 this.clear(i);
             }
-            virtio.printf("allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), count * this.allocationSize });
-            virtio.printf("freed memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(memory.ptr), memory.len });
+            virtio.printf("memory.remap:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), count * this.allocationSize });
+            virtio.printf("memory.remap:  freed memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(memory.ptr), memory.len });
             return address;
         } else {
             return null;
@@ -157,15 +157,15 @@ pub const BitMapAllocatorGeneric = struct {
 
     pub fn free(this: *@This(), address: [*]u8, size: usize) void {
         if (size == 0) {
-            virtio.printf("bitmap: free:  got 0 length\n", .{});
+            virtio.printf("memory.free:  got 0 length\n", .{});
             return;
         }
         if (!this.isAligned(@intFromPtr(address))) {
-            virtio.printf("bitmap: free:  got address not alighned\n", .{});
+            virtio.printf("memory.free:  got address not alighned\n", .{});
             return;
         }
 
-        virtio.printf("freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), size });
+        virtio.printf("memory.free:  freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), size });
         const index = (@intFromPtr(address) / this.allocationSize) - (this.start / this.allocationSize);
         for (index..(index + size)) |i| {
             this.clear(i);
@@ -260,7 +260,7 @@ pub const BitMapAllocatorGeneric = struct {
         }
     }
     pub fn debugPrint(this: *@This()) void {
-        virtio.printf("bitmap: debugPrint:  size: {}\n", .{this.size});
+        virtio.printf("memory.debugPrint:  size: {}\n", .{this.size});
         for (0..this.size) |index| {
             const address: usize = (index * this.allocationSize) + this.start;
             if (address < this.end) {

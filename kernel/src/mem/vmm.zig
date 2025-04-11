@@ -22,7 +22,7 @@ pub fn initVmm() void {
         false,
     );
     // vpageAllocator.debugPrint();
-    testVmmAlloc();
+    // testVmmAlloc();
     paging.mapForbiddenZones(multiboot.multibootInfo);
 }
 

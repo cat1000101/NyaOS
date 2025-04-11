@@ -45,17 +45,24 @@
 # Kernel Module Compile Results
 *.mod*
 *.cmd
-.tmp_versions/
-.zig-cache/
-zig-out/
 modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
 
+# custom files and directories
+# zig related
+.tmp_versions/
+.zig-cache/
+zig-out/
+
+# debug files placed in .extras(place for extra things)
 qemu.log
 run.log
 bochs-out.txt
+*.bak
+
+# emulation stuff
 BIOS-bochs-latest
 VGABIOS-lgpl-latest
 bx_enh_dbg.ini
