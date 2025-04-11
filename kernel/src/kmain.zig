@@ -1,4 +1,3 @@
-const main = @import("main.zig");
 const tty = @import("drivers/tty.zig");
 const debug = @import("arch/x86/debug.zig");
 const utils = @import("arch/x86/utils.zig");
