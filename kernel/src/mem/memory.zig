@@ -1,6 +1,6 @@
 const std = @import("std");
 const mem = @import("std").mem;
-const virtio = @import("../arch/x86/virtio.zig");
+const debug = @import("../arch/x86/debug.zig");
 const multiboot = @import("../multiboot.zig");
 
 pub const kernel_physical_start: *anyopaque = @extern(*anyopaque, .{ .name = "kernel_physical_start" });
@@ -66,10 +66,10 @@ pub const BitMapAllocatorGeneric = struct {
             for (start..(start + amount)) |i| {
                 this.set(i);
             }
-            virtio.printf("memory.alloc:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), amount * this.allocationSize });
+            debug.printf("memory.alloc:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), amount * this.allocationSize });
             return address;
         } else {
-            virtio.printf("memory.alloc:  TODO: make resize/realloc of the allocator or allocator buffer or whatever\n", .{});
+            debug.printf("memory.alloc:  TODO: make resize/realloc of the allocator or allocator buffer or whatever\n", .{});
             return AllocatorError.OutOfMemory;
         }
     }
@@ -85,7 +85,7 @@ pub const BitMapAllocatorGeneric = struct {
                 found += 1;
                 const address: usize = (start * this.allocationSize) + this.start;
                 if (found == amount and address < this.end) {
-                    // virtio.printf("memory.find:  allocator found not used memory at 0x{X} size: 0x{X}\n", .{ address, amount * this.allocationSize });
+                    // debug.printf("memory.find:  allocator found not used memory at 0x{X} size: 0x{X}\n", .{ address, amount * this.allocationSize });
                     return @ptrFromInt(address);
                 }
             } else {
@@ -138,7 +138,7 @@ pub const BitMapAllocatorGeneric = struct {
             const start: usize = (@intFromPtr(address) - this.start) / this.allocationSize;
             const count: usize = new_amount;
             if (start + count > this.size) {
-                virtio.printf("memory.remap:  got length not in range\n", .{});
+                debug.printf("memory.remap:  got length not in range\n", .{});
                 return null;
             }
             for (start..(start + count)) |i| {
@@ -147,8 +147,8 @@ pub const BitMapAllocatorGeneric = struct {
             for ((@intFromPtr(memory.ptr) / this.allocationSize) - (this.start / this.allocationSize)..(@intFromPtr(memory.ptr) / this.allocationSize) - this.start / this.allocationSize + memory.len / this.allocationSize) |i| {
                 this.clear(i);
             }
-            virtio.printf("memory.remap:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), count * this.allocationSize });
-            virtio.printf("memory.remap:  freed memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(memory.ptr), memory.len });
+            debug.printf("memory.remap:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), count * this.allocationSize });
+            debug.printf("memory.remap:  freed memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(memory.ptr), memory.len });
             return address;
         } else {
             return null;
@@ -157,15 +157,15 @@ pub const BitMapAllocatorGeneric = struct {
 
     pub fn free(this: *@This(), address: [*]u8, size: usize) void {
         if (size == 0) {
-            virtio.printf("memory.free:  got 0 length\n", .{});
+            debug.printf("memory.free:  got 0 length\n", .{});
             return;
         }
         if (!this.isAligned(@intFromPtr(address))) {
-            virtio.printf("memory.free:  got address not alighned\n", .{});
+            debug.printf("memory.free:  got address not alighned\n", .{});
             return;
         }
 
-        virtio.printf("memory.free:  freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), size });
+        debug.printf("memory.free:  freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), size });
         const index = (@intFromPtr(address) / this.allocationSize) - (this.start / this.allocationSize);
         for (index..(index + size)) |i| {
             this.clear(i);
@@ -211,8 +211,8 @@ pub const BitMapAllocatorGeneric = struct {
         return (this.bitmap[byteIndex] & (@as(u8, 1) << bitIndex)) != 0;
     }
     pub fn setUsableMemory(this: *@This(), mbh: *multiboot.multiboot_info) void {
-        // virtio.printf("setting usable memory for page allocator\n", .{});
-        // defer virtio.printf("finished usable memory setting?\n", .{}); // data: {}\n", .{this});
+        // debug.printf("setting usable memory for page allocator\n", .{});
+        // defer debug.printf("finished usable memory setting?\n", .{}); // data: {}\n", .{this});
 
         const header = mbh;
         const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
@@ -260,18 +260,18 @@ pub const BitMapAllocatorGeneric = struct {
         }
     }
     pub fn debugPrint(this: *@This()) void {
-        virtio.printf("memory.debugPrint:  size: {}\n", .{this.size});
+        debug.printf("memory.debugPrint:  size: {}\n", .{this.size});
         for (0..this.size) |index| {
             const address: usize = (index * this.allocationSize) + this.start;
             if (address < this.end) {
                 if (this.check(index) == true) {
-                    virtio.printf("10x{X} ", .{address});
+                    debug.printf("10x{X} ", .{address});
                 } else {
-                    // virtio.printf("00x{X} ", .{address});
+                    // debug.printf("00x{X} ", .{address});
                 }
             }
         }
-        virtio.printf("\n", .{});
+        debug.printf("\n", .{});
     }
 };
 

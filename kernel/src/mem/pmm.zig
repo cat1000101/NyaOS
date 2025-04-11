@@ -4,7 +4,7 @@
 // at the end i align and put the bitmap at the end of the kernel
 // fill the bitmap for existing memory
 const multiboot = @import("../multiboot.zig");
-const virtio = @import("../arch/x86/virtio.zig");
+const debug = @import("../arch/x86/debug.zig");
 const memory = @import("memory.zig");
 
 var tempBuffer: [memory.PAGE_SIZE]u8 = [_]u8{0xff} ** memory.PAGE_SIZE;
@@ -26,10 +26,10 @@ pub fn initPmm() void {
 
 pub fn testPageAllocator() void {
     const testAllocation = physBitMap.alloc(1) catch |err| {
-        virtio.printf("pmm.testPageAllocator:  failed to allocate memory error: {}\n", .{err});
+        debug.printf("pmm.testPageAllocator:  failed to allocate memory error: {}\n", .{err});
         return;
     };
-    virtio.printf("pmm.testPageAllocator:  allocated memory at: 0x{X} size: 0x{X}\n", .{
+    debug.printf("pmm.testPageAllocator:  allocated memory at: 0x{X} size: 0x{X}\n", .{
         @intFromPtr(testAllocation),
         physBitMap.allocationSize,
             // @import("std").mem.sliceAsBytes(memory).len,

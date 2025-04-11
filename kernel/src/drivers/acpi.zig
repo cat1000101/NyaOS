@@ -1,4 +1,4 @@
-const virtio = @import("../arch/x86/virtio.zig");
+const debug = @import("../arch/x86/debug.zig");
 const port = @import("../arch/x86/port.zig");
 const std = @import("std");
 const vmm = @import("../mem/vmm.zig");
@@ -151,7 +151,7 @@ fn findRSDP() ?*RSDP {
             return ptr;
         }
     }
-    virtio.printf("rsdp not found?\n", .{});
+    debug.printf("rsdp not found?\n", .{});
     return null;
 }
 
@@ -183,7 +183,7 @@ fn getFADT() ?*FADT {
 
 pub fn findTable(signature: []const u8) ?*SDTHeader {
     const localRsdp = tables.rsdp orelse {
-        virtio.printf("can't find table rsdp not found\n", .{});
+        debug.printf("can't find table rsdp not found\n", .{});
         return null;
     };
     const rsdt = localRsdp.rsdt_address;
@@ -195,7 +195,7 @@ pub fn findTable(signature: []const u8) ?*SDTHeader {
             return header;
         }
     }
-    virtio.printf("table not found with signiture {s}\n", .{signature});
+    debug.printf("table not found with signiture {s}\n", .{signature});
     return null;
 }
 
@@ -217,22 +217,22 @@ pub fn initACPI() void {
     const rsdp: *RSDP = findRSDP() orelse return;
     tables.rsdp = rsdp;
     if (!validationRsdpChecksum(rsdp)) {
-        virtio.printf("rsdp checksum failed\n", .{});
+        debug.printf("rsdp checksum failed\n", .{});
         return;
     }
     const fadt: *FADT = getFADT() orelse return;
     tables.fadt = fadt;
     if (!validationChecksum(@ptrCast(fadt))) {
-        virtio.printf("fadt checksum failed\n", .{});
+        debug.printf("fadt checksum failed\n", .{});
         return;
     }
 
     if (fadt.smi_command_port == 0 and fadt.acpi_enable == 0 and fadt.acpi_disable == 0 and (fadt.pm1a_control_block & 1) == 1) {
-        virtio.printf("acpi not supported or already enabled?\n", .{}); // i think there is miss information but idk
+        debug.printf("acpi not supported or already enabled?\n", .{}); // i think there is miss information but idk
         return;
     }
 
     port.outb(@intCast(fadt.smi_command_port), fadt.acpi_enable);
 
-    virtio.printf("acpi init success yippe\n", .{});
+    debug.printf("acpi init success yippe\n", .{});
 }

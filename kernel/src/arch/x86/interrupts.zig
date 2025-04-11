@@ -1,12 +1,12 @@
 const std = @import("std");
 const idt = @import("idt.zig");
-const virtio = @import("virtio.zig");
+const debug = @import("debug.zig");
 
 export fn Handler(cpu_state: *IsrCpuState) void {
     switch (cpu_state.interrupt_number) {
         0x00...0x1F => {
             // half stolen thing for the printing: https://github.com/Ashet-Technologies/Ashet-OS/blob/9b595e38815dcc1ed1f7e20abd44ab43c1a63012/src/kernel/port/platform/x86/idt.zig#L67
-            virtio.printf("Unhandled exception 0x{X}: {s}\n", .{ cpu_state.interrupt_number, @as([]const u8, switch (cpu_state.interrupt_number) {
+            debug.printf("Unhandled exception 0x{X}: {s}\n", .{ cpu_state.interrupt_number, @as([]const u8, switch (cpu_state.interrupt_number) {
                 0x00 => "Divide By Zero",
                 0x01 => "Debug",
                 0x02 => "Non Maskable Interrupt",
@@ -32,23 +32,23 @@ export fn Handler(cpu_state: *IsrCpuState) void {
                 0x1F => "Reserved",
                 else => "Unknown",
             }) });
-            // virtio.printf("cpu state: {}\n", .{cpu_state});
+            // debug.printf("cpu state: {}\n", .{cpu_state});
             if (cpu_state.interrupt_number == 14) {
                 var faulting_address: u32 = 0;
                 asm volatile ("mov %cr2, %[faulting_address]"
                     : [faulting_address] "=r" (faulting_address),
                 );
-                virtio.printf("Page Fault when {s} address:0x{X:0>8} from {s}: {s}\n", .{
+                debug.printf("Page Fault when {s} address:0x{X:0>8} from {s}: {s}\n", .{
                     if ((cpu_state.error_code & 2) != 0) @as([]const u8, "writing") else @as([]const u8, "reading"),
                     faulting_address,
                     if ((cpu_state.error_code & 4) != 0) @as([]const u8, "userspace") else @as([]const u8, "kernelspace"),
                     if ((cpu_state.error_code & 1) != 0) @as([]const u8, "access denied") else @as([]const u8, "page unmapped"),
                 });
-                virtio.printf("Offending address:0x{X:0>8}\n", .{cpu_state.eip});
+                debug.printf("Offending address:0x{X:0>8}\n", .{cpu_state.eip});
             }
         },
         else => {
-            virtio.printf("interrupt has accured yippe? not exeption interrupt/exeption:{}, error:{}\n", .{ cpu_state.interrupt_number, cpu_state.error_code });
+            debug.printf("interrupt has accured yippe? not exeption interrupt/exeption:{}, error:{}\n", .{ cpu_state.interrupt_number, cpu_state.error_code });
         },
     }
 }
@@ -239,10 +239,10 @@ pub fn installIsr() void {
         const interrupt = generateIsrStub(i);
         idt.openIdtGate(i, &interrupt) catch |err| switch (err) {
             idt.InterruptError.interruptOpen => {
-                virtio.printf("wtf did u do??????????(isr interrupt already open)\n", .{});
+                debug.printf("wtf did u do??????????(isr interrupt already open)\n", .{});
             },
         };
     }
 
-    virtio.printf("installed isr\n", .{});
+    debug.printf("installed isr\n", .{});
 }

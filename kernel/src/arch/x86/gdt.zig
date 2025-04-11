@@ -1,5 +1,5 @@
 const std = @import("std");
-const virtio = @import("virtio.zig");
+const debug = @import("debug.zig");
 
 const NUMBER_OF_ENTRIES: u16 = 0x06;
 
@@ -146,10 +146,10 @@ pub fn initGdt() void {
     ); // Task State Segment
 
     gdtFlush(&gdt_ptr);
-    virtio.printf("initialized and loaded the gdt\n", .{});
+    debug.printf("initialized and loaded the gdt\n", .{});
 
     loadTss();
-    virtio.printf("loaded Tss\n", .{});
+    debug.printf("loaded Tss\n", .{});
 }
 fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) void {
     gdt_entries[num].base_low = @truncate(base);

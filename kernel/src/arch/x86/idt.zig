@@ -1,5 +1,5 @@
 const std = @import("std");
-const virtio = @import("virtio.zig");
+const debug = @import("debug.zig");
 const gdt = @import("gdt.zig");
 const int = @import("interrupts.zig");
 const pic = @import("pic.zig");
@@ -50,7 +50,7 @@ pub fn initIdt() void {
     pic.initPic();
 
     loadIdt(&idtr);
-    virtio.printf("initialized idt\n", .{});
+    debug.printf("initialized idt\n", .{});
 
     asm volatile ("int $1"); // test for the interrutps
 }

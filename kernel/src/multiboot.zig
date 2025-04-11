@@ -21,7 +21,7 @@
 //  IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-const virtio = @import("arch/x86/virtio.zig");
+const debug = @import("arch/x86/debug.zig");
 const tty = @import("drivers/tty.zig");
 
 pub const MULTIBOOT_HEADER: u32 = 1;
@@ -179,11 +179,11 @@ pub var multibootInfo: *multiboot_info = undefined;
 
 pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        virtio.printf("bootloader multiboot2 header invalid magic number: {d}\n", .{magic});
+        debug.printf("bootloader multiboot2 header invalid magic number: {d}\n", .{magic});
         return false;
     }
     if (header.flags >> 6 & 1 == 0) {
-        virtio.printf("No memory map provided by GRUB or other multiboot2 bootloader sad\n", .{});
+        debug.printf("No memory map provided by GRUB or other multiboot2 bootloader sad\n", .{});
         return false;
     }
 
@@ -196,7 +196,7 @@ fn printRawMemoryMap() void {
     const header = multibootInfo;
     const mmm: [*]multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
     for (mmm, 0..(header.mmap_length / @sizeOf(multiboot_mmap_entry))) |entry, i| {
-        virtio.printf(
+        debug.printf(
             "Memory map entry {d}: size: 0x{X} address: 0x{X} len: 0x{X} type: 0x{X}\n",
             .{
                 i,

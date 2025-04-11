@@ -1,6 +1,6 @@
 const main = @import("main.zig");
 const tty = @import("drivers/tty.zig");
-const virtio = @import("arch/x86/virtio.zig");
+const debug = @import("arch/x86/debug.zig");
 const utils = @import("arch/x86/utils.zig");
 const gdt = @import("arch/x86/gdt.zig");
 const idt = @import("arch/x86/idt.zig");
@@ -13,7 +13,7 @@ const vmm = @import("mem/vmm.zig");
 const panic = @import("panic.zig");
 
 pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) void {
-    virtio.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
+    debug.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
     _ = multiboot.checkMultibootHeader(mbh, magic);
 
     gdt.initGdt();
