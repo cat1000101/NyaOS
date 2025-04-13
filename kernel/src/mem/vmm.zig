@@ -1,10 +1,9 @@
-const mem = @import("std").mem;
 const debug = @import("../arch/x86/debug.zig");
 const multiboot = @import("../multiboot.zig");
 const paging = @import("../arch/x86/paging.zig");
 const memory = @import("memory.zig");
 const pmm = @import("pmm.zig");
-const acpi = @import("../drivers/acpi.zig");
+const kmalloc = @import("kmalloc.zig");
 
 var tempBuffer: [memory.PAGE_SIZE]u8 = [_]u8{0xff} ** memory.PAGE_SIZE;
 var tempBufferSlice: []u8 = &tempBuffer;
@@ -24,6 +23,8 @@ pub fn initVmm() void {
     // vpageAllocator.debugPrint();
     // testVmmAlloc();
     paging.mapForbiddenZones(multiboot.multibootInfo);
+
+    kmalloc.init();
 }
 
 pub fn allocatePage() ?[*]u8 {
