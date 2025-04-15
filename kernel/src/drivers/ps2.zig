@@ -1,13 +1,13 @@
 const acpi = @import("acpi.zig");
 const port = @import("../arch/x86/port.zig");
 const debug = @import("../arch/x86/debug.zig");
-const interrupt = @import("../arch/x86/interrupts.zig");
+const interrupts = @import("../arch/x86/interrupts.zig");
 const pic = @import("../arch/x86/pic.zig");
 const tty = @import("tty.zig");
 
-const DATA_READ_WRITE = 0x60;
-const STATUS_READ = 0x64;
-const COMMAND_WRITE = 0x64;
+const DATA_READ_WRITE: u16 = 0x60;
+const STATUS_READ: u16 = 0x64;
+const COMMAND_WRITE: u16 = 0x64;
 var ps2status: ps2State = .{};
 
 const ps2State = packed struct {
@@ -349,7 +349,7 @@ fn disableKeyboard() void {
 }
 
 fn initializeKeyboard() void {
-    const keyboardHandeler = comptime interrupt.generateStub(&ps2KeyboardHandeler);
+    const keyboardHandeler = comptime interrupts.generateStub(&ps2KeyboardHandeler);
     pic.installIrq(&keyboardHandeler, 1) catch |err| {
         debug.printf("failed to install keyboard handeler {}\n", .{err});
     };
@@ -357,7 +357,8 @@ fn initializeKeyboard() void {
     debug.printf("keyboard initialized!!!\n", .{});
 }
 
-fn ps2KeyboardHandeler() callconv(.c) void {
+fn ps2KeyboardHandeler(cpuState: interrupts.CpuState) callconv(.c) void {
+    _ = cpuState;
     if (readStatus().outputBufferStatus == 0) {
         debug.printf("keyboard handeler called with no data\n", .{});
         pic.picSendEOI(1);

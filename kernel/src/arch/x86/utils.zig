@@ -1,11 +1,3 @@
-pub fn hlt() void {
-    while (true) asm volatile ("hlt");
-}
-
-pub fn whileTrue() void {
-    while (true) asm volatile ("");
-}
-
 /// pretty useless unless using like anciant hardware
 fn cpuHasMSR() bool {
     const cpuid = cpuidFeature();

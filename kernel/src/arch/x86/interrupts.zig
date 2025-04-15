@@ -2,7 +2,7 @@ const std = @import("std");
 const idt = @import("idt.zig");
 const debug = @import("debug.zig");
 
-export fn Handler(cpu_state: *IsrCpuState) void {
+export fn Handler(cpu_state: *ExeptionCpuState) void {
     switch (cpu_state.interrupt_number) {
         0x00...0x1F => {
             // half stolen thing for the printing: https://github.com/Ashet-Technologies/Ashet-OS/blob/9b595e38815dcc1ed1f7e20abd44ab43c1a63012/src/kernel/port/platform/x86/idt.zig#L67
@@ -54,7 +54,7 @@ export fn Handler(cpu_state: *IsrCpuState) void {
 }
 
 // cpu state when calling isr intrupt
-pub const IsrCpuState = extern struct {
+pub const ExeptionCpuState = extern struct {
     // Segment registers pushed manually
     gs: u16,
     fs: u16,
@@ -104,7 +104,7 @@ pub const CpuState = extern struct {
     eax: u32,
 };
 
-export fn isrCommonStub() callconv(.naked) void {
+export fn ExeptionCommonStub() callconv(.naked) void {
     // push corrent state to the stack
     asm volatile (
         \\  pusha               // pushes in order: eax, ecx, edx, ebx, esp, ebp, esi, edi
@@ -154,7 +154,7 @@ export fn isrCommonStub() callconv(.naked) void {
     );
 }
 
-pub fn generateStub(function: *const fn () callconv(.c) void) fn () callconv(.naked) void {
+pub fn generateStub(function: *const fn (CpuState) callconv(.c) void) fn () callconv(.naked) void {
     return struct {
         fn func() callconv(.naked) void {
             asm volatile (
@@ -208,7 +208,7 @@ pub fn generateStub(function: *const fn () callconv(.c) void) fn () callconv(.na
 
 // stollen/"inspired" from https://github.com/ZystemOS/pluto it is a good zig os
 // that is a good refrence for good practive maybe idk
-fn generateIsrStub(comptime interrupt_num: u32) fn () callconv(.naked) void {
+fn generateExeptionStub(comptime interrupt_num: u32) fn () callconv(.naked) void {
     return struct {
         fn func() callconv(.naked) void {
             asm volatile (
@@ -224,10 +224,10 @@ fn generateIsrStub(comptime interrupt_num: u32) fn () callconv(.naked) void {
 
             asm volatile (
                 \\ pushl %[nr]
-                \\ jmp %[isrCommonStub:P]
+                \\ jmp %[ExeptionCommonStub:P]
                 :
                 : [nr] "n" (interrupt_num),
-                  [isrCommonStub] "X" (&isrCommonStub),
+                  [ExeptionCommonStub] "X" (&ExeptionCommonStub),
             );
         }
     }.func;
@@ -236,7 +236,7 @@ fn generateIsrStub(comptime interrupt_num: u32) fn () callconv(.naked) void {
 pub fn installIsr() void {
     comptime var i = 0;
     inline while (i < 32) : (i += 1) {
-        const interrupt = generateIsrStub(i);
+        const interrupt = generateExeptionStub(i);
         idt.openIdtGate(i, &interrupt) catch |err| switch (err) {
             idt.InterruptError.interruptOpen => {
                 debug.printf("wtf did u do??????????(isr interrupt already open)\n", .{});
@@ -245,4 +245,20 @@ pub fn installIsr() void {
     }
 
     debug.printf("installed isr\n", .{});
+}
+
+pub inline fn cli() void {
+    asm volatile (
+        \\ cli
+    );
+}
+pub inline fn sti() void {
+    asm volatile (
+        \\ sti
+    );
+}
+pub inline fn hlt() void {
+    asm volatile (
+        \\ hlt
+    );
 }

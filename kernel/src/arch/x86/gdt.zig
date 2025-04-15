@@ -60,19 +60,29 @@ const GdtPtr = packed struct {
 
 const Flags = packed struct {
     preserved: u1 = 0,
-    l: u1, //L: Long-mode code flag. If set (1), the descriptor defines a 64-bit code segment. When set, DB should always be clear. For any other type of segment (other code types or any data segment), it should be clear (0).
-    db: u1, //DB: Size flag. If clear (0), the descriptor defines a 16-bit protected mode segment. If set (1) it defines a 32-bit protected mode segment. A GDT can have both 16-bit and 32-bit selectors at once.
-    g: u1, //G: Granularity flag, indicates the size the Limit value is scaled by. If clear (0), the Limit is in 1 Byte blocks (byte granularity). If set (1), the Limit is in 4 KiB blocks (page granularity).
+    /// Long-mode code flag. If set (1), the descriptor defines a 64-bit code segment. When set, DB should always be clear. For any other type of segment (other code types or any data segment), it should be clear (0).
+    l: u1,
+    /// Size flag. If clear (0), the descriptor defines a 16-bit protected mode segment. If set (1) it defines a 32-bit protected mode segment. A GDT can have both 16-bit and 32-bit selectors at once.
+    db: u1,
+    /// Granularity flag, indicates the size the Limit value is scaled by. If clear (0), the Limit is in 1 Byte blocks (byte granularity). If set (1), the Limit is in 4 KiB blocks (page granularity).
+    g: u1,
 };
 
 const Access = packed struct {
-    a: u1, //A: Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
-    rw: u1, //RW: Readable bit/Writable bit.
-    dc: u1, //DC: Direction bit/Conforming bit. when data sector : 0 for up 1 for down when code sector : 0 execute from the same ring 1 for jumping to higher place.
-    e: u1, //E: Executable bit. If clear (0) the descriptor defines a data segment. If set (1) it defines a code segment which can be executed from.
-    s: u1, //S: Descriptor type bit. If clear (0) the descriptor defines a system segment (eg. a Task State Segment). If set (1) it defines a code or data segment.
-    dpl: u2, //DPL: Descriptor privilege level field. Contains the CPU Privilege level of the segment. 0 = highest privilege (kernel), 3 = lowest privilege (user applications).
-    p: u1, //P: Present bit. Allows an entry to refer to a valid segment. Must be set (1) for any valid segment.
+    /// Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
+    a: u1,
+    /// Readable bit/Writable bit.
+    rw: u1,
+    /// Direction bit/Conforming bit. when data sector : 0 for up 1 for down when code sector : 0 execute from the same ring 1 for jumping to higher place.
+    dc: u1,
+    /// Executable bit. If clear (0) the descriptor defines a data segment. If set (1) it defines a code segment which can be executed from.
+    e: u1,
+    /// Descriptor type bit. If clear (0) the descriptor defines a system segment (eg. a Task State Segment). If set (1) it defines a code or data segment.
+    s: u1,
+    /// Descriptor privilege level field. Contains the CPU Privilege level of the segment. 0 = highest privilege (kernel), 3 = lowest privilege (user applications).
+    dpl: u2,
+    /// Present bit. Allows an entry to refer to a valid segment. Must be set (1) for any valid segment.
+    p: u1,
 };
 
 const NULL_ACCESS: Access = std.mem.zeroes(Access);
@@ -151,6 +161,7 @@ pub fn initGdt() void {
     loadTss();
     debug.printf("loaded Tss\n", .{});
 }
+
 fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) void {
     gdt_entries[num].base_low = @truncate(base);
     gdt_entries[num].base_high = @truncate(base >> 24);

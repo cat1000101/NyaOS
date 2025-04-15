@@ -46,15 +46,24 @@ pub const PageErrors = error{
 
 pub const PageDirectoryEntery = packed struct {
     pub const Flags = packed struct {
-        present: u1 = 0, // P, or 'Present'. If the bit is set, the page is actually in physical memory at the moment.
-        read_write: u1 = 0, // R/W, the 'Read/Write' permissions flag. If the bit is set, the page is read/write.
-        user_supervisor: u1 = 0, // U/S, the 'User/Supervisor' bit, controls access to the page based on privilege level.
-        write_through: u1 = 0, // PWT, controls Write-Through' abilities of the page.
-        cache_disabled: u1 = 0, // PCD, is the 'Cache Disable' bit. If the bit is set, the page will not be cached.
-        accessed: u1 = 0, // , or 'Accessed' is used to discover whether a PDE or PTE was read during virtual address translation.
-        dirty: u1 = 0, // diry bit that is reserved on amd processors and ignored on intel so i treat it as reserved source: @khitiara
-        page_size: u1 = 0, // 4KiB or 4MiB diffrent struction too
-        MINE: u4 = 0, // same as reserved
+        /// P, or 'Present'. If the bit is set, the page is actually in physical memory at the moment.
+        present: u1 = 0,
+        /// R/W, the 'Read/Write' permissions flag. If the bit is set, the page is read/write.
+        read_write: u1 = 0,
+        /// U/S, the 'User/Supervisor' bit, controls access to the page based on privilege level.
+        user_supervisor: u1 = 0,
+        /// PWT, controls Write-Through' abilities of the page.
+        write_through: u1 = 0,
+        /// PCD, is the 'Cache Disable' bit. If the bit is set, the page will not be cached.
+        cache_disabled: u1 = 0,
+        /// , or 'Accessed' is used to discover whether a PDE or PTE was read during virtual address translation.
+        accessed: u1 = 0,
+        /// diry bit that is reserved on amd processors and ignored on intel so i treat it as reserved source: @khitiara
+        dirty: u1 = 0,
+        /// 4KiB or 4MiB diffrent struction too
+        page_size: u1 = 0,
+        /// same as reserved
+        MINE: u4 = 0,
     };
     flags: Flags = .{},
     address: u20 = 0, // the address
@@ -82,12 +91,18 @@ pub const PageDirectoryEnteryBig = packed struct {
 };
 pub const PageTableEntery = packed struct {
     pub const Flags = packed struct {
-        present: u1 = 0, // P, or 'Present'. If the bit is set, the page is actually in physical memory at the moment.
-        read_write: u1 = 0, // R/W, the 'Read/Write' permissions flag. If the bit is set, the page is read/write.
-        user_supervisor: u1 = 0, // U/S, the 'User/Supervisor' bit, controls access to the page based on privilege level.
-        write_through: u1 = 0, // PWT, controls Write-Through' abilities of the page.
-        cache_disabled: u1 = 0, // PCD, is the 'Cache Disable' bit. If the bit is set, the page will not be cached.
-        accessed: u1 = 0, // , or 'Accessed' is used to discover whether a PDE or PTE was read during virtual address translation.
+        /// P, or 'Present'. If the bit is set, the page is actually in physical memory at the moment.
+        present: u1 = 0,
+        /// R/W, the 'Read/Write' permissions flag. If the bit is set, the page is read/write.
+        read_write: u1 = 0,
+        /// U/S, the 'User/Supervisor' bit, controls access to the page based on privilege level.
+        user_supervisor: u1 = 0,
+        /// PWT, controls Write-Through' abilities of the page.
+        write_through: u1 = 0,
+        /// PCD, is the 'Cache Disable' bit. If the bit is set, the page will not be cached.
+        cache_disabled: u1 = 0,
+        /// , or 'Accessed' is used to discover whether a PDE or PTE was read during virtual address translation.
+        accessed: u1 = 0,
         dirty: u1 = 0,
         PAT: u1 = 0,
         global: u1 = 0,

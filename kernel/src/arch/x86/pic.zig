@@ -3,8 +3,8 @@ const debug = @import("debug.zig");
 const idt = @import("idt.zig");
 const utils = @import("utils.zig");
 
-pub const PIC_MASTER_OFFSET: u8 = 0x20;
-pub const PIC_SLAVE_OFFSET: u8 = 0x28;
+pub const PIC_MASTER_OFFSET: u16 = 0x20;
+pub const PIC_SLAVE_OFFSET: u16 = 0x28;
 
 const PIC_MASTER = 0x20; // the base io offset of the pic master chip
 const PIC_SLAVE = 0xA0; // the base io offset of the pic slave chip

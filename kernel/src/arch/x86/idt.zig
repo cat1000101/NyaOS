@@ -20,20 +20,30 @@ pub const InterruptError = error{
 };
 
 const IdtGateDescriptor = packed struct {
-    offset_low: u16, // Offset: A 32-bit value, split in two parts. It represents the address of the entry point of the Interrupt Service Routine.
-    selector: u16, // Selector: A Segment Selector with multiple fields which must point to a valid code segment in your GDT.
-    reserved: u8 = 0, // preserved
-    type_attr: u4, // Gate Type: A 4-bit value which defines the type of gate this Interrupt Descriptor represents
-    zero: u1 = 0, // must be zero
-    dpl: u2, // DPL: A 2-bit value which defines the CPU Privilege Levels which are allowed to access this interrupt via the INT instruction
-    p: u1, // 1 if there is a thing here 0 if not
-    offset_high: u16, // offset higher half
+    /// A 32-bit value, split in two parts. It represents the address of the entry point of the Interrupt Service Routine.
+    offset_low: u16,
+    /// A Segment Selector with multiple fields which must point to a valid code segment in your GDT.
+    selector: u16,
+    /// preserved not to be used or anything
+    reserved: u8 = 0,
+    /// A 4-bit value which defines the type of gate this Interrupt Descriptor represents
+    type_attr: u4,
+    /// must be zero
+    zero: u1 = 0,
+    /// A 2-bit value which defines the CPU Privilege Levels which are allowed to access this interrupt via the INT instruction
+    dpl: u2,
+    /// 1 if there is a thing here 0 if not
+    p: u1,
+    /// offset higher half
+    offset_high: u16,
 };
 
 // TODO: this is a bug? change the oofset to pointer when fixed https://github.com/ziglang/zig/issues/21463
 const Idtr = packed struct {
-    size: u16, // size of the IDT in bytes - 1
-    offset: u32, // *[256]IdtGateDescriptor, // address of the IDT (not the physical address, paging applies)
+    /// size of the IDT in bytes - 1
+    size: u16,
+    /// *[256]IdtGateDescriptor, // address of the IDT (not the physical address, paging applies)
+    offset: u32,
 };
 
 pub var idt: [256]IdtGateDescriptor = [_]IdtGateDescriptor{std.mem.zeroes(IdtGateDescriptor)} ** 256;
