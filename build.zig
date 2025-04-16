@@ -66,7 +66,15 @@ pub fn build(b: *Builder) void {
     run_cmd.addFileArg(nyaos_iso_file);
     run_cmd.step.dependOn(install_iso);
 
-    // step and commands to run the iso in qemu
+    // step and commands to run the iso in bochs
+    const debug_bochs_cmd_args = [_][]const u8{"bochs-debugger"};
+    const debug_bochs_cmd = b.addSystemCommand(&debug_bochs_cmd_args);
+    debug_bochs_cmd.addArg("-q");
+    debug_bochs_cmd.addArg("-f");
+    debug_bochs_cmd.addFileArg(b.path(".extras/bochsrc.txt")); // debug_symbols: file=zig-out/extra/kernel.elf
+    debug_bochs_cmd.step.dependOn(install_iso);
+
+    // step and commands to run the iso in qemu with debug and waiting for gdb connection
     const debug_cmd_args = [_][]const u8{"qemu-system-i386"} ++ common_qemu_args;
     const debug_cmd = b.addSystemCommand(&debug_cmd_args);
     debug_cmd.addArg("-s");
@@ -77,6 +85,9 @@ pub fn build(b: *Builder) void {
 
     const debug_step = b.step("debug", "debugs the kernel with qemu");
     debug_step.dependOn(&debug_cmd.step);
+
+    const debug_bochs_step = b.step("debug-bochs", "debugs the kernel with bochs");
+    debug_bochs_step.dependOn(&debug_bochs_cmd.step);
 
     const run_step = b.step("run", "runs the iso file with qemu");
     run_step.dependOn(&run_cmd.step);

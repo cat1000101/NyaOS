@@ -28,7 +28,7 @@
             }
         },
         {
-            "label": "debug",
+            "label": "debug-qemu",
             "type": "shell",
             "linux": {
                 "command": "zig",
@@ -41,9 +41,31 @@
                 ]
             },
             "isBackground": true,
-            // "problemMatcher": [
-            //     "$zig"
-            // ],
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared",
+                "revealProblems": "onProblem",
+                "close": true
+            },
+            "group": {
+                "kind": "none",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "debug-bochs",
+            "type": "shell",
+            "linux": {
+                "command": "zig",
+                "args": [
+                    "build",
+                    "debug-bochs",
+                    "|",
+                    "tee",
+                    ".extras/run.log"
+                ]
+            },
+            "isBackground": true,
             "presentation": {
                 "reveal": "never",
                 "panel": "shared",

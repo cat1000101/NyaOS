@@ -57,8 +57,7 @@ dkms.conf
 zig-out/
 
 # debug files placed in .extras(place for extra things)
-qemu.log
-run.log
+*.log
 bochs-out.txt
 *.bak
 

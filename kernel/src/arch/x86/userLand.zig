@@ -6,6 +6,7 @@ pub fn switchToUserMode() void {
     // 0x23 is the data segment with user privileges.
     // 0x1B is the code segment with user privileges.
     // 0x200 is the IF flag in EFLAGS register, which enables interrupts.
+    debug.bochsBreak();
     asm volatile (
         \\ cli
         \\ mov $0x23, %ax
