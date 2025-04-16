@@ -192,7 +192,8 @@ fn pitHandler(cpuState: interrupts.CpuState) callconv(.c) void {
     pic.picSendEOI(0);
 }
 
-pub fn sleep(ms: u32) void {
+/// uses hlt which is a privliged instruction
+pub fn ksleep(ms: u32) void {
     // const startMs: u32 = timerMsSinceStart;
     // const startFraction: u32 = timerFractionSinceStart;
     countDown = (ms * timerFrequency + 500) / 1000;
@@ -208,5 +209,5 @@ pub fn sleep(ms: u32) void {
 
 fn testSleep() void {
     debug.printf("testing sleeping for 71ms\n", .{});
-    sleep(71);
+    ksleep(71);
 }

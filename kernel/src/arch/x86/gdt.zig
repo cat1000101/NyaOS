@@ -89,7 +89,7 @@ const NULL_ACCESS: Access = std.mem.zeroes(Access);
 const NULL_FLAGS: Flags = std.mem.zeroes(Flags);
 
 const BIT32_PAGED_FLAGS: Flags = .{ .g = 1, .db = 1, .l = 0, .preserved = 0 };
-const TASK_STATE: Flags = .{ .g = 1, .db = 0, .l = 0, .preserved = 0 };
+const TASK_STATE: Flags = BIT32_PAGED_FLAGS;
 
 const KERNEL_CODE_ACCESS: Access = .{ .p = 1, .dpl = 0, .s = 1, .e = 1, .dc = 0, .rw = 1, .a = 0 };
 const KERNEL_DATA_ACCESS: Access = .{ .p = 1, .dpl = 0, .s = 1, .e = 0, .dc = 0, .rw = 1, .a = 0 };

@@ -8,6 +8,7 @@ const multiboot = @import("multiboot.zig");
 const pmm = @import("mem/pmm.zig");
 const vmm = @import("mem/vmm.zig");
 const pit = @import("arch/x86/pit.zig");
+const userLand = @import("arch/x86/userLand.zig");
 
 const panic = @import("panic.zig");
 
@@ -31,6 +32,8 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) void {
     acpi.initACPI();
 
     ps2.initPs2();
+
+    userLand.switchToUserMode();
 
     while (true) {
         asm volatile ("hlt");

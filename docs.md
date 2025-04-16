@@ -88,6 +88,17 @@ Other non-type 1 memory mappings from bootloader are identity-mapped
 ```
 [ACPI spec](https://uefi.org/sites/default/files/resources/ACPI_6_3_final_Jan30.pdf#page=880)
 
+### User land(Virtual)
+```
+0x00000000  ..  0x00400000                  - null pages
+0x00400000  ..  0xC0000000                  - general user memory (~3GiB)
+0x00400000  ..  programEnd                  - the program memory
+programEnd  ..  0x????????                  - heap grows upwards
+0x????????  ..  0xBFE00000                  - stack grows downwards
+0xBFE00000  ..  0xC0000000                  - stack guard (4KiB)
+0xC0000000  ..  0xFFFFFFFF                  - Kernel memory dont touchy (~1GiB)
+```
+
 ---
 
 ## Interrupt Handling
