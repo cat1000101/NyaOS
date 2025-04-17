@@ -32,7 +32,7 @@ export fn Handler(cpu_state: *ExeptionCpuState) void {
                 0x1F => "Reserved",
                 else => "Unknown",
             }) });
-            // debug.printf("cpu state: {}\n", .{cpu_state});
+            debug.printf("cpu state: {}\n", .{cpu_state});
             if (cpu_state.interrupt_number == 14) {
                 var faulting_address: u32 = 0;
                 asm volatile ("mov %cr2, %[faulting_address]"

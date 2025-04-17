@@ -12,6 +12,7 @@ pub var virtualBitMap: memory.BitMapAllocatorGeneric = undefined;
 
 pub fn initVmm() void {
     paging.initPaging();
+    debug.bochsBreak();
 
     virtualBitMap = memory.BitMapAllocatorGeneric.init(
         tempBufferSlice,
@@ -21,75 +22,76 @@ pub fn initVmm() void {
         false,
     );
     // vpageAllocator.debugPrint();
-    // testVmmAlloc();
+    testVmmAlloc();
     paging.mapForbiddenZones(multiboot.multibootInfo);
 
     kmalloc.init();
 }
 
-pub fn allocatePage() ?[*]u8 {
-    const page = virtualBitMap.alloc(1) catch |err| {
-        debug.printf("vmm.allocatePage:  failed to allocate memory error: {}\n", .{err});
+pub fn allocatePages(num: usize) ?[*]u8 {
+    const page = virtualBitMap.alloc(num) catch |err| {
+        debug.printf("vmm.allocatePages:  failed to allocate memory error: {}\n", .{err});
         return null;
     };
-    const pageAddr = @intFromPtr(page);
-    if (paging.getPageTableEntryRecursivly(pageAddr)) |pageTableEntry| {
-        if (pageTableEntry.flags.used == 0) {
-            pageTableEntry.flags.used = 1;
-            debug.printf("vmm.allocatePage:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
-            return page;
-        } else {
-            debug.printf("vmm.allocatePage:  page is already used\n", .{});
-            return null;
-        }
-    } else |err| {
-        if (err == paging.PageErrors.IsBigPage) {
-            debug.printf("vmm.allocatePage:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
-            return page;
-        } else if (err == paging.PageErrors.NotMapped) {
-            const physPage = pmm.physBitMap.alloc(1) catch |physAllocErr| {
-                debug.printf("vmm.allocatePage:  failed to allocate physical page error: {}\n", .{physAllocErr});
+    for (0..num) |i| {
+        const pageAddr = @intFromPtr(page) + i * memory.PAGE_SIZE;
+        if (paging.getPageTableEntryRecursivly(pageAddr)) |pageTableEntry| {
+            if (pageTableEntry.flags.used == 0) {
+                pageTableEntry.flags.used = 1;
+                debug.printf("vmm.allocatePages:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
+            } else {
+                debug.printf("vmm.allocatePages:  page is already used\n", .{});
                 return null;
-            };
-            const physPageAddr = @intFromPtr(physPage);
-            _ = paging.setPageTableEntryRecursivly(pageAddr, physPageAddr, .{
-                .present = 1,
-                .read_write = 1,
-                .used = 1,
-            }) catch |setErr| {
-                debug.printf("vmm.allocatePage:  failed to set page table entry: {}\n", .{setErr});
+            }
+        } else |err| {
+            if (err == paging.PageErrors.IsBigPage) {
+                debug.printf("vmm.allocatePages:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
+            } else if (err == paging.PageErrors.NotMapped) {
+                const physPage = pmm.physBitMap.alloc(1) catch |physAllocErr| {
+                    debug.printf("vmm.allocatePages:  failed to allocate physical page error: {}\n", .{physAllocErr});
+                    return null;
+                };
+                const physPageAddr = @intFromPtr(physPage);
+                _ = paging.setPageTableEntryRecursivly(pageAddr, physPageAddr, .{
+                    .present = 1,
+                    .read_write = 1,
+                    .used = 1,
+                }) catch |setErr| {
+                    debug.printf("vmm.allocatePages:  failed to set page table entry: {}\n", .{setErr});
+                    return null;
+                };
+                debug.printf("vmm.allocatePages:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
+            } else {
+                debug.printf("vmm.allocatePages:  failed to get page table, error: {}\n\n", .{err});
                 return null;
-            };
-            debug.printf("vmm.allocatePage:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
-            return page;
-        } else {
-            debug.printf("vmm.allocatePage:  failed to get page table, error: {}\n\n", .{err});
-            return null;
+            }
         }
     }
+    return page;
 }
 
-pub fn freePage(address: [*]u8) void {
-    const physAddr = paging.virtualToPhysical(@intFromPtr(address)) catch |err| {
-        debug.printf("vmm.freePage:  failed to get physical address: {}\n", .{err});
-        return;
-    };
-    pmm.physBitMap.free(@ptrFromInt(physAddr), 1);
-
-    _ = paging.setPageTableEntryRecursivly(@intFromPtr(address), 0, .{}) catch |setErr| {
-        debug.printf("vmm.allocatePage:  failed to set page table entry: {}\n", .{setErr});
-    };
-    virtualBitMap.free(address, 1);
+pub fn freePages(address: [*]u8, num: usize) void {
+    for (0..num) |i| {
+        const physAddr = paging.virtualToPhysical(@intFromPtr(address) + i * memory.PAGE_SIZE) catch |err| {
+            debug.printf("vmm.freePage:  failed to get physical address: {}\n", .{err});
+            return;
+        };
+        pmm.physBitMap.free(@ptrFromInt(physAddr), 1);
+        paging.setPageTableEntryRecursivly(@intFromPtr(address) + i * memory.PAGE_SIZE, 0, .{}) catch |setErr| {
+            debug.printf("vmm.allocatePage:  failed to set page table entry: {}\n", .{setErr});
+        };
+    }
+    virtualBitMap.free(address, num);
 }
 
 fn testVmmAlloc() void {
     debug.printf("vmm.testVmmAlloc:  start test\n", .{});
-    const page = allocatePage() orelse {
+    const page = allocatePages(2) orelse {
         debug.printf("vmm.testVmmAlloc:  failed to allocate memory\n", .{});
         return;
     };
     const pageAddr = @intFromPtr(page);
     page[0] = 69;
     debug.printf("vmm.testVmmAlloc: success:  allocated address: 0x{X} first byte: {}\n", .{ pageAddr, page[0] });
-    freePage(page);
+    freePages(page, 2);
 }

@@ -89,7 +89,9 @@ pub fn allocator() mem.Allocator {
 }
 
 pub fn init() void {
-    const page = vmm.allocatePage() orelse {
+    const initialSizeInPages: usize = 16;
+    const initialSizeInBytes: usize = initialSizeInPages * memory.PAGE_SIZE;
+    const page = vmm.allocatePages(initialSizeInPages) orelse {
         debug.printf("kmalloc.init:  failed to allocate page\n", .{});
         return;
     };
@@ -97,18 +99,19 @@ pub fn init() void {
         kmallocHead = @alignCast(@ptrCast(page));
 
         kmallocHead.?.* = .{
-            .size = memory.PAGE_SIZE - blockHeaderSize,
+            .size = initialSizeInBytes - blockHeaderSize,
             .isFree = true,
             .next = null,
             .prev = null,
         };
-        kmallocSize = memory.PAGE_SIZE;
+        kmallocSize = initialSizeInBytes;
     } else {
         debug.printf("kmalloc.init:  kmallocHead is not null\n", .{});
     }
 
     // kmallocTest();
     // debugPrint();
+    debug.printf("kmalloc.init:  kmalloc initilized yippe\n", .{});
 }
 
 fn kmallocTest() void {
@@ -133,6 +136,10 @@ fn kmallocTest() void {
             debug.printf("kmallocTest.zigApi:  failed to allocate memory error: {}\n", .{err});
             return;
         };
+        const buffer2 = theAllocator.alloc(u8, allocationSize) catch |err| {
+            debug.printf("kmallocTest.zigApi:  failed to allocate memory error: {}\n", .{err});
+            return;
+        };
         buffer[0] = 0x42;
         debug.printf("kmallocTest:  allocated memory at: 0x{X} size: 0x{X}, content: {X}\n", .{
             @intFromPtr(buffer.ptr),
@@ -140,6 +147,7 @@ fn kmallocTest() void {
             buffer,
         });
         theAllocator.free(buffer);
+        theAllocator.free(buffer2);
     }
 }
 
