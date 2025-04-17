@@ -11,7 +11,7 @@
                 "b kmain",
                 "c"
             ],
-            "preLaunchTask": "debug",
+            "preLaunchTask": "debug-qemu",
             "exitCommands": [
                 "process kill"
             ]

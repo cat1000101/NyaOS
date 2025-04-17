@@ -1,5 +1,6 @@
 const std = @import("std");
 const debug = @import("debug.zig");
+const main = @import("../../main.zig");
 
 const NUMBER_OF_ENTRIES: u16 = 0x06;
 
@@ -110,7 +111,7 @@ var gdt_ptr: GdtPtr = undefined;
 pub fn initGdt() void {
     gdt_ptr.limit = (@sizeOf(GdtEntry) * NUMBER_OF_ENTRIES) - 1;
     gdt_ptr.base = &gdt_entries;
-    setTssTable(&tss_entry, 0x10, @sizeOf(Tss));
+    setTssTable(&tss_entry, 0x10, @intFromPtr(main.stack_top), @sizeOf(Tss));
 
     setGdtGate(
         0,
@@ -171,8 +172,9 @@ fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) voi
     gdt_entries[num].access = access;
 }
 
-fn setTssTable(tss: *Tss, ss0: u16, iopb: u16) void {
+fn setTssTable(tss: *Tss, ss0: u16, esp0: u32, iopb: u16) void {
     tss.ss0 = ss0;
+    tss.esp0 = esp0;
     tss.iopb = iopb;
 }
 

@@ -108,8 +108,8 @@ pub export fn _start() align(16) linksection(".boot") callconv(.naked) noreturn 
 }
 
 // setting up stack manually
-export var stack: [16 * 1024]u8 align(16) linksection(".bss") = undefined;
-export const stack_top = &stack[stack.len - 1];
+pub export var stack: [16 * 1024]u8 align(16) linksection(".bss") = undefined;
+pub export const stack_top = &stack[stack.len - 1];
 
 // putting the stack to the stack pointer
 // jumping to the kmain lower half of the kernel?
