@@ -7,6 +7,17 @@ const Feature = std.Target.Cpu.Feature;
 pub fn build(b: *Builder) void {
     // building the kernel into a kernel.elf
     const kernel_dep = b.dependency("kernel", .{});
+    const user_dep = b.dependency("user", .{});
+
+    const user_exe = user_dep.artifact("program.elf");
+    const user_exe_step = &b.addInstallArtifact(user_exe, .{
+        .dest_dir = .{
+            .override = .{
+                .custom = "/extra/",
+            },
+        },
+    }).step;
+    b.getInstallStep().dependOn(user_exe_step);
 
     const kernel_exe = kernel_dep.artifact("kernel.elf");
     const kernel_exe_step = &b.addInstallArtifact(kernel_exe, .{
@@ -20,8 +31,10 @@ pub fn build(b: *Builder) void {
 
     // setting the paths and commands
     const kernel_path = kernel_exe.getEmittedBin();
+    const user_path = user_exe.getEmittedBin();
     const grub_path = b.path("bootloader/grub.cfg");
     const kernel_sys = b.fmt("sysroot/boot/{s}", .{kernel_exe.out_filename});
+    const user_modules_sys = b.fmt("sysroot/modules/{s}", .{user_exe.out_filename});
     const grub_sys = b.fmt("sysroot/boot/grub/{s}", .{"grub.cfg"});
     const iso_cmd = [_][]const u8{ "grub2-mkrescue", "-o" };
     const common_qemu_args = [_][]const u8{
@@ -43,6 +56,7 @@ pub fn build(b: *Builder) void {
     const wf = b.addWriteFiles();
     // const sysroot_path = wf.add(sub_path: []const u8, bytes: []const u8);
     _ = wf.addCopyFile(kernel_path, kernel_sys);
+    _ = wf.addCopyFile(user_path, user_modules_sys);
     _ = wf.addCopyFile(grub_path, grub_sys);
 
     // making the iso
@@ -53,6 +67,7 @@ pub fn build(b: *Builder) void {
     const install_iso = &b.addInstallFileWithDir(nyaos_iso_file, .prefix, "NyaOS.iso").step;
     nyaos_iso_file.addStepDependencies(install_iso);
     install_iso.dependOn(kernel_exe_step);
+    install_iso.dependOn(user_exe_step);
 
     // step to make everything
     const all_step = b.step("all", "does(installs) everything");
@@ -79,9 +94,9 @@ pub fn build(b: *Builder) void {
     const debug_cmd = b.addSystemCommand(&debug_cmd_args);
     debug_cmd.addArg("-s");
     debug_cmd.addArg("-S");
-    debug_cmd.addArg("-kernel");
-    debug_cmd.addFileArg(kernel_path);
-    debug_cmd.step.dependOn(kernel_exe_step);
+    debug_cmd.addArg("-cdrom");
+    debug_cmd.addFileArg(nyaos_iso_file);
+    debug_cmd.step.dependOn(install_iso);
 
     const debug_step = b.step("debug", "debugs the kernel with qemu");
     debug_step.dependOn(&debug_cmd.step);

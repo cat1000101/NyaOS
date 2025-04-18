@@ -17,7 +17,7 @@ pub fn initPmm() void {
         tempBufferSlice,
         memory.physPageSizes,
         memory.MIB * 1,
-        memory.MIB * 8,
+        memory.MIB * 4,
         false,
     );
     // physBitMap.debugPrint();

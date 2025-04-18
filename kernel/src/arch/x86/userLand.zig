@@ -1,14 +1,15 @@
 const debug = @import("debug.zig");
 const paging = @import("paging.zig");
+const multiboot = @import("../../multiboot.zig");
 
 pub fn switchToUserMode() void {
 
     // Set up the stack for user mode.
-    const userStack: usize = 0xBFFFF000; // before the start of the kernel by 1 page
-    const userStackAddress: usize = 0xC00000; // 12MiB
-    const userStackMap: usize = 0xBFC00000; // 1GiB - 4MiB
-    const userProgramAddress: usize = 0x800000; // 8MiB
-    const userProgramMap: usize = 0x1400000; // 20MiB
+    const userStack: usize = 0xAFFFF000; // before the start of the kernel by 1 page
+    const userStackAddress: usize = 0x800000; // 8MiB
+    const userStackMap: usize = 0xAFC00000; // 1GiB - 4MiB
+    const programMap: usize = 0x400000; // 4MiB
+    const programOffset: usize = 0x50;
 
     paging.setBigEntryRecursivly(userStackMap, userStackAddress, .{
         .page_size = 1,
@@ -18,8 +19,15 @@ pub fn switchToUserMode() void {
     }) catch |err| {
         debug.printf("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
     };
-    paging.setBigEntryRecursivly(userProgramMap, userProgramAddress, .{
-        .page_size = 1,
+
+    const userMainPhysical = multiboot.getModuleEntry(0) orelse {
+        debug.printf("userLand.switchToUserMode:  failed to get userLandMain entry\n", .{});
+        return;
+    };
+    const userMainPhysicalAddress: usize = @intFromPtr(userMainPhysical) + programOffset;
+    const userMainVirtualAddress: usize = programMap + programOffset; // 4MiB
+
+    paging.setPageTableEntryRecursivly(userMainVirtualAddress, userMainPhysicalAddress, .{
         .present = 1,
         .read_write = 1,
         .user_supervisor = 1,
@@ -27,7 +35,12 @@ pub fn switchToUserMode() void {
         debug.printf("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
     };
 
-    debug.printf("size of function: 0x{x} at: {*}\n", .{ 0, &userLandMain });
+    debug.printf("page entry: {any}\n", .{
+        paging.getPageTableEntryRecursivly(userMainVirtualAddress),
+    });
+    // debug.printf("userLand.switchToUserMode:  userMainAddress: 0x{X}\n", .{userMainAddress});
+    // debug.printf("userLand.switchToUserMode:  userLandMain: {}\n", .{userLandMain});
+    // debug.printf("userLand.switchToUserMode:  userMain: {}\n", .{userMain});
 
     // Set up a stack structure for switching to user mode.
     // 0x23 is the data segment with user privileges.
@@ -43,7 +56,7 @@ pub fn switchToUserMode() void {
         \\ mov %ax, %gs
         \\         
         \\ pushl $0x23            // SS
-        \\ pushl %[stackStart]    // ESP
+        \\ pushl %[userStack]    // ESP
         \\
         \\ pushf
         \\ pop %eax
@@ -51,17 +64,10 @@ pub fn switchToUserMode() void {
         \\ push %eax              // EFLAGS
         \\
         \\ pushl $0x1B            // CS
-        \\ push %[userLandMain]   // EIP
+        \\ push %[userMain]   // EIP
         \\ iret
         :
-        : [stackStart] "{edx}" (userStack),
-          [userLandMain] "{esi}" (&userLandMain),
+        : [userStack] "{edx}" (userStack),
+          [userMain] "{esi}" (userMainVirtualAddress),
     );
-}
-
-pub export fn userLandMain() void {
-    debug.printf("userLandMain:  Hello from user land!\n", .{});
-    while (true) {
-        asm volatile ("hlt");
-    }
 }

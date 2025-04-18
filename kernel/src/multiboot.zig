@@ -192,6 +192,36 @@ pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
     return true;
 }
 
+fn getModuleInfo() ?[*]multiboot_mod_list {
+    const header = multibootInfo;
+    if (header.mods_addr == 0) {
+        debug.printf("No module list found\n", .{});
+        return null;
+    }
+    const modList: [*]multiboot_mod_list = @ptrFromInt(header.mods_addr);
+    for (0..header.mods_count) |i| {
+        debug.printf(
+            "Module {d}: start: 0x{X} end: 0x{X} cmdline: 0x{X}\n",
+            .{
+                i,
+                modList[i].mod_start,
+                modList[i].mod_end,
+                modList[i].cmdline,
+            },
+        );
+    }
+    return modList;
+}
+
+pub fn getModuleEntry(num: usize) ?*fn () void {
+    const modlist = getModuleInfo() orelse {
+        debug.printf("No module list found\n", .{});
+        return null;
+    };
+
+    return @ptrFromInt(modlist[num].mod_start);
+}
+
 fn printRawMemoryMap() void {
     const header = multibootInfo;
     const mmm: [*]multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);

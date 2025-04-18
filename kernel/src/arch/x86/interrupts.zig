@@ -1,6 +1,7 @@
 const std = @import("std");
 const idt = @import("idt.zig");
 const debug = @import("debug.zig");
+const paging = @import("paging.zig");
 
 export fn Handler(cpu_state: *ExeptionCpuState) void {
     switch (cpu_state.interrupt_number) {
@@ -38,13 +39,19 @@ export fn Handler(cpu_state: *ExeptionCpuState) void {
                 asm volatile ("mov %cr2, %[faulting_address]"
                     : [faulting_address] "=r" (faulting_address),
                 );
-                debug.printf("Page Fault when {s} address:0x{X:0>8} from {s}: {s}\n", .{
+                debug.printf("Page Fault when {s} address:0x{X:0>8} from {s}: {s}, error: {b:0>32}\n", .{
                     if ((cpu_state.error_code & 2) != 0) @as([]const u8, "writing") else @as([]const u8, "reading"),
                     faulting_address,
                     if ((cpu_state.error_code & 4) != 0) @as([]const u8, "userspace") else @as([]const u8, "kernelspace"),
                     if ((cpu_state.error_code & 1) != 0) @as([]const u8, "access denied") else @as([]const u8, "page unmapped"),
+                    cpu_state.error_code,
                 });
-                debug.printf("Offending address:0x{X:0>8}\n", .{cpu_state.eip});
+                debug.printf("Offending location address(eip):0x{X:0>8}\n", .{cpu_state.eip});
+
+                debug.printf("offending page page directory entry: {any}\noffending page table entry: {any}\n", .{
+                    paging.getPageDirectoryEntry(faulting_address >> 22),
+                    paging.getPageTableEntryRecursivly(faulting_address),
+                });
             }
         },
         else => {

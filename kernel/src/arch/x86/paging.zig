@@ -229,6 +229,7 @@ pub fn newPageTable(vaddr: u32) memory.AllocatorError!*PageTable {
     const pageTable = setPageTableRecursivly(pageIndex, physPageAddress, .{
         .present = 1,
         .read_write = 1,
+        .user_supervisor = if (vaddr < memory.KERNEL_ADDRESS_SPACE) 1 else 0,
     });
     return pageTable;
 }
@@ -241,10 +242,14 @@ pub fn setPageTableRecursivly(index: u32, pageTablePhysAddress: u32, flags: Page
         .flags = flags,
     };
     lpageDirectory.entries[index].normal = entry;
-    invalidatePage(RECURSIVE_PAGE_TABLE_BASE);
 
     const pageTableAddress: u32 = RECURSIVE_PAGE_TABLE_BASE + (index << 12);
     const pageTable: *PageTable = @ptrFromInt(pageTableAddress);
+
+    invalidatePage(pageTableAddress);
+    invalidatePage(RECURSIVE_PAGE_DIRECTORY_ADDRESS);
+    invalidatePage(index << 22);
+
     return pageTable;
 }
 
@@ -257,7 +262,8 @@ pub fn setBigEntryRecursivly(vaddr: u32, paddr: u32, flags: PageDirectoryEnteryB
     };
     if ((lpageDirectory.entries[split.directoryEntry].big.flags.page_size == 1 and lpageDirectory.entries[split.directoryEntry].big.flags.used == 0) or (@as(u32, @bitCast(lpageDirectory.entries[split.directoryEntry].normal)) == 0)) {
         lpageDirectory.entries[split.directoryEntry].big = entry;
-        invalidatePage(RECURSIVE_PAGE_TABLE_BASE);
+        invalidatePage(RECURSIVE_PAGE_DIRECTORY_ADDRESS);
+        invalidatePage(vaddr);
     } else {
         return PageErrors.Used;
     }
@@ -288,6 +294,7 @@ pub fn setPageTableEntryRecursivly(vaddr: u32, paddr: u32, flags: PageTableEnter
         return err;
     };
     pageTable.setEntery(split.pageEntry, paddr, flags);
+    invalidatePage(vaddr);
 }
 
 pub fn getPageTableEntryRecursivly(vaddr: u32) !*PageTableEntery {
@@ -297,6 +304,11 @@ pub fn getPageTableEntryRecursivly(vaddr: u32) !*PageTableEntery {
         return err;
     };
     return pageTable.getEntery(split.pageEntry);
+}
+
+pub fn getPageDirectoryEntry(index: usize) PageDirectoryEntery {
+    const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
+    return lpageDirectory.entries[index].normal;
 }
 
 /// should only be used when using kernel space page directory as the current page directory

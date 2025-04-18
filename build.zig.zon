@@ -11,6 +11,9 @@
         .kernel = .{
             .path = "kernel",
         },
+        .user = .{
+            .path = "modules",
+        },
     },
 
     .paths = .{
