@@ -61,31 +61,24 @@ pub fn switchContext(newContext: *Context) void {
 }
 
 /// idk need to learn what to do here
-pub fn saveContext(context: *Context, retAddress: *u8, cs: u32, ss: u32, eflags: u32, userStack: u32) void {
+/// intended to be used when doing a iret to userland or something
+pub fn saveContext(context: *Context, retAddress: *u8) void {
     asm volatile (
+        \\  movl %esp, %esi // save corrent stack
         \\  movl %[contextStack], %esp
-        \\  pushl %[ss]
-        \\  pushl %[userStack]
-        \\  pushl %[eflags]
-        \\  pushl %[cs]
         \\  pushl %[retAddress]
         \\
-        \\  sub %esp, $0x14 // switchContext call stack size(the thing that were pushed by calling switchContext)
+        \\  pushl %[contextStack] // ebp will also be the start of the stack
+        \\  push %edi // emulate what switchContextMiddle does (register save)
+        \\  push %esi // emulate what switchContextMiddle does (register save)
+        \\  sub %esp, $0x14 // switchContext call stack size(the stack viratbles)
         \\  pusha
         \\  
         \\  movl %esp, %[old_sp]
+        \\
+        \\  movl %esi, %esp // restore the corrent context stack
         :
         : [contextStack] "{eax}" (context.stack),
-          [cs] "{ebx}" (cs),
-          [ss] "{ecx}" (ss),
-          [eflags] "{edx}" (eflags),
-          [userStack] "{esi}" (userStack),
           [retAddress] "{edi}" (retAddress),
     );
 }
-// \\ pushl $0x23            // SS
-// \\ pushl %[userStack]    // ESP
-// \\ push %eax              // EFLAGS
-// \\
-// \\ pushl $0x1B            // CS
-// \\ push %[userMain]   // EIP
