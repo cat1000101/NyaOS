@@ -231,9 +231,10 @@ pub fn newPageTable(vaddr: u32) memory.AllocatorError!*PageTable {
         .read_write = 1,
         .user_supervisor = if (vaddr < memory.KERNEL_ADDRESS_SPACE) 1 else 0,
     });
-    for (0..1024) |i| {
-        pageTable.setEntery(i, 0, .{});
-    }
+
+    const pageTablePtr: *[memory.PAGE_SIZE]u8 = @ptrCast(pageTable);
+    @memset(pageTablePtr, 0);
+
     return pageTable;
 }
 
