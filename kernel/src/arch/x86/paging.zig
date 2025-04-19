@@ -368,7 +368,7 @@ fn isDirectDirectory(directory: *PageDirectory) bool {
     return address > memory.KERNEL_ADDRESS_SPACE and address < RECURSIVE_PAGE_TABLE_BASE;
 }
 
-fn getPageDirectory() *PageDirectory {
+pub fn getCr3() *PageDirectory {
     var pd: *PageDirectory = undefined;
     asm volatile (
         \\  mov %cr3, %[pd]
@@ -381,7 +381,7 @@ var pageDirectory: PageDirectory align(4096) = .{};
 var higherHalfPage: PageTable align(4096) = .{};
 var firstPage: PageTable align(4096) = .{};
 
-pub const pageDirectoryPtr: *PageDirectory = &pageDirectory;
+pub const kernelPageDirectory: *PageDirectory = &pageDirectory;
 const higherHalfPagePtr: *PageTable = &higherHalfPage;
 const firstPagePtr: *PageTable = &firstPage;
 
@@ -389,36 +389,36 @@ pub fn initPaging() void {
     debug.printf("Initializing paging\n", .{});
     defer debug.printf("Paging initialized\n", .{});
 
-    pageDirectory.setEntery(1023, @ptrCast(pageDirectoryPtr), .{
+    pageDirectory.setEntery(1023, @ptrCast(kernelPageDirectory), .{
         .present = 1,
         .read_write = 1,
     }) catch |err| {
         debug.printf("Can't set recursive page table error: {}\n", .{err});
         return;
     };
-    pageDirectoryPtr.setEntery(0, firstPagePtr, .{
+    kernelPageDirectory.setEntery(0, firstPagePtr, .{
         .present = 1,
         .read_write = 1,
     }) catch |err| {
         debug.printf("Can't set first page table error: {}\n", .{err});
         return;
     };
-    pageDirectoryPtr.setEntery(FIRST_KERNEL_DIR_NUMBER, higherHalfPagePtr, .{
+    kernelPageDirectory.setEntery(FIRST_KERNEL_DIR_NUMBER, higherHalfPagePtr, .{
         .present = 1,
         .read_write = 1,
     }) catch |err| {
         debug.printf("Can't set kernel page table error: {}\n", .{err});
         return;
     };
-    pageDirectoryPtr.idPages(0, 0, 4 * memory.MIB, true) catch |err| {
+    kernelPageDirectory.idPages(0, 0, 4 * memory.MIB, true) catch |err| {
         debug.printf("Can't id map first page table error: {}\n", .{err});
         return;
     };
-    mapHigherHalf(pageDirectoryPtr);
+    mapHigherHalf(kernelPageDirectory);
 
     // debugPrintPaging(pageDirectoryPtr);
 
-    installPageDirectory(pageDirectoryPtr) catch |err| {
+    installPageDirectory(kernelPageDirectory) catch |err| {
         debug.printf("Can't install page directory error: {}\n", .{err});
         return;
     };
@@ -452,6 +452,14 @@ fn installPageDirectory(pd: *PageDirectory) PageErrors!void {
         \\  mov %[pageDirectoryAddress], %cr3
         :
         : [pageDirectoryAddress] "{eax}" (pageDirectoryAddress),
+    );
+}
+
+pub inline fn setCr3(pd: *PageDirectory) void {
+    asm volatile (
+        \\  mov %[pd], %cr3
+        :
+        : [pd] "{eax}" (pd),
     );
 }
 

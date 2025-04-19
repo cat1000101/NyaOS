@@ -9,6 +9,7 @@ const pmm = @import("mem/pmm.zig");
 const vmm = @import("mem/vmm.zig");
 const pit = @import("arch/x86/pit.zig");
 const userLand = @import("arch/x86/userLand.zig");
+const sched = @import("arch/x86/sched.zig");
 
 const panic = @import("panic.zig");
 
@@ -33,6 +34,7 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) void {
 
     ps2.initPs2();
 
+    sched.initSchedler();
     userLand.switchToUserMode();
 
     while (true) {

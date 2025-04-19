@@ -178,6 +178,10 @@ fn setTssTable(tss: *Tss, ss0: u16, esp0: u32, iopb: u16) void {
     tss.iopb = iopb;
 }
 
+pub fn updateTss(esp: u32) void {
+    tss_entry.esp0 = esp;
+}
+
 fn gdtFlush(gdt_ptr_: *const GdtPtr) void {
     // Load the GDT into the CPU
     asm volatile ("lgdt (%%eax)"
@@ -201,7 +205,7 @@ fn gdtFlush(gdt_ptr_: *const GdtPtr) void {
     );
 }
 
-fn loadTss() void {
+pub fn loadTss() void {
     // Load the Tss into the CPU
     asm volatile (
         \\ movw $0x28 , %%ax

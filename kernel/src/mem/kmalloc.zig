@@ -20,6 +20,7 @@ var kmallocSize: usize = 0;
 
 pub fn kmalloc(size: usize) ?[*]u8 {
     if (size == 0) {
+        debug.printf("kmalloc:  size is 0\n", .{});
         return null;
     }
     const alignedSize = alignUp(size);
@@ -36,6 +37,10 @@ pub fn kmalloc(size: usize) ?[*]u8 {
             block.isFree = false;
             block.size = alignedSize;
             block.next = newBlock;
+            // debug.printf("kmalloc:  allocated memory at: 0x{X} size: 0x{X}\n", .{
+            //     @intFromPtr(block) + blockHeaderSize,
+            //     alignedSize,
+            // });
             return @ptrFromInt(@intFromPtr(block) + blockHeaderSize);
         }
         current = block.next;
@@ -51,6 +56,11 @@ pub fn kfree(ptr: [*]u8) void {
         return;
     }
     block.isFree = true;
+    // debug.printf("kfree:  freed memory at: 0x{X} size: 0x{X}\n", .{
+    //     @intFromPtr(ptr),
+    //     block.size,
+    // });
+
     if (block.next) |nextBlock| {
         if (nextBlock.isFree) {
             block.size += nextBlock.size + blockHeaderSize;

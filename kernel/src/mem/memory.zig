@@ -66,7 +66,7 @@ pub const BitMapAllocatorGeneric = struct {
             for (start..(start + amount)) |i| {
                 this.set(i);
             }
-            debug.printf("memory.alloc:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), amount * this.allocationSize });
+            // debug.printf("memory.alloc:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), amount * this.allocationSize });
             return address;
         } else {
             debug.printf("memory.alloc:  TODO: make resize/realloc of the allocator or allocator buffer or whatever\n", .{});
@@ -165,7 +165,7 @@ pub const BitMapAllocatorGeneric = struct {
             return;
         }
 
-        debug.printf("memory.free:  freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), size });
+        // debug.printf("memory.free:  freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), size });
         const index = (@intFromPtr(address) / this.allocationSize) - (this.start / this.allocationSize);
         for (index..(index + size)) |i| {
             this.clear(i);

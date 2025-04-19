@@ -37,14 +37,14 @@ pub fn allocatePages(num: usize) ?[*]u8 {
         if (paging.getPageTableEntryRecursivly(pageAddr)) |pageTableEntry| {
             if (pageTableEntry.flags.used == 0) {
                 pageTableEntry.flags.used = 1;
-                debug.printf("vmm.allocatePages:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
+                // debug.printf("vmm.allocatePages:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
             } else {
                 debug.printf("vmm.allocatePages:  page is already used\n", .{});
                 return null;
             }
         } else |err| {
             if (err == paging.PageErrors.IsBigPage) {
-                debug.printf("vmm.allocatePages:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
+                // debug.printf("vmm.allocatePages:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
             } else if (err == paging.PageErrors.NotMapped) {
                 const physPage = pmm.physBitMap.alloc(1) catch |physAllocErr| {
                     debug.printf("vmm.allocatePages:  failed to allocate physical page error: {}\n", .{physAllocErr});
@@ -59,7 +59,7 @@ pub fn allocatePages(num: usize) ?[*]u8 {
                     debug.printf("vmm.allocatePages:  failed to set page table entry: {}\n", .{setErr});
                     return null;
                 };
-                debug.printf("vmm.allocatePages:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
+                // debug.printf("vmm.allocatePages:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
             } else {
                 debug.printf("vmm.allocatePages:  failed to get page table, error: {}\n\n", .{err});
                 return null;

@@ -199,17 +199,17 @@ fn getModuleInfo() ?[*]multiboot_mod_list {
         return null;
     }
     const modList: [*]multiboot_mod_list = @ptrFromInt(header.mods_addr);
-    for (0..header.mods_count) |i| {
-        debug.printf(
-            "Module {d}: start: 0x{X} end: 0x{X} cmdline: 0x{X}\n",
-            .{
-                i,
-                modList[i].mod_start,
-                modList[i].mod_end,
-                modList[i].cmdline,
-            },
-        );
-    }
+    // for (0..header.mods_count) |i| {
+    //     debug.printf(
+    //         "Module {d}: start: 0x{X} end: 0x{X} cmdline: 0x{X}\n",
+    //         .{
+    //             i,
+    //             modList[i].mod_start,
+    //             modList[i].mod_end,
+    //             modList[i].cmdline,
+    //         },
+    //     );
+    // }
     return modList;
 }
 
