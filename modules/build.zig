@@ -33,7 +33,7 @@ pub fn build(b: *Builder) void {
     });
 
     const userExe = b.addExecutable(.{
-        .name = "program.elf",
+        .name = "program",
         .root_module = userModule,
     });
 

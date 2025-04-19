@@ -218,7 +218,12 @@ pub const BitMapAllocatorGeneric = struct {
         const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
         for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
             const start = alignAddressUp(@intCast(entry.addr), this.allocationSize);
-            const end = alignAddressDown(@intCast(entry.addr + entry.len), this.allocationSize);
+            var end: u32 = 0;
+            if (entry.addr + entry.len > 0xFFFFFFFF) {
+                end = 0xFFFFFFFF - this.allocationSize;
+            } else {
+                end = alignAddressDown(@intCast(entry.addr + entry.len), this.allocationSize);
+            }
             const startIndex = this.start / this.allocationSize;
             const endIndex = this.end / this.allocationSize;
             if (end / this.allocationSize < startIndex) {

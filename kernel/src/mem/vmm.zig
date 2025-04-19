@@ -12,7 +12,6 @@ pub var virtualBitMap: memory.BitMapAllocatorGeneric = undefined;
 
 pub fn initVmm() void {
     paging.initPaging();
-    debug.bochsBreak();
 
     virtualBitMap = memory.BitMapAllocatorGeneric.init(
         tempBufferSlice,

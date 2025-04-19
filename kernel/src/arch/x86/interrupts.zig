@@ -33,7 +33,7 @@ export fn Handler(cpu_state: *ExeptionCpuState) void {
                 0x1F => "Reserved",
                 else => "Unknown",
             }) });
-            // debug.printf("cpu state: {}\n", .{cpu_state});
+            debug.printf("cpu state: {}\n", .{cpu_state});
             if (cpu_state.interrupt_number == 0xE) {
                 var faulting_address: u32 = 0;
                 asm volatile ("mov %cr2, %[faulting_address]"
@@ -48,10 +48,10 @@ export fn Handler(cpu_state: *ExeptionCpuState) void {
                 });
                 debug.printf("Offending location address(eip):0x{X:0>8}\n", .{cpu_state.eip});
 
-                debug.printf("offending page page directory entry: {any}\noffending page table entry: {any}\n", .{
-                    paging.getPageDirectoryEntry(faulting_address >> 22),
-                    paging.getPageTableEntryRecursivly(faulting_address),
-                });
+                // debug.printf("offending page page directory entry: {any}\noffending page table entry: {any}\n", .{
+                //     paging.getPageDirectoryEntry(faulting_address >> 22),
+                //     paging.getPageTableEntryRecursivly(faulting_address),
+                // });
             }
         },
         else => {

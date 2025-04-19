@@ -1,6 +1,7 @@
 const fmt = @import("std").fmt;
 const Writer = @import("std").io.Writer;
 
+// debug.printf("debug print src: {s}:{}:{}\n", .{ @src().file, @src().line, @src().column });
 fn print(s: []const u8) void {
     for (s) |char| {
         putcharAsm(char);

@@ -3,7 +3,6 @@ const paging = @import("paging.zig");
 const multiboot = @import("../../multiboot.zig");
 
 pub fn switchToUserMode() void {
-
     // Set up the stack for user mode.
     const userStack: usize = 0xAFFFF000; // before the start of the kernel by 1 page
     const userStackAddress: usize = 0x800000; // 8MiB
@@ -34,13 +33,6 @@ pub fn switchToUserMode() void {
     }) catch |err| {
         debug.printf("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
     };
-
-    debug.printf("page entry: {any}\n", .{
-        paging.getPageTableEntryRecursivly(userMainVirtualAddress),
-    });
-    // debug.printf("userLand.switchToUserMode:  userMainAddress: 0x{X}\n", .{userMainAddress});
-    // debug.printf("userLand.switchToUserMode:  userLandMain: {}\n", .{userLandMain});
-    // debug.printf("userLand.switchToUserMode:  userMain: {}\n", .{userMain});
 
     // Set up a stack structure for switching to user mode.
     // 0x23 is the data segment with user privileges.

@@ -108,6 +108,17 @@ There’s a function that generates wrappers for handlers so they don’t need t
 
 ---
 
+## User Switch
+in normal interrupt stuction:
+we have the elevation call where we go to the kernel context from the tss(the stack) which was the last stack we used in the kernel before a return(iret from interrupts),
+we do things and we return and get the user stack back because it was saved with the elevation call.
+
+in context switch routine:
+we go to the timer handler and want to switch contex/thread we update the tss stack with the new stack, save the corrent state of the thread and save the head of the stack in a thread stacks array, we replace the stack with wanted thread stack and pop the things we saved before (and change the cr3?),
+after that we do iret at the end of timer interrupt and it will use the saved things which were pushed from the corresponding elevation call of the new stack past. 
+
+---
+
 ## Drivers
 - **VGA driver** uses the BIOS VGA memory at `0xB8000`.
 - **Keyboard driver** uses PS/2. It doesn’t store which keys are pressed; it just prints the key to debug output and TTY.

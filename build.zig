@@ -1,41 +1,41 @@
 const std = @import("std");
 const print = std.debug.print;
 const Builder = std.Build;
-const Target = std.Target;
-const Feature = std.Target.Cpu.Feature;
 
 pub fn build(b: *Builder) void {
-    // building the kernel into a kernel.elf
+    // building executables from dependencies
     const kernel_dep = b.dependency("kernel", .{});
     const user_dep = b.dependency("user", .{});
 
-    const user_exe = user_dep.artifact("program.elf");
-    const user_exe_step = &b.addInstallArtifact(user_exe, .{
-        .dest_dir = .{
-            .override = .{
-                .custom = "/extra/",
-            },
-        },
-    }).step;
+    const user_exe_elf = user_dep.artifact("program");
+    const user_exe_bin = b.addObjCopy(user_exe_elf.getEmittedBin(), .{
+        .format = .bin,
+        .basename = b.fmt("{s}.bin", .{user_exe_elf.out_filename}),
+    });
+    const user_path = user_exe_bin.getOutput();
+    const user_exe_step = &b.addInstallFileWithDir(
+        user_path,
+        .{ .custom = "extra" },
+        user_exe_bin.basename,
+    ).step;
     b.getInstallStep().dependOn(user_exe_step);
 
     const kernel_exe = kernel_dep.artifact("kernel.elf");
     const kernel_exe_step = &b.addInstallArtifact(kernel_exe, .{
         .dest_dir = .{
             .override = .{
-                .custom = "/extra/",
+                .custom = "extra/",
             },
         },
     }).step;
+    const kernel_path = kernel_exe.getEmittedBin();
     b.getInstallStep().dependOn(kernel_exe_step);
 
     // setting the paths and commands
-    const kernel_path = kernel_exe.getEmittedBin();
-    const user_path = user_exe.getEmittedBin();
     const grub_path = b.path("bootloader/grub.cfg");
-    const kernel_sys = b.fmt("sysroot/boot/{s}", .{kernel_exe.out_filename});
-    const user_modules_sys = b.fmt("sysroot/modules/{s}", .{user_exe.out_filename});
-    const grub_sys = b.fmt("sysroot/boot/grub/{s}", .{"grub.cfg"});
+    const kernel_sys = "sysroot/boot/kernel.elf";
+    const user_modules_sys = "sysroot/modules/program";
+    const grub_sys = "sysroot/boot/grub/grub.cfg";
     const iso_cmd = [_][]const u8{ "grub2-mkrescue", "-o" };
     const common_qemu_args = [_][]const u8{
         "-M",
@@ -59,19 +59,26 @@ pub fn build(b: *Builder) void {
     _ = wf.addCopyFile(user_path, user_modules_sys);
     _ = wf.addCopyFile(grub_path, grub_sys);
 
+    const sysroot_extra_step = &b.addInstallDirectory(.{
+        .source_dir = wf.getDirectory().path(b, "sysroot"),
+        .install_dir = .{ .custom = "extra" },
+        .install_subdir = "sysroot",
+    }).step;
+
     // making the iso
     const mkiso = b.addSystemCommand(&iso_cmd);
     const nyaos_iso_file = mkiso.addOutputFileArg("NyaOS.iso");
     mkiso.addDirectoryArg(wf.getDirectory().path(b, "sysroot"));
 
-    const install_iso = &b.addInstallFileWithDir(nyaos_iso_file, .prefix, "NyaOS.iso").step;
-    nyaos_iso_file.addStepDependencies(install_iso);
+    const install_iso = b.step("iso", "makes the iso");
+    install_iso.dependOn(&b.addInstallFileWithDir(nyaos_iso_file, .prefix, "NyaOS.iso").step);
     install_iso.dependOn(kernel_exe_step);
     install_iso.dependOn(user_exe_step);
+    install_iso.dependOn(sysroot_extra_step);
 
     // step to make everything
     const all_step = b.step("all", "does(installs) everything");
-    const steps: []const *std.Build.Step = &.{ install_iso, kernel_exe_step };
+    const steps: []const *std.Build.Step = &.{ install_iso, kernel_exe_step, user_exe_step };
     for (steps) |step| all_step.dependOn(step);
 
     // step and commands to run the iso in qemu
