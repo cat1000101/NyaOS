@@ -2,6 +2,7 @@ const std = @import("std");
 const idt = @import("idt.zig");
 const debug = @import("debug.zig");
 const paging = @import("paging.zig");
+const syscall = @import("syscall.zig");
 
 export fn Handler(cpu_state: *ExeptionCpuState) void {
     switch (cpu_state.interrupt_number) {
@@ -161,7 +162,7 @@ export fn ExeptionCommonStub() callconv(.naked) void {
     );
 }
 
-pub fn generateStub(function: *const fn (CpuState) callconv(.c) void) fn () callconv(.naked) void {
+pub fn generateStub(function: *const fn (*CpuState) callconv(.c) void) fn () callconv(.naked) void {
     return struct {
         fn func() callconv(.naked) void {
             asm volatile (
@@ -244,12 +245,17 @@ pub fn installIsr() void {
     comptime var i = 0;
     inline while (i < 32) : (i += 1) {
         const interrupt = generateExeptionStub(i);
-        idt.openIdtGate(i, &interrupt) catch |err| switch (err) {
+        idt.openIdtGate(i, &interrupt, idt.TRAP_GATE, idt.PRIVLIGE_RING_3) catch |err| switch (err) {
             idt.InterruptError.interruptOpen => {
                 debug.printf("wtf did u do??????????(isr interrupt already open)\n", .{});
             },
         };
     }
+
+    const syscallHand = generateStub(&syscall.syscallHandler);
+    idt.openIdtGate(0x80, &syscallHand, idt.TRAP_GATE, idt.PRIVLIGE_RING_3) catch |err| {
+        debug.printf("wtf did u do??????????(cant put the syscall thingy) error: {}\n", .{err});
+    };
 
     debug.printf("installed isr\n", .{});
 }

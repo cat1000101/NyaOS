@@ -357,7 +357,7 @@ fn initializeKeyboard() void {
     debug.printf("keyboard initialized!!!\n", .{});
 }
 
-fn ps2KeyboardHandeler(cpuState: interrupts.CpuState) callconv(.c) void {
+fn ps2KeyboardHandeler(cpuState: *interrupts.CpuState) callconv(.c) void {
     _ = cpuState;
     if (readStatus().outputBufferStatus == 0) {
         debug.printf("keyboard handeler called with no data\n", .{});

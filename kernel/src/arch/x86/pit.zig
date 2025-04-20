@@ -171,7 +171,7 @@ var timerFractionSinceStart: u32 = 0;
 var ticks: u32 = 0;
 var countDown: u32 = 0;
 
-fn pitHandler(cpuState: interrupts.CpuState) callconv(.c) void {
+fn pitHandler(cpuState: *interrupts.CpuState) callconv(.c) void {
     _ = cpuState;
     ticks += 1;
     timerMsSinceStart += timerMs;

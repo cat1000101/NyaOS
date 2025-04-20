@@ -4,11 +4,11 @@ const gdt = @import("gdt.zig");
 const int = @import("interrupts.zig");
 const pic = @import("pic.zig");
 
-const TASK_GATE: u4 = 0x5;
-const INTERRUPT_GATE_16: u4 = 0x6;
-const TRAP_GATE_16: u4 = 0x7;
-const INTERRUPT_GATE: u4 = 0xE;
-const TRAP_GATE: u4 = 0xF;
+pub const TASK_GATE: u4 = 0x5;
+pub const INTERRUPT_GATE_16: u4 = 0x6;
+pub const TRAP_GATE_16: u4 = 0x7;
+pub const INTERRUPT_GATE: u4 = 0xE;
+pub const TRAP_GATE: u4 = 0xF;
 
 pub const PRIVLIGE_RING_0: u2 = 0x0;
 pub const PRIVLIGE_RING_1: u2 = 0x1;
@@ -65,14 +65,14 @@ pub fn initIdt() void {
     asm volatile ("int $1"); // test for the interrutps
 }
 
-pub fn openIdtGate(index: usize, interrupt: *const fn () callconv(.naked) void) InterruptError!void {
+pub fn openIdtGate(index: usize, interrupt: *const fn () callconv(.naked) void, gateType: u4, dpl: u2) InterruptError!void {
     if (idt[index].p == 1) return InterruptError.interruptOpen;
     setIdtGate(
         index,
         @intFromPtr(interrupt),
         gdt.KERNEL_CODE_OFFSET,
-        TRAP_GATE,
-        PRIVLIGE_RING_3,
+        gateType,
+        dpl,
     );
 }
 

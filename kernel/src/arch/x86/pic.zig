@@ -102,7 +102,7 @@ pub fn picGetIsr() u16 {
 }
 
 pub fn installIrq(interrupt: *const fn () callconv(.naked) void, irqNumber: u8) !void {
-    try idt.openIdtGate(irqNumber + PIC_MASTER_OFFSET, interrupt);
+    try idt.openIdtGate(irqNumber + PIC_MASTER_OFFSET, interrupt, idt.INTERRUPT_GATE, idt.PRIVLIGE_RING_3);
     maskIRQ(irqNumber, false);
 }
 

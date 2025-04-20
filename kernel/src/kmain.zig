@@ -9,7 +9,7 @@ const pmm = @import("mem/pmm.zig");
 const vmm = @import("mem/vmm.zig");
 const pit = @import("arch/x86/pit.zig");
 const userLand = @import("arch/x86/userLand.zig");
-const sched = @import("arch/x86/sched.zig");
+const sched = @import("sched.zig");
 
 const panic = @import("panic.zig");
 
