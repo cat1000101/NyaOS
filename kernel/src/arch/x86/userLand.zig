@@ -63,5 +63,4 @@ pub fn switchToUserMode() void {
         : [userStack] "{edx}" (userStack),
           [userMain] "{esi}" (userMainVirtualAddress),
     );
-    sched.switchContext(&sched.tasks[0]);
 }
