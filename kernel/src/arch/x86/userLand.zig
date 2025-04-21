@@ -1,7 +1,9 @@
 const debug = @import("debug.zig");
 const paging = @import("paging.zig");
+const vmm = @import("../../mem/vmm.zig");
 const multiboot = @import("../../multiboot.zig");
 const sched = @import("sched.zig");
+const highSched = @import("../../sched.zig");
 
 pub fn switchToUserMode() void {
     // Set up the stack for user mode.
@@ -63,4 +65,5 @@ pub fn switchToUserMode() void {
         : [userStack] "{edx}" (userStack),
           [userMain] "{esi}" (userMainVirtualAddress),
     );
+    sched.switchContext(highSched.correntContext, highSched.correntContext);
 }

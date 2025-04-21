@@ -358,7 +358,7 @@ pub fn idBigPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void
     }
 }
 
-fn getPageDirectoryRecursivly() *PageDirectory {
+pub fn getPageDirectoryRecursivly() *PageDirectory {
     const lpageDirectory: *PageDirectory = @ptrFromInt(RECURSIVE_PAGE_DIRECTORY_ADDRESS);
     return lpageDirectory;
 }
@@ -377,7 +377,7 @@ pub fn getCr3() *PageDirectory {
     return pd;
 }
 
-var pageDirectory: PageDirectory align(4096) = .{};
+pub var pageDirectory: PageDirectory align(4096) = .{};
 var higherHalfPage: PageTable align(4096) = .{};
 var firstPage: PageTable align(4096) = .{};
 
