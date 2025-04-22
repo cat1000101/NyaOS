@@ -7,17 +7,15 @@ pub fn build(b: *Builder) void {
     const kernel_dep = b.dependency("kernel", .{});
     const user_dep = b.dependency("user", .{});
 
-    const user_exe_elf = user_dep.artifact("program");
-    const user_exe_bin = b.addObjCopy(user_exe_elf.getEmittedBin(), .{
-        .format = .bin,
-        .basename = b.fmt("{s}.bin", .{user_exe_elf.out_filename}),
-    });
-    const user_path = user_exe_bin.getOutput();
-    const user_exe_step = &b.addInstallFileWithDir(
-        user_path,
-        .{ .custom = "extra" },
-        user_exe_bin.basename,
-    ).step;
+    const user_exe = user_dep.artifact("program");
+    const user_exe_step = &b.addInstallArtifact(user_exe, .{
+        .dest_dir = .{
+            .override = .{
+                .custom = "extra/",
+            },
+        },
+    }).step;
+    const user_path = user_exe.getEmittedBin();
     b.getInstallStep().dependOn(user_exe_step);
 
     const kernel_exe = kernel_dep.artifact("kernel.elf");

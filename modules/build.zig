@@ -18,7 +18,7 @@ pub fn build(b: *Builder) void {
 
     const target = b.resolveTargetQuery(Target.Query{
         .cpu_arch = Target.Cpu.Arch.x86,
-        .os_tag = Target.Os.Tag.other,
+        .os_tag = Target.Os.Tag.freestanding,
         .abi = Target.Abi.none,
         .cpu_features_sub = disabled_features,
         .cpu_features_add = enabled_features,

@@ -116,9 +116,12 @@ pub export const stack_top = &stack[stack.len - 1];
 export fn high_half_entery() align(16) callconv(.naked) noreturn {
     asm volatile (
         \\  mov %[stack_top], %esp
-        \\  push %eax
-        \\  push %ebx
-        \\  call %[kmain:P]
+        \\  mov %esp, %ebp
+        \\
+        \\  pushl %eax
+        \\  pushl %ebx
+        \\  pushl $0
+        \\  jmp %[kmain:P]
         :
         : [kmain] "X" (&kmainFile.kmain),
           [stack_top] "{edx}" (stack_top),

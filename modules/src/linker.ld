@@ -3,10 +3,6 @@ ENTRY(_start)
 SECTIONS
 {
     . = 0x400000;                 /* relocate to address 0 */
-    .start :
-    {
-        *(.start)
-    }
 
     .text ALIGN(16):
     {

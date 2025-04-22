@@ -11,7 +11,7 @@ pub fn switchToUserMode() void {
     const userStackAddress: usize = 0x800000; // 8MiB
     const userStackMap: usize = 0xAFC00000; // 1GiB - 4MiB
     const programMap: usize = 0x400000; // 4MiB
-    const programOffset: usize = 0x50;
+    const programOffset: usize = 0x001050;
 
     paging.setBigEntryRecursivly(userStackMap, userStackAddress, .{
         .page_size = 1,
