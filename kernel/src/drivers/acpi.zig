@@ -106,7 +106,7 @@ pub const FADT = extern struct {
     month_alarm: u8,
     century: u8,
 
-    iapc_boot_arch_flags: u16 align(1),
+    iapc_boot_arch_flags: [2]u8,
 
     reserved2: u8,
     flags: u32,
@@ -201,7 +201,7 @@ pub fn findTable(signature: []const u8) ?*SDTHeader {
 
 pub fn ps2ControllerExists() bool {
     if (tables.fadt) |fadt| {
-        return (fadt.iapc_boot_arch_flags & 2) == 2;
+        return (fadt.iapc_boot_arch_flags[0] & 2) == 2;
     } else {
         return true;
     }

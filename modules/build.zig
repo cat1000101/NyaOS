@@ -18,7 +18,7 @@ pub fn build(b: *Builder) void {
 
     const target = b.resolveTargetQuery(Target.Query{
         .cpu_arch = Target.Cpu.Arch.x86,
-        .os_tag = Target.Os.Tag.freestanding,
+        .os_tag = Target.Os.Tag.other,
         .abi = Target.Abi.none,
         .cpu_features_sub = disabled_features,
         .cpu_features_add = enabled_features,
@@ -28,7 +28,7 @@ pub fn build(b: *Builder) void {
         .optimize = .ReleaseSmall,
         .target = target,
         .root_source_file = b.path("src/userLandMain.zig"),
-        .code_model = .small,
+        .code_model = .default, // may need to change this to something else
         .pic = true,
     });
 
