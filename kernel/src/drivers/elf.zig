@@ -1,4 +1,5 @@
 const debug = @import("../arch/x86/debug.zig");
+const std = @import("std");
 
 // ELF file format used https://refspecs.linuxfoundation.org/elf/elf.pdf spec
 
@@ -385,7 +386,7 @@ const Elf32PhdrType = enum(Elf32Word) {
     /// table itself, both in the file and in the memory image of the program. This segment
     /// type may not occur more than once in a file. Moreover, it may occur only if the
     /// program header table is part of the memory image of the program. If it is present,
-    /// it must precede any loadable segment entry.
+    /// it must precede any loadable segment entr
     PHDR = 6,
     /// PT_LOPROC Values in this inclusive range are reserved for processor-specific semantics.
     LOPROC = 0x70000000,
@@ -395,16 +396,85 @@ const Elf32PhdrType = enum(Elf32Word) {
     _,
 };
 
-pub inline fn getShdr(Ehdr: *Elf32Ehdr) [*]Elf32Shdr {
-    return @ptrFromInt(@intFromPtr(Ehdr) + Ehdr.shoff);
+pub inline fn getShdr(elfHdr: *Elf32Ehdr) [*]Elf32Shdr {
+    return @ptrFromInt(@intFromPtr(elfHdr) + elfHdr.shoff);
 }
 
-pub inline fn getSectionHeader(Ehdr: *Elf32Ehdr, index: usize) *Elf32Shdr {
-    return &getShdr(Ehdr)[index];
+pub inline fn getSection(elfHdr: *Elf32Ehdr, index: usize) *Elf32Shdr {
+    return &getShdr(elfHdr)[index];
 }
 
-pub inline fn getStrTable(Ehdr: *Elf32Ehdr) ?[*]u8 {
-    if (Ehdr.shstrndx == ElfSpecialSections.UNDEF) {
+pub inline fn getStrTable(elfHdr: *Elf32Ehdr) ?[*c]u8 {
+    if (elfHdr.shstrndx == ElfSpecialSections.UNDEF) {
         return null;
     }
+    const StrTableSection = getSection(elfHdr, elfHdr.shstrndx);
+    const StrTable: [*c]u8 = @ptrFromInt(@intFromPtr(elfHdr) + StrTableSection.offset);
+    return StrTable;
+}
+
+pub inline fn getStrFromStrTable(elfHdr: *Elf32Ehdr, index: usize) ?[:0]const u8 {
+    const strTable = getStrTable(elfHdr) orelse return null;
+    const startStr: [*c]u8 = @ptrFromInt(@intFromPtr(strTable) + index);
+    const length = std.mem.len(startStr);
+    return startStr[0..length];
+}
+
+pub fn getSymValue(elfHdr: *Elf32Ehdr, symTableIndex: usize, index: usize) ?*Elf32Sym {
+    if (symTableIndex == ElfSpecialSections.UNDEF or index == ElfSpecialSections.UNDEF) {
+        debug.printf("elf:  symbol index Undefined: {} , {}\n", .{ symTableIndex, index });
+        return null;
+    }
+    const symTable = getSection(elfHdr, symTableIndex);
+    const symTableEntries = symTable.size / symTable.entsize;
+    if (index >= symTableEntries) {
+        debug.printf("elf:  symbol index out of bounds: {} >= {}\n", .{ index, symTableEntries });
+        return null;
+    }
+
+    const sym: *Elf32Sym = @ptrFromInt(@intFromPtr(elfHdr) + symTable.offset + index * symTable.entsize);
+
+    if (sym.shndx == ElfSpecialSections.UNDEF) {
+        debug.printf("elf:  symbol shndx Undefined: {any}\n", .{sym});
+        return null;
+    } else if (sym.shndx == ElfSpecialSections.ABS) {
+        return sym.value;
+    } else {
+        const target = getSection(elfHdr, sym.shndx);
+        return @ptrFromInt(@intFromPtr(elfHdr) + target.offset + sym.value);
+    }
+}
+
+pub fn isFileElf(elfHdr: *Elf32Ehdr) bool {
+    return elfHdr.ident.mag == [4]u8{ 0x7f, 'E', 'L', 'F' };
+}
+
+pub fn isSupportedElf(elfHdr: *Elf32Ehdr) bool {
+    if (!isFileElf(elfHdr)) return false;
+    if (elfHdr.ident.class != 1) return false; // 32-bit
+    if (elfHdr.ident.data != 1) return false; // little-endian
+    if (elfHdr.machine != ElfMachine.EM_386) return false; // x86
+    if (elfHdr.type != ElfType.EXEC) return false; // executable
+    return true;
+}
+
+pub fn loadFile(elfHdr: *Elf32Ehdr) bool {
+    if (!isSupportedElf(elfHdr)) {
+        debug.printf("elf:  unsupported ELF file\n", .{});
+        return false;
+    }
+
+    switch (elfHdr.type) {
+        ElfType.EXEC => {
+            loadFileExec(elfHdr);
+        },
+        else => {
+            debug.printf("elf:  unsupported ELF file type: {}\n", .{elfHdr.type});
+            return false;
+        },
+    }
+}
+
+pub fn loadFileExec(elfHdr: *Elf32Ehdr) bool {
+    _ = elfHdr;
 }
