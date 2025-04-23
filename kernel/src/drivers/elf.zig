@@ -404,20 +404,20 @@ pub inline fn getSection(elfHdr: *Elf32Ehdr, index: usize) *Elf32Shdr {
     return &getShdr(elfHdr)[index];
 }
 
-pub inline fn getStrTable(elfHdr: *Elf32Ehdr) ?[*c]u8 {
+pub inline fn getStrTable(elfHdr: *Elf32Ehdr) ?[*]u8 {
     if (elfHdr.shstrndx == ElfSpecialSections.UNDEF) {
         return null;
     }
     const StrTableSection = getSection(elfHdr, elfHdr.shstrndx);
-    const StrTable: [*c]u8 = @ptrFromInt(@intFromPtr(elfHdr) + StrTableSection.offset);
+    const StrTable: [*]u8 = @ptrFromInt(@intFromPtr(elfHdr) + StrTableSection.offset);
     return StrTable;
 }
 
 pub inline fn getStrFromStrTable(elfHdr: *Elf32Ehdr, index: usize) ?[:0]const u8 {
     const strTable = getStrTable(elfHdr) orelse return null;
     const startStr: [*c]u8 = @ptrFromInt(@intFromPtr(strTable) + index);
-    const length = std.mem.len(startStr);
-    return startStr[0..length];
+    const retSlice = std.mem.span(startStr);
+    return retSlice;
 }
 
 pub fn getSymValue(elfHdr: *Elf32Ehdr, symTableIndex: usize, index: usize) ?*Elf32Sym {
