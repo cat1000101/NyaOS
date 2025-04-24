@@ -20,7 +20,7 @@ pub fn initVmm() void {
         paging.RECURSIVE_PAGE_TABLE_BASE,
         false,
     );
-    // vpageAllocator.debugPrint();
+    // virtualBitMap.debugPrint();
     // testVmmAlloc();
     paging.mapForbiddenZones(multiboot.multibootInfo);
 
@@ -83,16 +83,36 @@ pub fn freePages(address: [*]u8, num: usize) void {
     virtualBitMap.free(address, num);
 }
 
-pub fn mapVirtualAddressRange(virtualAddr: u32, physicalAddr: u32, size: u32) void {
+// idk need to check this latter was having brain damage when trying to do something similar without reason ; -;
+pub fn mapVirtualAddressRange(virtualAddr: u32, size: u32) bool {
     if (size >= memory.DIR_SIZE * 2) {
-        paging.idBigPagesRecursivly(virtualAddr, physicalAddr, memory.alignAddressUp(size - 1, memory.DIR_SIZE), true) catch |err| {
+        const lsize = memory.alignAddressUp(size - 1, memory.DIR_SIZE);
+        const physicalAddr: u32 = @intFromPtr(pmm.physBitMap.alloc(lsize / memory.PAGE_SIZE) catch |err| {
+            debug.errorPrint("vmm.mapVirtualAddressRange:  failed to allocate physical memory: {}\n", .{err});
+            return false;
+        });
+        errdefer {
+            pmm.physBitMap.free(@ptrFromInt(physicalAddr), lsize / memory.PAGE_SIZE);
+        }
+        paging.idBigPagesRecursivly(virtualAddr, physicalAddr, lsize, true) catch |err| {
             debug.errorPrint("vmm.mapVirtualAddressRange:  failed to big id map virtual address range: {}\n", .{err});
+            return false;
         };
     } else {
+        const lsize = memory.alignAddressUp(size - 1, memory.PAGE_SIZE);
+        const physicalAddr: u32 = @intFromPtr(pmm.physBitMap.alloc(lsize / memory.PAGE_SIZE) catch |err| {
+            debug.errorPrint("vmm.mapVirtualAddressRange:  failed to allocate physical memory: {}\n", .{err});
+            return false;
+        });
+        errdefer {
+            pmm.physBitMap.free(@ptrFromInt(physicalAddr), lsize / memory.PAGE_SIZE);
+        }
         paging.idPagesRecursivly(virtualAddr, physicalAddr, memory.alignAddressUp(size - 1, memory.PAGE_SIZE), true) catch |err| {
             debug.errorPrint("vmm.mapVirtualAddressRange:  failed to id map virtual address range: {}\n", .{err});
+            return false;
         };
     }
+    return true;
 }
 
 fn testVmmAlloc() void {

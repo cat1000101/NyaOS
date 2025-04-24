@@ -454,7 +454,8 @@ pub fn getSymValue(elfHdr: *Elf32Ehdr, symTableIndex: usize, index: usize) ?*Elf
 }
 
 pub fn isFileElf(elfHdr: *Elf32Ehdr) bool {
-    return elfHdr.ident.mag == [4]u8{ 0x7f, 'E', 'L', 'F' };
+    // return elfHdr.ident.mag == [4]u8{ 0x7f, 'E', 'L', 'F' };
+    return std.mem.eql(u8, &elfHdr.ident.mag, &[4]u8{ 0x7f, 'E', 'L', 'F' });
 }
 
 pub fn isSupportedElf(elfHdr: *Elf32Ehdr) bool {
@@ -466,7 +467,8 @@ pub fn isSupportedElf(elfHdr: *Elf32Ehdr) bool {
     return true;
 }
 
-pub fn loadFile(elfHdr: *Elf32Ehdr) bool {
+pub fn loadFile(File: []u8) bool {
+    const elfHdr: *Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
     if (!isSupportedElf(elfHdr)) {
         debug.errorPrint("loadFile:  unsupported ELF file\n", .{});
         return false;
@@ -474,15 +476,40 @@ pub fn loadFile(elfHdr: *Elf32Ehdr) bool {
 
     switch (elfHdr.type) {
         Elf32Ehdr.ElfType.EXEC => {
-            loadFileExec(elfHdr);
+            return loadFileExec(elfHdr);
         },
         else => {
-            debug.errorPrint("loadFile:  unsupported ELF file type: {}\n", .{elfHdr.type});
+            debug.errorPrint("loadFile:  unsupported ELF file type\n", .{});
             return false;
         },
     }
 }
 
 pub fn loadFileExec(elfHdr: *Elf32Ehdr) bool {
-    _ = elfHdr;
+    const phdrManyPointer = getPhdr(elfHdr);
+    const phdrSlice = phdrManyPointer[0..elfHdr.phnum];
+    for (phdrSlice) |phdr| {
+        switch (phdr.p_type) {
+            Elf32Phdr.Elf32PhdrType.LOAD => {
+                const segmentOffsetFile = phdr.p_offset;
+                const segmentAtFileSize = phdr.p_filesz;
+                const segmentVirtualSize = phdr.p_memsz;
+                const segmentAddr = phdr.p_vaddr;
+                debug.infoPrint("Program Header:  Type: {s} Offset: 0x{X} Vitrual Address: 0x{X} FileSize: 0x{X} memSize: 0x{X}\n", .{
+                    @tagName(phdr.p_type),
+                    segmentOffsetFile,
+                    segmentAddr,
+                    segmentAtFileSize,
+                    segmentVirtualSize,
+                });
+            },
+            .DYNAMIC, .HIPROC, .INTERP, .LOPROC, .NOTE, .PHDR, .NULL, .SHLIB => {
+                debug.infoPrint("idk what to do about this segment ¯\\_(ツ)_/¯: {s}\n", .{@tagName(phdr.p_type)});
+            },
+            else => {
+                debug.infoPrint("got segment type idk about ¯\\_(ツ)_/¯\n", .{});
+            },
+        }
+    }
+    return true;
 }

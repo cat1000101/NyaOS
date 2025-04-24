@@ -16,8 +16,8 @@ pub fn initPmm() void {
     physBitMap = memory.BitMapAllocatorGeneric.init(
         tempBufferSlice,
         memory.physPageSizes,
-        memory.MIB * 1,
         memory.MIB * 4,
+        memory.MIB * 16,
         false,
     );
     // physBitMap.debugPrint();

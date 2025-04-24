@@ -34,7 +34,7 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
 
     ps2.initPs2();
 
-    sched.initSchedler();
+    // sched.initSchedler();
     userLand.switchToUserMode();
 
     while (true) {

@@ -217,6 +217,8 @@ pub const BitMapAllocatorGeneric = struct {
 
         const header = mbh;
         const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
+        const startIndex = this.start / this.allocationSize;
+        const endIndex = this.end / this.allocationSize;
         for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
             const start = alignAddressUp(@intCast(entry.addr), this.allocationSize);
             var end: u32 = 0;
@@ -225,62 +227,68 @@ pub const BitMapAllocatorGeneric = struct {
             } else {
                 end = alignAddressDown(@intCast(entry.addr + entry.len), this.allocationSize);
             }
-            const startIndex = this.start / this.allocationSize;
-            const endIndex = this.end / this.allocationSize;
-            if (end / this.allocationSize < startIndex) {
+            var entryStartIndex = start / this.allocationSize;
+            var entryEndIndex = end / this.allocationSize;
+
+            debug.debugPrint("memory.setUsableMemory:  entry: {any}\n", .{entry});
+            debug.debugPrint("memory.setUsableMemory:  entry start index: {} entry end index: {} start,end {},{}\n", .{
+                entryStartIndex,
+                entryEndIndex,
+                start,
+                end,
+            });
+
+            if (entryEndIndex < startIndex) {
+                debug.debugPrint("memory.setUsableMemory:  entry not in range(before)\n", .{});
                 continue;
-            } else if (start / this.allocationSize >= endIndex) {
+            } else if (entryStartIndex > endIndex) {
+                debug.debugPrint("memory.setUsableMemory:  entry not in range(after)\n", .{});
                 break;
-            } else if ((start / this.allocationSize - startIndex) >= this.size) {
+            } else if (entryStartIndex > this.size + startIndex) {
+                debug.debugPrint("memory.setUsableMemory:  entry start index out of range\n", .{});
                 break;
             }
-            if (entry.type == 1) {
-                for ((start / this.allocationSize)..(end / this.allocationSize)) |index| {
-                    if (index < startIndex) {
-                        continue;
-                    } else if (index >= endIndex) {
-                        break;
-                    } else if ((index - startIndex) >= this.size) {
-                        break;
-                    }
+            if (startIndex > entryStartIndex) {
+                entryStartIndex = startIndex;
+            }
+            if (endIndex < entryEndIndex) {
+                entryEndIndex = endIndex;
+            }
 
-                    const address = index * this.allocationSize;
-                    if (address <= physMemStart or (address >= @intFromPtr(kernel_physical_start) and address <= @intFromPtr(kernel_physical_end)) or (address >= @intFromPtr(kernel_start) and address <= @intFromPtr(kernel_end))) {
-                        this.set(index - startIndex);
-                        continue;
-                    }
-                    this.clear(index - startIndex);
-                }
-            } else {
-                for ((start / this.allocationSize)..(end / this.allocationSize)) |index| {
-                    if (index < startIndex) {
-                        continue;
-                    } else if (index >= endIndex) {
-                        break;
-                    } else if ((index - startIndex) >= this.size) {
-                        break;
-                    }
+            for (entryStartIndex..entryEndIndex) |index| {
+                if (entry.type != 1) {
                     this.set(index - startIndex);
+                    continue;
+                } else if (index >= this.size) {
+                    debug.debugPrint("memory.setUsableMemory:  entry index out of range\n", .{});
+                    break;
                 }
+                const address = index * this.allocationSize;
+                if (address <= physMemStart or (address >= @intFromPtr(kernel_physical_start) and address <= @intFromPtr(kernel_physical_end)) or (address >= @intFromPtr(kernel_start) and address <= @intFromPtr(kernel_end))) {
+                    this.set(index - startIndex);
+                    continue;
+                }
+                this.clear(index - startIndex);
             }
         }
     }
     pub fn debugPrint(this: *@This()) void {
-        debug.debugPrint("++memory bitmap debug print\n", .{});
-        defer debug.debugPrint("--memory bitmap debug printed\n", .{});
+        debug.infoPrint("++memory bitmap debug print\n", .{});
+        defer debug.infoPrint("--memory bitmap debug printed\n", .{});
 
-        debug.debugPrint("memory.debugPrint:  size: {}\n", .{this.size});
+        debug.infoPrint("memory.debugPrint:  size: {}\n", .{this.size});
+        debug.infoPrint("", .{});
         for (0..this.size) |index| {
             const address: usize = (index * this.allocationSize) + this.start;
             if (address < this.end) {
                 if (this.check(index) == true) {
-                    debug.debugPrint("10x{X} ", .{address});
+                    debug.printf("10x{X} ", .{address});
                 } else {
-                    // debug.debugPrint("00x{X} ", .{address});
+                    debug.printf("00x{X} ", .{address});
                 }
             }
         }
-        debug.debugPrint("\n", .{});
+        debug.printf("\n", .{});
     }
 };
 
