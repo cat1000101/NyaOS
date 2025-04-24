@@ -25,7 +25,7 @@ pub fn build(b: *Builder) void {
     });
 
     const userModule = b.createModule(.{
-        .optimize = .ReleaseSmall,
+        .optimize = .Debug,
         .target = target,
         .root_source_file = b.path("src/userLandMain.zig"),
         .code_model = .default, // may need to change this to something else

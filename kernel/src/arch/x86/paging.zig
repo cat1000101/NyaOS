@@ -152,7 +152,12 @@ pub const PageDirectory = struct {
             debug.errorPrint("PageDirectory.setEntery:  can't set normal directory entery at: #{} error: {}\n", .{ index, err });
             return err;
         };
-        debug.debugPrint("PageDirectory.setEntery:  set page directory entry address: 0x{X}, flags: {any}", .{ physicalPageAddress, flags });
+        debug.debugPrint("PageDirectory.setEntery:  set page directory entry, page addr: 0x{X} vaddr: 0x{X}, governing memory: 0x{X}, flags: {any}\n", .{
+            physicalPageAddress,
+            @intFromPtr(pageTable),
+            index << 22,
+            flags,
+        });
         self.entries[index].normal = PageDirectoryEntry{
             .flags = flags,
             .address = @truncate(physicalPageAddress >> 12),
@@ -186,6 +191,7 @@ pub const PageDirectory = struct {
     /// returns VIRTUAL address of the page table as pointer
     fn getPageTable(self: *PageDirectory, index: u32) PageErrors!*PageTable {
         if (!isDirectDirectory(self)) {
+            debug.errorPrint("PageDirectory.getPageTable:  self is recursive pageDirectory\n", .{});
             return PageErrors.OnlyDirectDirectoryAllowed;
         }
         if (@as(u32, @bitCast(self.entries[index].normal)) == 0) {
@@ -200,6 +206,7 @@ pub const PageDirectory = struct {
     /// should only be used with the page directory directly and not the RECURSIVE_PAGE_TABLE_BASE or RECURSIVE_PAGE_DIRECTORY_ADDRESS
     fn idPages(self: *PageDirectory, vaddr: u32, paddr: u32, size: u32, used: bool) PageErrors!void {
         if (!isDirectDirectory(self)) {
+            debug.errorPrint("PageDirectory.idPages:  self is recursive pageDirectory\n", .{});
             return PageErrors.OnlyDirectDirectoryAllowed;
         }
         if (!isAligned(vaddr, memory.PAGE_SIZE) or !isAligned(paddr, memory.PAGE_SIZE) or !isAligned(size, memory.PAGE_SIZE)) {
@@ -209,6 +216,7 @@ pub const PageDirectory = struct {
         var lpaddr: u32 = paddr;
         var lvaddr: u32 = vaddr;
         var lsize: u32 = size;
+        debug.debugPrint("PageDirectory.idPages:  idPaging vaddr: 0x{X} paddr: 0x{X} size: 0x{X}\n", .{ lvaddr, lpaddr, lsize });
         while (lsize > 0) : ({
             lpaddr += memory.PAGE_SIZE;
             lvaddr += memory.PAGE_SIZE;

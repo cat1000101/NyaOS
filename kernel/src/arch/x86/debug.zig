@@ -30,14 +30,29 @@ pub fn printf(comptime format: []const u8, args: anytype) void {
     fmt.format(writer, format, args) catch unreachable;
 }
 
+const levels = struct {
+    infoPrintLevel: bool,
+    debugPrintLevel: bool,
+    errorPrintLevel: bool,
+};
+
+pub var printLevels: levels = .{
+    .infoPrintLevel = true,
+    .errorPrintLevel = true,
+    .debugPrintLevel = true,
+};
+
 pub fn infoPrint(comptime format: []const u8, args: anytype) void {
+    if (!printLevels.infoPrintLevel) return;
     printf("[INFO]: " ++ format, args);
 }
 
 pub fn debugPrint(comptime format: []const u8, args: anytype) void {
+    if (!printLevels.debugPrintLevel) return;
     printf("[DEBUG]: " ++ format, args);
 }
 
 pub fn errorPrint(comptime format: []const u8, args: anytype) void {
+    if (!printLevels.errorPrintLevel) return;
     printf("[ERROR]: " ++ format, args);
 }

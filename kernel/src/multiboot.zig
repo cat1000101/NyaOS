@@ -192,7 +192,7 @@ pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
     return true;
 }
 
-fn getModuleInfo() ?[*]multiboot_mod_list {
+pub fn getModuleInfo() ?[*]multiboot_mod_list {
     const header = multibootInfo;
     if (header.mods_addr == 0) {
         debug.printf("No module list found\n", .{});

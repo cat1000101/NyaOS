@@ -1,19 +1,22 @@
 const debug = @import("debug.zig");
 const paging = @import("paging.zig");
 const vmm = @import("../../mem/vmm.zig");
+const memory = @import("../../mem/memory.zig");
 const multiboot = @import("../../multiboot.zig");
 const sched = @import("sched.zig");
 const highSched = @import("../../sched.zig");
+const elf = @import("../../drivers/elf.zig");
 
 pub fn switchToUserMode() void {
     // Set up the stack for user mode.
     const userStack: usize = 0xAFFFF000; // before the start of the kernel by 1 page
-    const userStackAddress: usize = 0x800000; // 8MiB
-    const userStackMap: usize = 0xAFC00000; // 1GiB - 4MiB
-    const programMap: usize = 0x400000; // 4MiB
-    const programOffset: usize = 0x001050;
+    const userStackBottom: usize = 0xAFC00000; // 1GiB - 4MiB
+    const userStackAddress: usize = 0x800000; // 8MiB physical
+    // const programAddress: usize = 0xC00000; // 12MiB physical
+    const programMap: usize = 0x400000; // 4MiB vitual
+    const elfFileMap: usize = 0xC00000; // 12MiB virtual
 
-    paging.setBigEntryRecursivly(userStackMap, userStackAddress, .{
+    paging.setBigEntryRecursivly(userStackBottom, userStackAddress, .{
         .page_size = 1,
         .present = 1,
         .read_write = 1,
@@ -22,26 +25,31 @@ pub fn switchToUserMode() void {
         debug.errorPrint("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
     };
 
-    const userMainPhysical = multiboot.getModuleEntry(0) orelse {
-        debug.errorPrint("userLand.switchToUserMode:  failed to get userLandMain entry\n", .{});
+    const moudleList = multiboot.getModuleInfo() orelse {
+        debug.errorPrint("userLand.switchToUserMode:  failed to get module list\n", .{});
         return;
     };
-    const userMainPhysicalAddress: usize = @intFromPtr(userMainPhysical) + programOffset;
-    const userMainVirtualAddress: usize = programMap + programOffset; // 4MiB
+    const physcialAddress: u32 = moudleList[0].mod_start;
+    const length: u32 = moudleList[0].mod_end - moudleList[0].mod_start;
 
-    paging.setPageTableEntryRecursivlyAlways(userMainVirtualAddress, userMainPhysicalAddress, .{
-        .present = 1,
-        .read_write = 1,
-        .user_supervisor = 1,
-    }) catch |err| {
-        debug.errorPrint("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
+    paging.idPagesRecursivly(elfFileMap, physcialAddress, memory.alignAddressUp(length, memory.PAGE_SIZE), true) catch {
+        debug.errorPrint("userLand.switchToUserMode:  failed to id map virtual address range\n", .{});
+        return;
     };
+
+    const fileManyPointer: [*]u8 = @ptrFromInt(elfFileMap);
+    const fileSlice: []u8 = fileManyPointer[0..length];
+
+    _ = elf.loadFile(fileSlice);
 
     // Set up a stack structure for switching to user mode.
     // 0x23 is the data segment with user privileges.
     // 0x1B is the code segment with user privileges.
     // 0x200 is the IF flag in EFLAGS register, which enables interrupts.
     debug.bochsBreak();
+    while (true) {
+        asm volatile ("hlt");
+    }
     asm volatile (
         \\ cli
         \\ mov $0x23, %ax
@@ -63,7 +71,7 @@ pub fn switchToUserMode() void {
         \\ iret
         :
         : [userStack] "{edx}" (userStack),
-          [userMain] "{esi}" (userMainVirtualAddress),
+          [userMain] "{esi}" (programMap),
     );
     sched.switchContext(highSched.correntContext, highSched.correntContext);
 }
