@@ -430,20 +430,20 @@ pub inline fn getStrFromStrTable(elfHdr: *Elf32Ehdr, index: usize) ?[:0]const u8
 
 pub fn getSymValue(elfHdr: *Elf32Ehdr, symTableIndex: usize, index: usize) ?*Elf32Sym {
     if (symTableIndex == ElfSpecialSections.UNDEF or index == ElfSpecialSections.UNDEF) {
-        debug.printf("elf:  symbol index Undefined: {} , {}\n", .{ symTableIndex, index });
+        debug.errorPrint("getSymValue:  symbol index Undefined: {} , {}\n", .{ symTableIndex, index });
         return null;
     }
     const symTable = getSection(elfHdr, symTableIndex);
     const symTableEntries = symTable.size / symTable.entsize;
     if (index >= symTableEntries) {
-        debug.printf("elf:  symbol index out of bounds: {} >= {}\n", .{ index, symTableEntries });
+        debug.errorPrint("getSymValue:  symbol index out of bounds: {} >= {}\n", .{ index, symTableEntries });
         return null;
     }
 
     const sym: *Elf32Sym = @ptrFromInt(@intFromPtr(elfHdr) + symTable.offset + index * symTable.entsize);
 
     if (sym.shndx == ElfSpecialSections.UNDEF) {
-        debug.printf("elf:  symbol shndx Undefined: {any}\n", .{sym});
+        debug.errorPrint("getSymValue:  symbol shndx Undefined: {any}\n", .{sym});
         return null;
     } else if (sym.shndx == ElfSpecialSections.ABS) {
         return sym.value;
@@ -468,7 +468,7 @@ pub fn isSupportedElf(elfHdr: *Elf32Ehdr) bool {
 
 pub fn loadFile(elfHdr: *Elf32Ehdr) bool {
     if (!isSupportedElf(elfHdr)) {
-        debug.printf("elf:  unsupported ELF file\n", .{});
+        debug.errorPrint("loadFile:  unsupported ELF file\n", .{});
         return false;
     }
 
@@ -477,7 +477,7 @@ pub fn loadFile(elfHdr: *Elf32Ehdr) bool {
             loadFileExec(elfHdr);
         },
         else => {
-            debug.printf("elf:  unsupported ELF file type: {}\n", .{elfHdr.type});
+            debug.errorPrint("loadFile:  unsupported ELF file type: {}\n", .{elfHdr.type});
             return false;
         },
     }

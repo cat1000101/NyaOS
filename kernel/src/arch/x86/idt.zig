@@ -60,13 +60,16 @@ pub fn initIdt() void {
     pic.initPic();
 
     loadIdt(&idtr);
-    debug.printf("initialized idt\n", .{});
+    debug.infoPrint("initialized idt\n", .{});
 
     asm volatile ("int $1"); // test for the interrutps
 }
 
 pub fn openIdtGate(index: usize, interrupt: *const fn () callconv(.naked) void, gateType: u4, dpl: u2) InterruptError!void {
-    if (idt[index].p == 1) return InterruptError.interruptOpen;
+    if (idt[index].p == 1) {
+        debug.errorPrint("openIdtGate:  entry already populated\n", .{});
+        return InterruptError.interruptOpen;
+    }
     setIdtGate(
         index,
         @intFromPtr(interrupt),

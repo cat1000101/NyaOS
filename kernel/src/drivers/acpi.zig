@@ -151,7 +151,7 @@ fn findRSDP() ?*RSDP {
             return ptr;
         }
     }
-    debug.printf("rsdp not found?\n", .{});
+    debug.errorPrint("findRSDP:  rsdp not found?\n", .{});
     return null;
 }
 
@@ -183,7 +183,7 @@ fn getFADT() ?*FADT {
 
 pub fn findTable(signature: []const u8) ?*SDTHeader {
     const localRsdp = tables.rsdp orelse {
-        debug.printf("can't find table rsdp not found\n", .{});
+        debug.errorPrint("findTable:  can't find table rsdp not found\n", .{});
         return null;
     };
     const rsdt = localRsdp.rsdt_address;
@@ -195,7 +195,7 @@ pub fn findTable(signature: []const u8) ?*SDTHeader {
             return header;
         }
     }
-    debug.printf("table not found with signiture {s}\n", .{signature});
+    debug.errorPrint("findTable:  table not found with signiture {s}\n", .{signature});
     return null;
 }
 
@@ -217,22 +217,22 @@ pub fn initACPI() void {
     const rsdp: *RSDP = findRSDP() orelse return;
     tables.rsdp = rsdp;
     if (!validationRsdpChecksum(rsdp)) {
-        debug.printf("rsdp checksum failed\n", .{});
+        debug.errorPrint("initACPI:  rsdp checksum failed\n", .{});
         return;
     }
     const fadt: *FADT = getFADT() orelse return;
     tables.fadt = fadt;
     if (!validationChecksum(@ptrCast(fadt))) {
-        debug.printf("fadt checksum failed\n", .{});
+        debug.errorPrint("initACPI:  fadt checksum failed\n", .{});
         return;
     }
 
     if (fadt.smi_command_port == 0 and fadt.acpi_enable == 0 and fadt.acpi_disable == 0 and (fadt.pm1a_control_block & 1) == 1) {
-        debug.printf("acpi not supported or already enabled?\n", .{}); // i think there is miss information but idk
+        debug.errorPrint("initACPI:  acpi not supported or already enabled?\n", .{}); // i think there is miss information but idk
         return;
     }
 
     port.outb(@intCast(fadt.smi_command_port), fadt.acpi_enable);
 
-    debug.printf("acpi init success yippe\n", .{});
+    debug.infoPrint("acpi init success yippe\n", .{});
 }

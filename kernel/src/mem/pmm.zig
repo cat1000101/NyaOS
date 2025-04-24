@@ -26,10 +26,10 @@ pub fn initPmm() void {
 
 pub fn testPageAllocator() void {
     const testAllocation = physBitMap.alloc(1) catch |err| {
-        debug.printf("pmm.testPageAllocator:  failed to allocate memory error: {}\n", .{err});
+        debug.errorPrint("pmm.testPageAllocator:  failed to allocate memory error: {}\n", .{err});
         return;
     };
-    debug.printf("pmm.testPageAllocator:  allocated memory at: 0x{X} size: 0x{X}\n", .{
+    debug.debugPrint("pmm.testPageAllocator:  allocated memory at: 0x{X} size: 0x{X}\n", .{
         @intFromPtr(testAllocation),
         physBitMap.allocationSize,
             // @import("std").mem.sliceAsBytes(memory).len,

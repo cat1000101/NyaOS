@@ -157,10 +157,10 @@ pub fn initGdt() void {
     ); // Task State Segment
 
     gdtFlush(&gdt_ptr);
-    debug.printf("initialized and loaded the gdt\n", .{});
+    debug.infoPrint("initialized and loaded the gdt\n", .{});
 
     loadTss();
-    debug.printf("loaded Tss\n", .{});
+    debug.infoPrint("loaded Tss\n", .{});
 }
 
 fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) void {

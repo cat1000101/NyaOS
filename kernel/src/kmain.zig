@@ -14,7 +14,7 @@ const sched = @import("sched.zig");
 const panic = @import("panic.zig");
 
 pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
-    debug.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
+    debug.debugPrint("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
     _ = multiboot.checkMultibootHeader(mbh, magic);
 
     tty.initialize();

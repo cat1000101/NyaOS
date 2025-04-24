@@ -64,7 +64,7 @@ fn picRemap(offsetMaster: u8, offsetSlave: u8) void {
     picDisable();
     port.outb(PIC_SLAVE_DATA, port.inb(PIC_SLAVE_DATA) & ~@as(u8, 0x10)); // idk Enable cascade interrupt?
 
-    debug.printf("pic changed the base offset in the idt\n", .{});
+    debug.infoPrint("pic changed the base offset in the idt\n", .{});
 }
 
 pub fn maskIRQ(irq: u8, mask: bool) void {
@@ -77,7 +77,7 @@ pub fn maskIRQ(irq: u8, mask: bool) void {
     } else {
         port.outb(localPort, old & ~(@as(u8, 1) << shift));
     }
-    // debug.printf("irq masking debug: 0x{X} -> 0x{X}\n", .{ old, port.inb(localPort) });
+    debug.debugPrint("maskIRQ:  irq masking debug: 0x{X} -> 0x{X}\n", .{ old, port.inb(localPort) });
 }
 
 const PIC_READ_IRR = 0x0a; // OCW3 irq ready next CMD read
@@ -108,7 +108,7 @@ pub fn installIrq(interrupt: *const fn () callconv(.naked) void, irqNumber: u8) 
 
 pub fn initPic() void {
     disableApic();
-    debug.printf("disabled the APIC\n", .{}); // should make the system/cpu emualte 8259 pic
+    debug.debugPrint("disabled the APIC\n", .{}); // should make the system/cpu emualte 8259 pic
 
     picRemap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
 

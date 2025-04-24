@@ -66,10 +66,10 @@ pub const BitMapAllocatorGeneric = struct {
             for (start..(start + amount)) |i| {
                 this.set(i);
             }
-            // debug.printf("memory.alloc:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), amount * this.allocationSize });
+            debug.debugPrint("memory.alloc:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), amount * this.allocationSize });
             return address;
         } else {
-            debug.printf("memory.alloc:  TODO: make resize/realloc of the allocator or allocator buffer or whatever\n", .{});
+            debug.errorPrint("memory.alloc:  TODO: make resize/realloc of the allocator or allocator buffer or whatever\n", .{});
             return AllocatorError.OutOfMemory;
         }
     }
@@ -85,7 +85,7 @@ pub const BitMapAllocatorGeneric = struct {
                 found += 1;
                 const address: usize = (start * this.allocationSize) + this.start;
                 if (found == amount and address < this.end) {
-                    // debug.printf("memory.find:  allocator found not used memory at 0x{X} size: 0x{X}\n", .{ address, amount * this.allocationSize });
+                    debug.debugPrint("memory.find:  allocator found not used memory at 0x{X} size: 0x{X}\n", .{ address, amount * this.allocationSize });
                     return @ptrFromInt(address);
                 }
             } else {
@@ -93,6 +93,7 @@ pub const BitMapAllocatorGeneric = struct {
                 start = 0;
             }
         }
+        debug.errorPrint("memory.find:  allocator not found memory\n", .{});
         return null;
     }
 
@@ -138,7 +139,7 @@ pub const BitMapAllocatorGeneric = struct {
             const start: usize = (@intFromPtr(address) - this.start) / this.allocationSize;
             const count: usize = new_amount;
             if (start + count > this.size) {
-                debug.printf("memory.remap:  got length not in range\n", .{});
+                debug.errorPrint("memory.remap:  got length not in range\n", .{});
                 return null;
             }
             for (start..(start + count)) |i| {
@@ -147,8 +148,8 @@ pub const BitMapAllocatorGeneric = struct {
             for ((@intFromPtr(memory.ptr) / this.allocationSize) - (this.start / this.allocationSize)..(@intFromPtr(memory.ptr) / this.allocationSize) - this.start / this.allocationSize + memory.len / this.allocationSize) |i| {
                 this.clear(i);
             }
-            debug.printf("memory.remap:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), count * this.allocationSize });
-            debug.printf("memory.remap:  freed memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(memory.ptr), memory.len });
+            debug.debugPrint("memory.remap:  allocated memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), count * this.allocationSize });
+            debug.debugPrint("memory.remap:  freed memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(memory.ptr), memory.len });
             return address;
         } else {
             return null;
@@ -157,15 +158,15 @@ pub const BitMapAllocatorGeneric = struct {
 
     pub fn free(this: *@This(), address: [*]u8, size: usize) void {
         if (size == 0) {
-            debug.printf("memory.free:  got 0 length\n", .{});
+            debug.errorPrint("memory.free:  got 0 length\n", .{});
             return;
         }
         if (!this.isAligned(@intFromPtr(address))) {
-            debug.printf("memory.free:  got address not alighned\n", .{});
+            debug.errorPrint("memory.free:  got address not alighned\n", .{});
             return;
         }
 
-        // debug.printf("memory.free:  freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), size });
+        debug.debugPrint("memory.free:  freeing memory at 0x{X} size: 0x{X}\n", .{ @intFromPtr(address), size });
         const index = (@intFromPtr(address) / this.allocationSize) - (this.start / this.allocationSize);
         for (index..(index + size)) |i| {
             this.clear(i);
@@ -211,8 +212,8 @@ pub const BitMapAllocatorGeneric = struct {
         return (this.bitmap[byteIndex] & (@as(u8, 1) << bitIndex)) != 0;
     }
     pub fn setUsableMemory(this: *@This(), mbh: *multiboot.multiboot_info) void {
-        // debug.printf("setting usable memory for page allocator\n", .{});
-        // defer debug.printf("finished usable memory setting?\n", .{}); // data: {}\n", .{this});
+        debug.debugPrint("++setting usable memory for page allocator\n", .{});
+        defer debug.debugPrint("--finished usable memory setting?\n", .{});
 
         const header = mbh;
         const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
@@ -265,18 +266,21 @@ pub const BitMapAllocatorGeneric = struct {
         }
     }
     pub fn debugPrint(this: *@This()) void {
-        debug.printf("memory.debugPrint:  size: {}\n", .{this.size});
+        debug.debugPrint("++memory bitmap debug print\n", .{});
+        defer debug.debugPrint("--memory bitmap debug printed\n", .{});
+
+        debug.debugPrint("memory.debugPrint:  size: {}\n", .{this.size});
         for (0..this.size) |index| {
             const address: usize = (index * this.allocationSize) + this.start;
             if (address < this.end) {
                 if (this.check(index) == true) {
-                    debug.printf("10x{X} ", .{address});
+                    debug.debugPrint("10x{X} ", .{address});
                 } else {
-                    // debug.printf("00x{X} ", .{address});
+                    // debug.debugPrint("00x{X} ", .{address});
                 }
             }
         }
-        debug.printf("\n", .{});
+        debug.debugPrint("\n", .{});
     }
 };
 

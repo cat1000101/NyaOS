@@ -147,11 +147,11 @@ pub fn initPit(freq: u16) void {
 
     pitReloadValue = @truncate(reloadValue);
 
-    // debug.printf("ms: {}\n", .{timerMs});
-    // debug.printf("fraction: {}\n", .{timerFraction});
-    // debug.printf("frequency: {}\n", .{timerFrequency});
-    // debug.printf("ReloadValue: {}\n", .{reloadValue});
-    // debug.printf("pit reload value: {}\n", .{pitReloadValue});
+    debug.debugPrint("initPit:  ms: {}\n", .{timerMs});
+    debug.debugPrint("initPit:  fraction: {}\n", .{timerFraction});
+    debug.debugPrint("initPit:  frequency: {}\n", .{timerFrequency});
+    debug.debugPrint("initPit:  ReloadValue: {}\n", .{reloadValue});
+    debug.debugPrint("initPit:  pit reload value: {}\n", .{pitReloadValue});
 
     // set the command register
     port.outb(COMMAND_PORT, @bitCast(PIT_CONFIGURATION));
@@ -159,11 +159,11 @@ pub fn initPit(freq: u16) void {
 
     const timerHandler = interrupts.generateStub(&pitHandler);
     pic.installIrq(&timerHandler, 0) catch |err| {
-        debug.printf("failed to install timer handler {}\n", .{err});
+        debug.errorPrint("initPit:  failed to install timer handler {}\n", .{err});
     };
 
-    testSleep();
-    debug.printf("pit initialized :3\n", .{});
+    // testSleep();
+    debug.infoPrint("pit initialized :3\n", .{});
 }
 
 var timerMsSinceStart: u32 = 0;
@@ -184,7 +184,7 @@ fn pitHandler(cpuState: *interrupts.CpuState) callconv(.c) void {
         countDown -= 1;
     }
 
-    // debug.printf("ms,fraction start: {}, {}\n", .{
+    // debug.debugPrint("ms,fraction start: {}, {}\n", .{
     //     timerMsSinceStart,
     //     timerFractionSinceStart,
     // });
@@ -194,20 +194,20 @@ fn pitHandler(cpuState: *interrupts.CpuState) callconv(.c) void {
 
 /// uses hlt which is a privliged instruction
 pub fn ksleep(ms: u32) void {
-    // const startMs: u32 = timerMsSinceStart;
-    // const startFraction: u32 = timerFractionSinceStart;
+    const startMs: u32 = timerMsSinceStart;
+    const startFraction: u32 = timerFractionSinceStart;
     countDown = (ms * timerFrequency + 500) / 1000;
     while (countDown > 0) {
         interrupts.hlt();
     }
-    // const timePassed: f32 = @as(f32, @floatFromInt(timerMsSinceStart - startMs)) + (@as(f32, @floatFromInt(timerFractionSinceStart - startFraction)) / @as(f32, @floatFromInt(timerFrequency)));
-    // debug.printf("slept for {} ms, amount of ms passed: {d}~\n", .{
-    //     ms,
-    //     timePassed,
-    // });
+    const timePassed: f32 = @as(f32, @floatFromInt(timerMsSinceStart - startMs)) + (@as(f32, @floatFromInt(timerFractionSinceStart - startFraction)) / @as(f32, @floatFromInt(timerFrequency)));
+    debug.debugPrint("slept for {} ms, amount of ms passed: {d}~\n", .{
+        ms,
+        timePassed,
+    });
 }
 
 fn testSleep() void {
-    debug.printf("testing sleeping for 71ms\n", .{});
+    debug.infoPrint("testing sleeping for 71ms\n", .{});
     ksleep(71);
 }

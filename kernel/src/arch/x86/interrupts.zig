@@ -8,7 +8,7 @@ export fn Handler(cpu_state: *ExeptionCpuState) void {
     switch (cpu_state.interrupt_number) {
         0x00...0x1F => {
             // half stolen thing for the printing: https://github.com/Ashet-Technologies/Ashet-OS/blob/9b595e38815dcc1ed1f7e20abd44ab43c1a63012/src/kernel/port/platform/x86/idt.zig#L67
-            debug.printf("Unhandled exception 0x{X}: {s}\n", .{ cpu_state.interrupt_number, @as([]const u8, switch (cpu_state.interrupt_number) {
+            debug.errorPrint("Unhandled exception 0x{X}: {s}\n", .{ cpu_state.interrupt_number, @as([]const u8, switch (cpu_state.interrupt_number) {
                 0x00 => "Divide By Zero",
                 0x01 => "Debug",
                 0x02 => "Non Maskable Interrupt",
@@ -34,29 +34,29 @@ export fn Handler(cpu_state: *ExeptionCpuState) void {
                 0x1F => "Reserved",
                 else => "Unknown",
             }) });
-            // debug.printf("cpu state: {}\n", .{cpu_state});
+            debug.debugPrint("cpu state: {}\n", .{cpu_state});
             if (cpu_state.interrupt_number == 0xE) {
                 var faulting_address: u32 = 0;
                 asm volatile ("mov %cr2, %[faulting_address]"
                     : [faulting_address] "=r" (faulting_address),
                 );
-                debug.printf("Page Fault when {s} address:0x{X:0>8} from {s}: {s}, error: {b:0>32}\n", .{
+                debug.errorPrint("Page Fault when {s} address:0x{X:0>8} from {s}: {s}, error: {b:0>32}\n", .{
                     if ((cpu_state.error_code & 2) != 0) @as([]const u8, "writing") else @as([]const u8, "reading"),
                     faulting_address,
                     if ((cpu_state.error_code & 4) != 0) @as([]const u8, "userspace") else @as([]const u8, "kernelspace"),
                     if ((cpu_state.error_code & 1) != 0) @as([]const u8, "access denied") else @as([]const u8, "page unmapped"),
                     cpu_state.error_code,
                 });
-                debug.printf("Offending location address(eip):0x{X:0>8}\n", .{cpu_state.eip});
+                debug.errorPrint("Offending location address(eip):0x{X:0>8}\n", .{cpu_state.eip});
 
-                // debug.printf("offending page page directory entry: {any}\noffending page table entry: {any}\n", .{
-                //     paging.getPageDirectoryEntry(faulting_address >> 22),
-                //     paging.getPageTableEntryRecursivly(faulting_address),
-                // });
+                debug.errorPrint("offending page page directory entry: {any}\noffending page table entry: {any}\n", .{
+                    paging.getPageDirectoryEntryRecursivly(faulting_address >> 22),
+                    paging.getPageTableEntryRecursivly(faulting_address >> 22, (faulting_address >> 12) & 0x3FF),
+                });
             }
         },
         else => {
-            debug.printf("interrupt has accured yippe? not exeption interrupt/exeption:{}, error:{}\n", .{ cpu_state.interrupt_number, cpu_state.error_code });
+            debug.errorPrint("interrupt has accured yippe? not exeption. interrupt:{}, error:{}\n", .{ cpu_state.interrupt_number, cpu_state.error_code });
         },
     }
 }
@@ -247,17 +247,17 @@ pub fn installIsr() void {
         const interrupt = generateExeptionStub(i);
         idt.openIdtGate(i, &interrupt, idt.TRAP_GATE, idt.PRIVLIGE_RING_3) catch |err| switch (err) {
             idt.InterruptError.interruptOpen => {
-                debug.printf("wtf did u do??????????(isr interrupt already open)\n", .{});
+                debug.errorPrint("wtf did u do??????????(isr interrupt already open)\n", .{});
             },
         };
     }
 
     const syscallHand = generateStub(&syscall.syscallHandler);
     idt.openIdtGate(0x80, &syscallHand, idt.TRAP_GATE, idt.PRIVLIGE_RING_3) catch |err| {
-        debug.printf("wtf did u do??????????(cant put the syscall thingy) error: {}\n", .{err});
+        debug.errorPrint("wtf did u do??????????(cant put the syscall thingy) error: {}\n", .{err});
     };
 
-    debug.printf("installed isr\n", .{});
+    debug.infoPrint("installed isr\n", .{});
 }
 
 pub inline fn cli() void {

@@ -19,11 +19,11 @@ pub fn switchToUserMode() void {
         .read_write = 1,
         .user_supervisor = 1,
     }) catch |err| {
-        debug.printf("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
+        debug.errorPrint("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
     };
 
     const userMainPhysical = multiboot.getModuleEntry(0) orelse {
-        debug.printf("userLand.switchToUserMode:  failed to get userLandMain entry\n", .{});
+        debug.errorPrint("userLand.switchToUserMode:  failed to get userLandMain entry\n", .{});
         return;
     };
     const userMainPhysicalAddress: usize = @intFromPtr(userMainPhysical) + programOffset;
@@ -34,7 +34,7 @@ pub fn switchToUserMode() void {
         .read_write = 1,
         .user_supervisor = 1,
     }) catch |err| {
-        debug.printf("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
+        debug.errorPrint("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
     };
 
     // Set up a stack structure for switching to user mode.
