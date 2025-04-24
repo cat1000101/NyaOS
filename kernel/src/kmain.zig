@@ -13,7 +13,7 @@ const sched = @import("sched.zig");
 
 const panic = @import("panic.zig");
 
-pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) void {
+pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
     debug.printf("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
     _ = multiboot.checkMultibootHeader(mbh, magic);
 
@@ -38,6 +38,6 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) void {
     userLand.switchToUserMode();
 
     while (true) {
-        asm volatile ("hlt");
+        asm volatile ("");
     }
 }

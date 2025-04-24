@@ -53,65 +53,65 @@ const Elf32Ehdr = extern struct {
     /// section name string table. If the file has no section name string table, this member
     /// holds the value SHN_UNDEF.
     shstrndx: Elf32Half,
-};
 
-const ElfIdent = extern struct {
-    /// File identification correct one: 0x7f, 'E', 'L', 'F'
-    mag: [4]u8,
-    /// File class 1 = 32-bit, 2 = 64-bit
-    class: u8,
-    /// Data encoding ELFDATA2LSB(1) = little-endian, ELFDATA2MSB(2) = big-endian
-    data: u8,
-    /// File version
-    version: u8,
-    /// padding bytes
-    /// This value marks the beginning of the unused bytes in e_ident. These
-    /// bytes are reserved and set to zero; programs that read object files should
-    /// ignore them. The value of EI_PAD will change in the future if currently
-    /// unused bytes are given meanings.
-    pad: [9]u8,
-};
+    const ElfIdent = extern struct {
+        /// File identification correct one: 0x7f, 'E', 'L', 'F'
+        mag: [4]u8,
+        /// File class 1 = 32-bit, 2 = 64-bit
+        class: u8,
+        /// Data encoding ELFDATA2LSB(1) = little-endian, ELFDATA2MSB(2) = big-endian
+        data: u8,
+        /// File version
+        version: u8,
+        /// padding bytes
+        /// This value marks the beginning of the unused bytes in e_ident. These
+        /// bytes are reserved and set to zero; programs that read object files should
+        /// ignore them. The value of EI_PAD will change in the future if currently
+        /// unused bytes are given meanings.
+        pad: [9]u8,
+    };
 
-const ElfType = enum(Elf32Half) {
-    /// No file type
-    NONE = 0,
-    /// Relocatable file
-    REL = 1,
-    /// Executable file
-    EXEC = 2,
-    /// Shared object file
-    DYN = 3,
-    /// Core file
-    CORE = 4,
-    /// Processor-specific
-    LOPROC = 0xff00,
-    /// Processor-specific
-    HIPROC = 0xffff,
-    /// idk not in the spec i used
-    _,
-};
+    const ElfType = enum(Elf32Half) {
+        /// No file type
+        NONE = 0,
+        /// Relocatable file
+        REL = 1,
+        /// Executable file
+        EXEC = 2,
+        /// Shared object file
+        DYN = 3,
+        /// Core file
+        CORE = 4,
+        /// Processor-specific
+        LOPROC = 0xff00,
+        /// Processor-specific
+        HIPROC = 0xffff,
+        /// idk not in the spec i used
+        _,
+    };
 
-const ElfMachine = enum(Elf32Half) {
-    /// No machine
-    EM_NONE = 0,
-    /// AT&T WE 32100
-    EM_M32 = 1,
-    /// SPARC
-    EM_SPARC = 2,
-    /// Intel Architecture
-    EM_386 = 3,
-    /// Motorola 68000
-    EM_68K = 4,
-    /// Motorola 88000
-    EM_88K = 5,
-    /// Intel 80860
-    EM_860 = 7,
-    /// MIPS RS3000 Big-Endian
-    EM_MIPS = 8,
-    /// MIPS RS4000 Big-Endian
-    EM_MIPS_RS4_BE = 10,
-    /// Reserved for future use
-    _,
+    const ElfMachine = enum(Elf32Half) {
+        /// No machine
+        EM_NONE = 0,
+        /// AT&T WE 32100
+        EM_M32 = 1,
+        /// SPARC
+        EM_SPARC = 2,
+        /// Intel Architecture
+        EM_386 = 3,
+        /// Motorola 68000
+        EM_68K = 4,
+        /// Motorola 88000
+        EM_88K = 5,
+        /// Intel 80860
+        EM_860 = 7,
+        /// MIPS RS3000 Big-Endian
+        EM_MIPS = 8,
+        /// MIPS RS4000 Big-Endian
+        EM_MIPS_RS4_BE = 10,
+        /// Reserved for future use
+        _,
+    };
 };
 
 const ElfSpecialSections = enum(Elf32Half) {
@@ -184,71 +184,71 @@ const Elf32Shdr = extern struct {
     /// such a section, this member gives the size in bytes of each entry. The
     /// member contains 0 if the section does not hold a table of fixed-size entries.
     entsize: Elf32Word,
-};
 
-const Elf32ShdrType = enum(Elf32Word) {
-    /// SHT_NULL This value marks the section header as inactive; it does not have an
-    /// associated section. Other members of the section header have undefined
-    /// values.
-    NULL = 0,
-    /// SHT_PROGBITS The section holds information defined by the program, whose format and
-    /// meaning are determined solely by the program.
-    PROGBITS = 1,
-    /// SHT_SYMTAB holds a symbol table.
-    SYMTAB = 2,
-    /// SHT_STRTAB The section holds a string table.
-    STRTAB = 3,
-    /// SHT_RELA The section holds relocation entries with explicit addends, such as type
-    /// Elf32_Rela for the 32-bit class of object files. An object file may have
-    /// multiple relocation sections.
-    RELA = 4,
-    /// SHT_HASH The section holds a symbol hash table.
-    HASH = 5,
-    /// SHT_DYNAMIC The section holds information for dynamic linking.
-    DYNAMIC = 6,
-    /// SHT_NOTE This section holds information that marks the file in some way.
-    NOTE = 7,
-    /// SHT_NOBITS A section of this type occupies no space in the file but otherwise resembles
-    /// SHT_PROGBITS. Although this section contains no bytes, the
-    /// sh_offset member contains the conceptual file offset.
-    NOBITS = 8,
-    /// SHT_REL The section holds relocation entries without explicit addends, such as type
-    /// Elf32_Rel for the 32-bit class of object files. An object file may have
-    /// multiple relocation sections.
-    REL = 9,
-    /// SHT_SHLIB This section type is reserved but has unspecified semantics.
-    SHLIB = 10,
-    /// SHT_DYNSYM holds a symbol table.
-    DYNSYM = 11,
-    /// SHT_LOPROC Values in this inclusive range are reserved for processor-specific semantics.
-    LOPROC = 0x70000000,
-    /// SHT_HIPROC Values in this inclusive range are reserved for processor-specific semantics.
-    HIPROC = 0x7fffffff,
-    /// SHT_LOUSER This value specifies the lower bound of the range of indexes reserved for
-    /// application programs.
-    LOUSER = 0x80000000,
-    /// SHT_HIUSER This value specifies the upper bound of the range of indexes reserved for
-    /// application programs. Section types between SHT_LOUSER and
-    /// SHT_HIUSER may be used by the application, without conflicting with
-    /// current or future system-defined section types.
-    HIUSER = 0xffffffff,
-    /// idk this is weird one you found
-    _,
-};
+    const Elf32ShdrType = enum(Elf32Word) {
+        /// SHT_NULL This value marks the section header as inactive; it does not have an
+        /// associated section. Other members of the section header have undefined
+        /// values.
+        NULL = 0,
+        /// SHT_PROGBITS The section holds information defined by the program, whose format and
+        /// meaning are determined solely by the program.
+        PROGBITS = 1,
+        /// SHT_SYMTAB holds a symbol table.
+        SYMTAB = 2,
+        /// SHT_STRTAB The section holds a string table.
+        STRTAB = 3,
+        /// SHT_RELA The section holds relocation entries with explicit addends, such as type
+        /// Elf32_Rela for the 32-bit class of object files. An object file may have
+        /// multiple relocation sections.
+        RELA = 4,
+        /// SHT_HASH The section holds a symbol hash table.
+        HASH = 5,
+        /// SHT_DYNAMIC The section holds information for dynamic linking.
+        DYNAMIC = 6,
+        /// SHT_NOTE This section holds information that marks the file in some way.
+        NOTE = 7,
+        /// SHT_NOBITS A section of this type occupies no space in the file but otherwise resembles
+        /// SHT_PROGBITS. Although this section contains no bytes, the
+        /// sh_offset member contains the conceptual file offset.
+        NOBITS = 8,
+        /// SHT_REL The section holds relocation entries without explicit addends, such as type
+        /// Elf32_Rel for the 32-bit class of object files. An object file may have
+        /// multiple relocation sections.
+        REL = 9,
+        /// SHT_SHLIB This section type is reserved but has unspecified semantics.
+        SHLIB = 10,
+        /// SHT_DYNSYM holds a symbol table.
+        DYNSYM = 11,
+        /// SHT_LOPROC Values in this inclusive range are reserved for processor-specific semantics.
+        LOPROC = 0x70000000,
+        /// SHT_HIPROC Values in this inclusive range are reserved for processor-specific semantics.
+        HIPROC = 0x7fffffff,
+        /// SHT_LOUSER This value specifies the lower bound of the range of indexes reserved for
+        /// application programs.
+        LOUSER = 0x80000000,
+        /// SHT_HIUSER This value specifies the upper bound of the range of indexes reserved for
+        /// application programs. Section types between SHT_LOUSER and
+        /// SHT_HIUSER may be used by the application, without conflicting with
+        /// current or future system-defined section types.
+        HIUSER = 0xffffffff,
+        /// idk this is weird one you found
+        _,
+    };
 
-const Elf32ShdrFlags = packed struct(Elf32Word) {
-    /// SHF_WRITE The section contains data that should be writable during process execution.
-    write: u1,
-    /// SHF_ALLOC The section occupies memory during process execution. Some control
-    /// sections do not reside in the memory image of an object file; this attribute
-    /// is off for those sections.
-    alloc: u1,
-    /// SHF_EXECINSTR The section contains executable machine instructions.
-    exec: u1,
-    /// idk something that i dont know about
-    pad: u25,
-    /// SHF_MASKPROC All bits included in this mask are reserved for processor-specific semantics.
-    mask: u4,
+    const Elf32ShdrFlags = packed struct(Elf32Word) {
+        /// SHF_WRITE The section contains data that should be writable during process execution.
+        write: u1,
+        /// SHF_ALLOC The section occupies memory during process execution. Some control
+        /// sections do not reside in the memory image of an object file; this attribute
+        /// is off for those sections.
+        alloc: u1,
+        /// SHF_EXECINSTR The section contains executable machine instructions.
+        exec: u1,
+        /// idk something that i dont know about
+        pad: u25,
+        /// SHF_MASKPROC All bits included in this mask are reserved for processor-specific semantics.
+        mask: u4,
+    };
 };
 
 const Elf32Sym = extern struct {
@@ -271,64 +271,64 @@ const Elf32Sym = extern struct {
     /// the relevant section header table index.
     /// some section indexes indicate special meanings.
     shndx: Elf32Half,
-};
 
-const Elf32SymInfo = packed struct(u8) {
-    type: Elf32SymType,
-    bind: Elf32SymBind,
-};
+    const Elf32SymInfo = packed struct(u8) {
+        type: Elf32SymType,
+        bind: Elf32SymBind,
+    };
 
-const Elf32SymType = enum(u4) {
-    /// STT_NOTYPE The symbol's type is not specified.
-    NOTYPE = 0,
-    /// STT_OBJECT The symbol is associated with a data object, such as a variable, an array,
-    /// and so on.
-    OBJECT = 1,
-    /// STT_FUNC The symbol is associated with a function or other executable code.
-    FUNC = 2,
-    /// STT_SECTION The symbol is associated with a section. Symbol table entries of this type
-    /// exist primarily for relocation and normally have STB_LOCAL binding.
-    SECTION = 3,
-    /// STT_FILE A file symbol has STB_LOCAL binding, its section index is SHN_ABS, and
-    /// it precedes the other STB_LOCAL symbols for the file, if it is present.
-    /// The symbols in ELF object files convey specific information to the linker and loader.
-    FILE = 4,
-    /// STT_LOPROC Values in this inclusive range are reserved for processor-specific semantics.
-    /// If a symbol's value refers to a specific location within a section, its section
-    /// index member, st_shndx, holds an index into the section header table.
-    /// As the section moves during relocation, the symbol's value changes as well,
-    /// and references to the symbol continue to "point'' to the same location in the
-    /// program. Some special section index values give other semantics.
-    LOPROC = 13,
-    /// STT_HIPROC Values in this inclusive range are reserved for processor-specific semantics.
-    /// If a symbol's value refers to a specific location within a section, its section
-    /// index member, st_shndx, holds an index into the section header table.
-    /// As the section moves during relocation, the symbol's value changes as well,
-    /// and references to the symbol continue to "point'' to the same location in the
-    /// program. Some special section index values give other semantics.
-    HIPROC = 15,
-    /// same
-    _,
-};
+    const Elf32SymType = enum(u4) {
+        /// STT_NOTYPE The symbol's type is not specified.
+        NOTYPE = 0,
+        /// STT_OBJECT The symbol is associated with a data object, such as a variable, an array,
+        /// and so on.
+        OBJECT = 1,
+        /// STT_FUNC The symbol is associated with a function or other executable code.
+        FUNC = 2,
+        /// STT_SECTION The symbol is associated with a section. Symbol table entries of this type
+        /// exist primarily for relocation and normally have STB_LOCAL binding.
+        SECTION = 3,
+        /// STT_FILE A file symbol has STB_LOCAL binding, its section index is SHN_ABS, and
+        /// it precedes the other STB_LOCAL symbols for the file, if it is present.
+        /// The symbols in ELF object files convey specific information to the linker and loader.
+        FILE = 4,
+        /// STT_LOPROC Values in this inclusive range are reserved for processor-specific semantics.
+        /// If a symbol's value refers to a specific location within a section, its section
+        /// index member, st_shndx, holds an index into the section header table.
+        /// As the section moves during relocation, the symbol's value changes as well,
+        /// and references to the symbol continue to "point'' to the same location in the
+        /// program. Some special section index values give other semantics.
+        LOPROC = 13,
+        /// STT_HIPROC Values in this inclusive range are reserved for processor-specific semantics.
+        /// If a symbol's value refers to a specific location within a section, its section
+        /// index member, st_shndx, holds an index into the section header table.
+        /// As the section moves during relocation, the symbol's value changes as well,
+        /// and references to the symbol continue to "point'' to the same location in the
+        /// program. Some special section index values give other semantics.
+        HIPROC = 15,
+        /// same
+        _,
+    };
 
-const Elf32SymBind = enum(u4) {
-    /// STB_LOCAL Local symbols are not visible outside the object file containing their
-    /// definition. Local symbols of the same name may exist in multiple files
-    /// without interfering with each other.
-    LOCAL = 0,
-    /// STB_GLOBAL Global symbols are visible to all object files being combined. One file's
-    /// definition of a global symbol will satisfy another file's undefined reference
-    /// to the same global symbol.
-    GLOBAL = 1,
-    /// STB_WEAK Weak symbols resemble global symbols, but their definitions have lower
-    /// precedence.
-    WEAK = 2,
-    /// STB_LOPROC Values in this inclusive range are reserved for processor-specific semantics.
-    LOPROC = 13,
-    /// STB_HIPROC Values in this inclusive range are reserved for processor-specific semantics.
-    HIPROC = 15,
-    /// same as usual idk what you did
-    _,
+    const Elf32SymBind = enum(u4) {
+        /// STB_LOCAL Local symbols are not visible outside the object file containing their
+        /// definition. Local symbols of the same name may exist in multiple files
+        /// without interfering with each other.
+        LOCAL = 0,
+        /// STB_GLOBAL Global symbols are visible to all object files being combined. One file's
+        /// definition of a global symbol will satisfy another file's undefined reference
+        /// to the same global symbol.
+        GLOBAL = 1,
+        /// STB_WEAK Weak symbols resemble global symbols, but their definitions have lower
+        /// precedence.
+        WEAK = 2,
+        /// STB_LOPROC Values in this inclusive range are reserved for processor-specific semantics.
+        LOPROC = 13,
+        /// STB_HIPROC Values in this inclusive range are reserved for processor-specific semantics.
+        HIPROC = 15,
+        /// same as usual idk what you did
+        _,
+    };
 };
 
 const Elf32Phdr = extern struct {
@@ -359,41 +359,41 @@ const Elf32Phdr = extern struct {
     /// alignment is required. Otherwise, p_align should be a positive, integral power of
     /// 2, and p_addr should equal p_offset, modulo p_align.
     p_align: Elf32Word,
-};
 
-const Elf32PhdrType = enum(Elf32Word) {
-    /// PT_NULL The array element is unused; other members' values are undefined. This type lets
-    /// the program header table have ignored entries.
-    NULL = 0,
-    /// PT_LOAD The array element specifies a loadable segment, described by p_filesz and
-    /// p_memsz. The bytes from the file are mapped to the beginning of the memory
-    /// segment. If the segment's memory size (p_memsz) is larger than the file size
-    /// (p_filesz), the "extra'' bytes are defined to hold the value 0 and to follow the
-    /// segment's initialized area. The file size may not be larger than the memory size.
-    /// Loadable segment entries in the program header table appear in ascending order,
-    /// sorted on the p_vaddr member.
-    LOAD = 1,
-    /// PT_DYNAMIC The array element specifies dynamic linking information.
-    DYNAMIC = 2,
-    /// PT_INTERP The array element specifies the location and size of a null-terminated path name to
-    /// invoke as an interpreter.
-    INTERP = 3,
-    /// PT_NOTE The array element specifies the location and size of auxiliary information.
-    NOTE = 4,
-    /// PT_SHLIB This segment type is reserved but has unspecified semantics.
-    SHLIB = 5,
-    /// PT_PHDR The array element, if present, specifies the location and size of the program header
-    /// table itself, both in the file and in the memory image of the program. This segment
-    /// type may not occur more than once in a file. Moreover, it may occur only if the
-    /// program header table is part of the memory image of the program. If it is present,
-    /// it must precede any loadable segment entr
-    PHDR = 6,
-    /// PT_LOPROC Values in this inclusive range are reserved for processor-specific semantics.
-    LOPROC = 0x70000000,
-    /// PT_HIPROC Values in this inclusive range are reserved for processor-specific semantics.
-    HIPROC = 0x7fffffff,
-    /// same as usual idk what you did
-    _,
+    const Elf32PhdrType = enum(Elf32Word) {
+        /// PT_NULL The array element is unused; other members' values are undefined. This type lets
+        /// the program header table have ignored entries.
+        NULL = 0,
+        /// PT_LOAD The array element specifies a loadable segment, described by p_filesz and
+        /// p_memsz. The bytes from the file are mapped to the beginning of the memory
+        /// segment. If the segment's memory size (p_memsz) is larger than the file size
+        /// (p_filesz), the "extra'' bytes are defined to hold the value 0 and to follow the
+        /// segment's initialized area. The file size may not be larger than the memory size.
+        /// Loadable segment entries in the program header table appear in ascending order,
+        /// sorted on the p_vaddr member.
+        LOAD = 1,
+        /// PT_DYNAMIC The array element specifies dynamic linking information.
+        DYNAMIC = 2,
+        /// PT_INTERP The array element specifies the location and size of a null-terminated path name to
+        /// invoke as an interpreter.
+        INTERP = 3,
+        /// PT_NOTE The array element specifies the location and size of auxiliary information.
+        NOTE = 4,
+        /// PT_SHLIB This segment type is reserved but has unspecified semantics.
+        SHLIB = 5,
+        /// PT_PHDR The array element, if present, specifies the location and size of the program header
+        /// table itself, both in the file and in the memory image of the program. This segment
+        /// type may not occur more than once in a file. Moreover, it may occur only if the
+        /// program header table is part of the memory image of the program. If it is present,
+        /// it must precede any loadable segment entr
+        PHDR = 6,
+        /// PT_LOPROC Values in this inclusive range are reserved for processor-specific semantics.
+        LOPROC = 0x70000000,
+        /// PT_HIPROC Values in this inclusive range are reserved for processor-specific semantics.
+        HIPROC = 0x7fffffff,
+        /// same as usual idk what you did
+        _,
+    };
 };
 
 pub inline fn getShdr(elfHdr: *Elf32Ehdr) [*]Elf32Shdr {
@@ -402,6 +402,14 @@ pub inline fn getShdr(elfHdr: *Elf32Ehdr) [*]Elf32Shdr {
 
 pub inline fn getSection(elfHdr: *Elf32Ehdr, index: usize) *Elf32Shdr {
     return &getShdr(elfHdr)[index];
+}
+
+pub inline fn getPhdr(elfHdr: *Elf32Ehdr) [*]Elf32Phdr {
+    return @ptrFromInt(@intFromPtr(elfHdr) + elfHdr.phoff);
+}
+
+pub inline fn getSegment(elfHdr: *Elf32Ehdr, index: usize) *Elf32Phdr {
+    return &getPhdr(elfHdr)[index];
 }
 
 pub inline fn getStrTable(elfHdr: *Elf32Ehdr) ?[*]u8 {
@@ -453,8 +461,8 @@ pub fn isSupportedElf(elfHdr: *Elf32Ehdr) bool {
     if (!isFileElf(elfHdr)) return false;
     if (elfHdr.ident.class != 1) return false; // 32-bit
     if (elfHdr.ident.data != 1) return false; // little-endian
-    if (elfHdr.machine != ElfMachine.EM_386) return false; // x86
-    if (elfHdr.type != ElfType.EXEC) return false; // executable
+    if (elfHdr.machine != Elf32Ehdr.ElfMachine.EM_386) return false; // x86
+    if (elfHdr.type != Elf32Ehdr.ElfType.EXEC) return false; // executable
     return true;
 }
 
@@ -465,7 +473,7 @@ pub fn loadFile(elfHdr: *Elf32Ehdr) bool {
     }
 
     switch (elfHdr.type) {
-        ElfType.EXEC => {
+        Elf32Ehdr.ElfType.EXEC => {
             loadFileExec(elfHdr);
         },
         else => {

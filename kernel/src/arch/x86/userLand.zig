@@ -29,7 +29,7 @@ pub fn switchToUserMode() void {
     const userMainPhysicalAddress: usize = @intFromPtr(userMainPhysical) + programOffset;
     const userMainVirtualAddress: usize = programMap + programOffset; // 4MiB
 
-    paging.setPageTableEntryRecursivly(userMainVirtualAddress, userMainPhysicalAddress, .{
+    paging.setPageTableEntryRecursivlyAlways(userMainVirtualAddress, userMainPhysicalAddress, .{
         .present = 1,
         .read_write = 1,
         .user_supervisor = 1,

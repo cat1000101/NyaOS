@@ -44,7 +44,7 @@ pub const PageErrors = error{
     Used,
 };
 
-pub const PageDirectoryEntery = packed struct {
+pub const PageDirectoryEntry = packed struct {
     pub const Flags = packed struct {
         /// P, or 'Present'. If the bit is set, the page is actually in physical memory at the moment.
         present: u1 = 0,
@@ -69,7 +69,7 @@ pub const PageDirectoryEntery = packed struct {
     address: u20 = 0, // the address
 };
 
-pub const PageDirectoryEnteryBig = packed struct {
+pub const PageDirectoryEntryBig = packed struct {
     pub const Flags = packed struct {
         present: u1 = 0,
         read_write: u1 = 0,
@@ -89,7 +89,7 @@ pub const PageDirectoryEnteryBig = packed struct {
     reserved: u1 = 0,
     address_low: u10 = 0,
 };
-pub const PageTableEntery = packed struct {
+pub const PageTableEntry = packed struct {
     pub const Flags = packed struct {
         /// P, or 'Present'. If the bit is set, the page is actually in physical memory at the moment.
         present: u1 = 0,
@@ -120,17 +120,17 @@ pub const AddressSplit = packed struct {
 };
 
 pub const PageTable = struct {
-    entries: [1024]PageTableEntery = [_]PageTableEntery{.{}} ** 1024,
+    entries: [1024]PageTableEntry = [_]PageTableEntry{.{}} ** 1024,
 
-    pub fn setEntery(self: *PageTable, index: u32, address: u32, flags: PageTableEntery.Flags) void {
-        const entry: PageTableEntery = .{
+    pub fn setEntery(self: *PageTable, index: u32, address: u32, flags: PageTableEntry.Flags) void {
+        const entry: PageTableEntry = .{
             .address = @truncate(address >> 12),
             .flags = flags,
         };
         self.entries[index] = entry;
     }
 
-    pub fn getEntery(self: *PageTable, index: u32) PageErrors!*PageTableEntery {
+    pub fn getEntery(self: *PageTable, index: u32) PageErrors!*PageTableEntry {
         if (@as(u32, @bitCast(self.entries[index])) == 0) {
             return PageErrors.NotMapped;
         }
@@ -140,33 +140,33 @@ pub const PageTable = struct {
 
 pub const PageDirectory = struct {
     const DirectoryEnteryUnion = packed union {
-        normal: PageDirectoryEntery,
-        big: PageDirectoryEnteryBig,
+        normal: PageDirectoryEntry,
+        big: PageDirectoryEntryBig,
     };
     entries: [1024]DirectoryEnteryUnion = [_]DirectoryEnteryUnion{.{ .normal = .{} }} ** 1024,
     tables: [1024]*PageTable = [_]*PageTable{undefined} ** 1024,
 
-    fn setEntery(self: *PageDirectory, index: u32, pageTable: *PageTable, flags: PageDirectoryEntery.Flags) PageErrors!void {
+    fn setEntery(self: *PageDirectory, index: u32, pageTable: *PageTable, flags: PageDirectoryEntry.Flags) PageErrors!void {
         const physicalPageAddress: u32 = virtualToPhysical(@intFromPtr(pageTable)) catch |err| {
             debug.printf("PageDirectory.setEntery:  can't set normal directory entery at: #{} error: {}\n", .{ index, err });
             return err;
         };
-        self.entries[index].normal = PageDirectoryEntery{
+        self.entries[index].normal = PageDirectoryEntry{
             .flags = flags,
             .address = @truncate(physicalPageAddress >> 12),
         };
         self.tables[index] = pageTable;
     }
 
-    fn setBigEntery(self: *PageDirectory, index: u32, address: u32, flags: PageDirectoryEntery.Flags) void {
-        self.entries[index].big = PageDirectoryEnteryBig{
+    fn setBigEntery(self: *PageDirectory, index: u32, address: u32, flags: PageDirectoryEntry.Flags) void {
+        self.entries[index].big = PageDirectoryEntryBig{
             .flags = flags,
             .address_low = @truncate(address >> 22),
         };
     }
 
     /// should only be used with the page directory directly and not the RECURSIVE_PAGE_TABLE_BASE or RECURSIVE_PAGE_DIRECTORY_ADDRESS
-    fn mapPageEntery(self: *PageDirectory, vaddr: u32, paddr: u32, flags: PageTableEntery.Flags) PageErrors!void {
+    fn mapPageEntery(self: *PageDirectory, vaddr: u32, paddr: u32, flags: PageTableEntry.Flags) PageErrors!void {
         if (!isDirectDirectory(self)) {
             return PageErrors.OnlyDirectDirectoryAllowed;
         }
@@ -238,29 +238,37 @@ pub fn newPageTable(vaddr: u32) memory.AllocatorError!*PageTable {
     return pageTable;
 }
 
+/// will free everything assosieted with a pageTable
+pub fn freePageTableRecursivly(vaddr: u32) void {
+    const split: AddressSplit = @bitCast(vaddr);
+    const lpageDirectory = getPageDirectoryRecursivly();
+    const entry = lpageDirectory.entries[split.directoryEntry].normal;
+    if (@as(u32, @bitCast(entry)) == 0) {
+        return;
+    }
+}
+
 /// should only be used when using kernel space page directory as the current page directory
-pub fn setPageTableRecursivly(index: u32, pageTablePhysAddress: u32, flags: PageDirectoryEntery.Flags) *PageTable {
+pub fn setPageTableRecursivly(index: u32, pageTablePhysAddress: u32, flags: PageDirectoryEntry.Flags) *PageTable {
     const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
-    const entry = PageDirectoryEntery{
+    const entry = PageDirectoryEntry{
         .address = @truncate(pageTablePhysAddress >> 12),
         .flags = flags,
     };
     lpageDirectory.entries[index].normal = entry;
 
-    const pageTableAddress: u32 = RECURSIVE_PAGE_TABLE_BASE + (index << 12);
-    const pageTable: *PageTable = @ptrFromInt(pageTableAddress);
+    const pageTable: *PageTable = getPageTableRecursivly(index);
 
-    invalidatePage(pageTableAddress);
+    invalidatePage(@intFromPtr(pageTable));
     invalidatePage(RECURSIVE_PAGE_DIRECTORY_ADDRESS);
-    invalidatePage(index << 22);
 
     return pageTable;
 }
 
-pub fn setBigEntryRecursivly(vaddr: u32, paddr: u32, flags: PageDirectoryEnteryBig.Flags) PageErrors!void {
+pub fn setBigEntryRecursivly(vaddr: u32, paddr: u32, flags: PageDirectoryEntryBig.Flags) PageErrors!void {
     const split: AddressSplit = @bitCast(vaddr);
     const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
-    const entry = PageDirectoryEnteryBig{
+    const entry = PageDirectoryEntryBig{
         .address_low = @truncate(paddr >> 22),
         .flags = flags,
     };
@@ -274,14 +282,14 @@ pub fn setBigEntryRecursivly(vaddr: u32, paddr: u32, flags: PageDirectoryEnteryB
 }
 
 /// should only be used when using kernel space page directory as the current page directory
-/// returns RECURSIVE page table which belongs to the vaddr
-pub fn getPageTableRecursivly(index: u32) !*PageTable {
+/// will always try to return page table and if it doesnt exist it will allocate and make a new one
+pub fn getPageTableRecursivlyAlways(index: u32) !*PageTable {
     const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
     const pageTableAddress = RECURSIVE_PAGE_TABLE_BASE + (index << 12);
     const pageTable: *PageTable = @ptrFromInt(pageTableAddress);
     if (@as(u32, @bitCast(lpageDirectory.entries[index].normal)) == 0) {
         return newPageTable(index << 22) catch |err| {
-            debug.printf("getPageTableRecursivly:  Can't create new page table error: {}\n", .{err});
+            debug.printf("getPageTableRecursivlyAlways:  Can't create new page table error: {}\n", .{err});
             return err;
         };
     } else if (lpageDirectory.entries[index].big.flags.page_size == 1) {
@@ -291,28 +299,51 @@ pub fn getPageTableRecursivly(index: u32) !*PageTable {
 }
 
 /// should only be used when using kernel space page directory as the current page directory
-pub fn setPageTableEntryRecursivly(vaddr: u32, paddr: u32, flags: PageTableEntery.Flags) !void {
+/// /// will always try to set page table entry and if it doesnt exist it will allocate and make a new one
+pub fn setPageTableEntryRecursivlyAlways(vaddr: u32, paddr: u32, flags: PageTableEntry.Flags) !void {
     const split: AddressSplit = @bitCast(vaddr);
-    const pageTable = getPageTableRecursivly(split.directoryEntry) catch |err| {
-        debug.printf("setPageTableEntryRecursivly:  Can't get page table error: {}\n", .{err});
+    const pageTable = getPageTableRecursivlyAlways(split.directoryEntry) catch |err| {
+        debug.printf("setPageTableEntryRecursivlyAlways:  Can't get page table error: {}\n", .{err});
         return err;
     };
     pageTable.setEntery(split.pageEntry, paddr, flags);
     invalidatePage(vaddr);
 }
 
-pub fn getPageTableEntryRecursivly(vaddr: u32) !*PageTableEntery {
+/// will always try to return page table entry and if it doesnt exist it will allocate and make a new one
+pub fn getPageTableEntryRecursivlyAlways(vaddr: u32) !*PageTableEntry {
     const split: AddressSplit = @bitCast(vaddr);
-    const pageTable = getPageTableRecursivly(split.directoryEntry) catch |err| {
+    const pageTable = getPageTableRecursivlyAlways(split.directoryEntry) catch |err| {
         debug.printf("getPageEntryRecursivly:  Can't get page table error: {}\n", .{err});
         return err;
     };
     return pageTable.getEntery(split.pageEntry);
 }
 
-pub fn getPageDirectoryEntry(index: usize) PageDirectoryEntery {
-    const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
-    return lpageDirectory.entries[index].normal;
+pub fn getPageDirectoryEntryDefualtFlags(vaddr: usize) PageDirectoryEntry.Flags {
+    return PageDirectoryEntry.Flags{
+        .present = 1,
+        .read_write = 1,
+        .user_supervisor = if (vaddr < memory.KERNEL_ADDRESS_SPACE) 1 else 0,
+    };
+}
+
+pub fn getBigPageDirectoryEntryDefualtFlags(vaddr: usize, used: bool) PageDirectoryEntryBig.Flags {
+    return PageDirectoryEntryBig.Flags{
+        .present = 1,
+        .read_write = 1,
+        .used = @intFromBool(used),
+        .user_supervisor = if (vaddr < memory.KERNEL_ADDRESS_SPACE) 1 else 0,
+    };
+}
+
+pub fn getPageTableEntryDefualtFlags(vaddr: usize, used: bool) PageTableEntry.Flags {
+    return PageTableEntry.Flags{
+        .present = 1,
+        .read_write = 1,
+        .used = @intFromBool(used),
+        .user_supervisor = if (vaddr < memory.KERNEL_ADDRESS_SPACE) 1 else 0,
+    };
 }
 
 /// should only be used when using kernel space page directory as the current page directory
@@ -330,7 +361,11 @@ pub fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void {
         lvaddr += memory.PAGE_SIZE;
         lsize -= memory.PAGE_SIZE;
     }) {
-        setPageTableEntryRecursivly(lvaddr, lpaddr, .{ .present = 1, .read_write = 1, .used = @intFromBool(used) }) catch |err| {
+        setPageTableEntryRecursivlyAlways(
+            lvaddr,
+            lpaddr,
+            getPageTableEntryDefualtFlags(lvaddr, used),
+        ) catch |err| {
             debug.printf("idPagesRecursivly:  Can't map virtual page error: {}\n", .{err});
             return err;
         };
@@ -351,7 +386,11 @@ pub fn idBigPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void
         lvaddr += memory.DIR_SIZE;
         lsize -= memory.DIR_SIZE;
     }) {
-        setBigEntryRecursivly(lvaddr, lpaddr, .{ .present = 1, .read_write = 1, .used = @intFromBool(used) }) catch |err| {
+        setBigEntryRecursivly(
+            lvaddr,
+            lpaddr,
+            getBigPageDirectoryEntryDefualtFlags(lvaddr, used),
+        ) catch |err| {
             debug.printf("idBigPagesRecursivly:  Can't map virtual page error: {}\n", .{err});
             return err;
         };
@@ -361,6 +400,22 @@ pub fn idBigPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void
 pub fn getPageDirectoryRecursivly() *PageDirectory {
     const lpageDirectory: *PageDirectory = @ptrFromInt(RECURSIVE_PAGE_DIRECTORY_ADDRESS);
     return lpageDirectory;
+}
+
+pub fn getPageTableRecursivly(index: usize) *PageTable {
+    const pageTableAddress: u32 = RECURSIVE_PAGE_TABLE_BASE + (index << 12);
+    const pageTable: *PageTable = @ptrFromInt(pageTableAddress);
+    return pageTable;
+}
+
+pub fn getPageDirectoryEntryRecursivly(index: usize) PageDirectoryEntry {
+    const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
+    return lpageDirectory.entries[index].normal;
+}
+
+pub fn getPageTableEntryRecursivly(pageIndex: usize, entryIndex: usize) PageTableEntry {
+    const pageTable = getPageTableRecursivly(pageIndex);
+    return pageTable.entries[entryIndex];
 }
 
 fn isDirectDirectory(directory: *PageDirectory) bool {
@@ -429,7 +484,7 @@ pub fn initPaging() void {
 pub fn virtualToPhysical(address: u32) PageErrors!u32 {
     const split: AddressSplit = @bitCast(address);
     const lpageDirectory: *PageDirectory = getPageDirectoryRecursivly();
-    if (getPageTableRecursivly(split.directoryEntry)) |pageTable| {
+    if (getPageTableRecursivlyAlways(split.directoryEntry)) |pageTable| {
         return (@as(u32, pageTable.entries[split.pageEntry].address) << 12) | split.offset;
     } else |err| {
         if (err == PageErrors.IsBigPage) {

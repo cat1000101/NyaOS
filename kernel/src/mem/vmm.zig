@@ -34,7 +34,7 @@ pub fn allocatePages(num: usize) ?[*]u8 {
     };
     for (0..num) |i| {
         const pageAddr = @intFromPtr(page) + i * memory.PAGE_SIZE;
-        if (paging.getPageTableEntryRecursivly(pageAddr)) |pageTableEntry| {
+        if (paging.getPageTableEntryRecursivlyAlways(pageAddr)) |pageTableEntry| {
             if (pageTableEntry.flags.used == 0) {
                 pageTableEntry.flags.used = 1;
                 // debug.printf("vmm.allocatePages:  allocated page at: 0x{X} size: 0x{X}\n", .{ pageAddr, memory.physPageSizes });
@@ -51,7 +51,7 @@ pub fn allocatePages(num: usize) ?[*]u8 {
                     return null;
                 };
                 const physPageAddr = @intFromPtr(physPage);
-                _ = paging.setPageTableEntryRecursivly(pageAddr, physPageAddr, .{
+                _ = paging.setPageTableEntryRecursivlyAlways(pageAddr, physPageAddr, .{
                     .present = 1,
                     .read_write = 1,
                     .used = 1,
@@ -82,6 +82,10 @@ pub fn freePages(address: [*]u8, num: usize) void {
     }
     virtualBitMap.free(address, num);
 }
+
+// pub fn mapVirtualAddressRange(virtualAddr: usize, physicalAddr: usize, size: usize) void {
+
+// }
 
 fn testVmmAlloc() void {
     debug.printf("vmm.testVmmAlloc:  start test\n", .{});
