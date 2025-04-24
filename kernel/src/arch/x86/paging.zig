@@ -1,5 +1,6 @@
 const debug = @import("debug.zig");
 const pmm = @import("../../mem/pmm.zig");
+const vmm = @import("../../mem/vmm.zig");
 const boot = @import("../../main.zig");
 const memory = @import("../../mem/memory.zig");
 const multiboot = @import("../../multiboot.zig");
@@ -239,12 +240,37 @@ pub fn newPageTable(vaddr: u32) memory.AllocatorError!*PageTable {
 }
 
 /// will free everything assosieted with a pageTable
-pub fn freePageTableRecursivly(vaddr: u32) void {
-    const split: AddressSplit = @bitCast(vaddr);
-    const lpageDirectory = getPageDirectoryRecursivly();
-    const entry = lpageDirectory.entries[split.directoryEntry].normal;
-    if (@as(u32, @bitCast(entry)) == 0) {
-        return;
+pub fn freePageTableRecursivly(pageAddr: u32) void {
+    const split: AddressSplit = @bitCast(pageAddr);
+    var pageTable: *PageTable = undefined;
+    var lvaddr: u32 = 0;
+    if (pageAddr < RECURSIVE_PAGE_TABLE_BASE) {
+        const lpageDirectory = getPageDirectoryRecursivly();
+        const directoryEntry = lpageDirectory.entries[split.directoryEntry].normal;
+        if (@as(u32, @bitCast(directoryEntry)) == 0) {
+            return;
+        }
+        pageTable = getPageTableRecursivly(split.directoryEntry);
+        lvaddr = @as(u32, split.directoryEntry) << 22;
+    } else {
+        pageTable = @ptrFromInt(pageAddr);
+    }
+    var pageTableIndex: usize = 0;
+    debug.printf("freePageTableRecursivly:  start freeing page table entry at: 0x{X}, pageTableIndex: 0x{X}\n", .{ lvaddr, pageTableIndex });
+    while (pageTableIndex < 1024) : ({
+        pageTableIndex += 1;
+        lvaddr += memory.PAGE_SIZE;
+    }) {
+        const entry = pageTable.entries[pageTableIndex];
+        if (entry.flags.used == 1) {
+            const address: u32 = @as(u32, entry.address) << 12;
+            debug.printf("freePageTableRecursivly:  freeing page table entry at: 0x{X}, paddr: 0x{X} entry: {any}\n", .{ lvaddr, address, entry });
+            pageTable.entries[pageTableIndex] = .{};
+            pmm.physBitMap.free(@ptrFromInt(address), 1);
+            if (lvaddr >= memory.KERNEL_ADDRESS_SPACE and pageAddr < RECURSIVE_PAGE_TABLE_BASE) {
+                vmm.virtualBitMap.free(@ptrFromInt(lvaddr), 1);
+            }
+        }
     }
 }
 
@@ -478,7 +504,7 @@ pub fn initPaging() void {
         return;
     };
 
-    // testPaging();
+    testPaging();
 }
 
 pub fn virtualToPhysical(address: u32) PageErrors!u32 {
@@ -590,6 +616,8 @@ fn testPaging() void {
         debug.printf("Can't create test page table error: {}\n", .{err});
         return;
     };
+    defer freePageTableRecursivly(@intFromPtr(testPageTablePtr));
+
     testPageTablePtr.setEntery(0, physicalPage, .{ .present = 1, .read_write = 1, .used = 1 });
     testPageTablePtr.setEntery(1, physicalPage, .{ .present = 1, .read_write = 1, .used = 1 });
     forceTLBFlush();

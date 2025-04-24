@@ -83,9 +83,17 @@ pub fn freePages(address: [*]u8, num: usize) void {
     virtualBitMap.free(address, num);
 }
 
-// pub fn mapVirtualAddressRange(virtualAddr: usize, physicalAddr: usize, size: usize) void {
-
-// }
+pub fn mapVirtualAddressRange(virtualAddr: u32, physicalAddr: u32, size: u32) void {
+    if (size >= memory.DIR_SIZE * 2) {
+        paging.idBigPagesRecursivly(virtualAddr, physicalAddr, memory.alignAddressUp(size - 1, memory.DIR_SIZE), true) catch |err| {
+            debug.printf("vmm.mapVirtualAddressRange:  failed to big id map virtual address range: {}\n", .{err});
+        };
+    } else {
+        paging.idPagesRecursivly(virtualAddr, physicalAddr, memory.alignAddressUp(size - 1, memory.PAGE_SIZE), true) catch |err| {
+            debug.printf("vmm.mapVirtualAddressRange:  failed to id map virtual address range: {}\n", .{err});
+        };
+    }
+}
 
 fn testVmmAlloc() void {
     debug.printf("vmm.testVmmAlloc:  start test\n", .{});
