@@ -42,5 +42,22 @@ pub fn build(b: *Builder) void {
 
     kernel_exe.setLinkerScript(b.path("src/arch/x86/linker.ld"));
 
+    const nasm_dep = b.dependency("nasm", .{
+        .optimize = .ReleaseFast,
+    });
+    const nasm_exe = nasm_dep.artifact("nasm");
+    const nasm_run = b.addRunArtifact(nasm_exe);
+    nasm_run.addArgs(&.{
+        "-f",
+        "elf",
+    });
+    nasm_run.addFileArg(b.path("src/arch/x86/int32.asm"));
+    nasm_run.addArgs(&.{
+        "-o",
+    });
+    const int32 = nasm_run.addOutputFileArg("int32.o");
+
+    kernel_exe.addObjectFile(int32);
+
     b.installArtifact(kernel_exe);
 }

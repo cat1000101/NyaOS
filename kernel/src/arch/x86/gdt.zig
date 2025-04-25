@@ -90,6 +90,7 @@ const NULL_ACCESS: Access = std.mem.zeroes(Access);
 const NULL_FLAGS: Flags = std.mem.zeroes(Flags);
 
 const BIT32_PAGED_FLAGS: Flags = .{ .g = 1, .db = 1, .l = 0, .preserved = 0 };
+const BIT16_BYTE_FLAGS: Flags = .{ .g = 0, .db = 0, .l = 0, .preserved = 0 };
 const TASK_STATE: Flags = BIT32_PAGED_FLAGS;
 
 const KERNEL_CODE_ACCESS: Access = .{ .p = 1, .dpl = 0, .s = 1, .e = 1, .dc = 0, .rw = 1, .a = 0 };
@@ -155,6 +156,20 @@ pub fn initGdt() void {
         TASK_STATE_ACCESS,
         TASK_STATE,
     ); // Task State Segment
+    // setGdtGate(
+    //     6,
+    //     0,
+    //     0xFFFF,
+    //     KERNEL_CODE_ACCESS,
+    //     BIT16_BYTE_FLAGS,
+    // ); // 16bit code segment
+    // setGdtGate(
+    //     7,
+    //     0,
+    //     0xFFFF,
+    //     KERNEL_DATA_ACCESS,
+    //     BIT16_BYTE_FLAGS,
+    // ); // 16bit data segment
 
     gdtFlush(&gdt_ptr);
     debug.infoPrint("initialized and loaded the gdt\n", .{});
