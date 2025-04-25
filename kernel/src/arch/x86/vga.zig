@@ -1,10 +1,6 @@
 const fmt = @import("std").fmt;
 const Writer = @import("std").io.Writer;
 
-const VGA_WIDTH = 80;
-const VGA_HEIGHT = 25;
-const VGA_SIZE = VGA_WIDTH * VGA_HEIGHT;
-
 pub const ConsoleColors = enum(u8) {
     Black = 0,
     Blue = 1,
@@ -23,11 +19,19 @@ pub const ConsoleColors = enum(u8) {
     LightBrown = 14,
     White = 15,
 };
+const VGA_WIDTH = 80;
+const VGA_HEIGHT = 25;
+const VGA_SIZE = VGA_WIDTH * VGA_HEIGHT;
 
 var row: usize = 0;
 var column: usize = 0;
 var color = vgaEntryColor(ConsoleColors.LightGray, ConsoleColors.Black);
-var buffer = @as([*]volatile u16, @ptrFromInt(0xC00B8000)); // 0xC00B8000
+var buffer = @as([*]volatile u16, @ptrFromInt(0xC00B8000));
+
+const VGA_VIDEO_WIDTH = 320;
+const VGA_VIDEO_HEIGHT = 200;
+const VGA_VIDEO_SIZE = VGA_VIDEO_WIDTH * VGA_VIDEO_HEIGHT;
+var videoBuffer = @as([*]volatile u8, @ptrFromInt(0xC00A0000));
 
 fn vgaEntryColor(fg: ConsoleColors, bg: ConsoleColors) u8 {
     return @intFromEnum(fg) | (@intFromEnum(bg) << 4);
@@ -91,4 +95,8 @@ fn callback(_: void, string: []const u8) error{}!usize {
 
 pub fn printf(comptime format: []const u8, args: anytype) void {
     fmt.format(writer, format, args) catch unreachable;
+}
+
+pub fn getVideoBuffer() []volatile u16 {
+    return videoBuffer;
 }
