@@ -13,7 +13,6 @@ pub fn switchToUserMode() void {
     const userStackBottom: usize = 0xAFC00000; // 1GiB - 4MiB
     const userStackAddress: usize = 0x800000; // 8MiB physical
     // const programAddress: usize = 0xC00000; // 12MiB physical
-    const programMap: usize = 0x400000; // 4MiB vitual
     const elfFileMap: usize = 0xC00000; // 12MiB virtual
 
     paging.setBigEntryRecursivly(userStackBottom, userStackAddress, .{
@@ -40,16 +39,17 @@ pub fn switchToUserMode() void {
     const fileManyPointer: [*]u8 = @ptrFromInt(elfFileMap);
     const fileSlice: []u8 = fileManyPointer[0..length];
 
-    _ = elf.loadFile(fileSlice);
+    if (!elf.loadFile(fileSlice)) {
+        debug.errorPrint("userLand.switchToUserMode:  failed to load elf file\n", .{});
+        return;
+    }
+    const programEntry = elf.getEntryPoint(fileSlice);
 
     // Set up a stack structure for switching to user mode.
     // 0x23 is the data segment with user privileges.
     // 0x1B is the code segment with user privileges.
     // 0x200 is the IF flag in EFLAGS register, which enables interrupts.
     debug.bochsBreak();
-    while (true) {
-        asm volatile ("hlt");
-    }
     asm volatile (
         \\ cli
         \\ mov $0x23, %ax
@@ -71,7 +71,7 @@ pub fn switchToUserMode() void {
         \\ iret
         :
         : [userStack] "{edx}" (userStack),
-          [userMain] "{esi}" (programMap),
+          [userMain] "{esi}" (programEntry),
     );
     sched.switchContext(highSched.correntContext, highSched.correntContext);
 }

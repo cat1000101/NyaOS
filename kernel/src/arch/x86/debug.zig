@@ -39,7 +39,7 @@ const levels = struct {
 pub var printLevels: levels = .{
     .infoPrintLevel = true,
     .errorPrintLevel = true,
-    .debugPrintLevel = true,
+    .debugPrintLevel = false,
 };
 
 pub fn infoPrint(comptime format: []const u8, args: anytype) void {

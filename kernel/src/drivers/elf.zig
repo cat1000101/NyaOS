@@ -1,6 +1,9 @@
 const debug = @import("../arch/x86/debug.zig");
 const std = @import("std");
 
+const vmm = @import("../mem/vmm.zig");
+const memory = @import("../mem/memory.zig");
+
 // ELF file format used https://refspecs.linuxfoundation.org/elf/elf.pdf spec
 
 const Elf32Half = u16;
@@ -396,20 +399,20 @@ const Elf32Phdr = extern struct {
     };
 };
 
-pub inline fn getShdr(elfHdr: *Elf32Ehdr) [*]Elf32Shdr {
-    return @ptrFromInt(@intFromPtr(elfHdr) + elfHdr.shoff);
+pub inline fn getShdrSlice(elfHdr: *Elf32Ehdr) []Elf32Shdr {
+    return @as([*]Elf32Shdr, @ptrFromInt(@intFromPtr(elfHdr) + elfHdr.shoff))[0..elfHdr.shnum];
 }
 
 pub inline fn getSection(elfHdr: *Elf32Ehdr, index: usize) *Elf32Shdr {
-    return &getShdr(elfHdr)[index];
+    return &getShdrSlice(elfHdr)[index];
 }
 
-pub inline fn getPhdr(elfHdr: *Elf32Ehdr) [*]Elf32Phdr {
-    return @ptrFromInt(@intFromPtr(elfHdr) + elfHdr.phoff);
+pub inline fn getPhdrSlice(elfHdr: *Elf32Ehdr) []Elf32Phdr {
+    return @as([*]Elf32Phdr, @ptrFromInt(@intFromPtr(elfHdr) + elfHdr.phoff))[0..elfHdr.phnum];
 }
 
 pub inline fn getSegment(elfHdr: *Elf32Ehdr, index: usize) *Elf32Phdr {
-    return &getPhdr(elfHdr)[index];
+    return &getPhdrSlice(elfHdr)[index];
 }
 
 pub inline fn getStrTable(elfHdr: *Elf32Ehdr) ?[*]u8 {
@@ -476,7 +479,7 @@ pub fn loadFile(File: []u8) bool {
 
     switch (elfHdr.type) {
         Elf32Ehdr.ElfType.EXEC => {
-            return loadFileExec(elfHdr);
+            return loadFileExec(elfHdr, File);
         },
         else => {
             debug.errorPrint("loadFile:  unsupported ELF file type\n", .{});
@@ -485,9 +488,12 @@ pub fn loadFile(File: []u8) bool {
     }
 }
 
-pub fn loadFileExec(elfHdr: *Elf32Ehdr) bool {
-    const phdrManyPointer = getPhdr(elfHdr);
-    const phdrSlice = phdrManyPointer[0..elfHdr.phnum];
+pub fn loadFileExec(elfHdr: *Elf32Ehdr, File: []u8) bool {
+    const phdrSlice = getPhdrSlice(elfHdr);
+
+    var lo_addr: usize = 0;
+    var hi_addr: usize = 0;
+    // pre process the program headers
     for (phdrSlice) |phdr| {
         switch (phdr.p_type) {
             Elf32Phdr.Elf32PhdrType.LOAD => {
@@ -502,6 +508,11 @@ pub fn loadFileExec(elfHdr: *Elf32Ehdr) bool {
                     segmentAtFileSize,
                     segmentVirtualSize,
                 });
+                if (lo_addr == 0) {
+                    lo_addr = segmentAddr;
+                }
+                lo_addr = @min(lo_addr, segmentAddr);
+                hi_addr = @max(hi_addr, segmentAddr + segmentVirtualSize);
             },
             .DYNAMIC, .HIPROC, .INTERP, .LOPROC, .NOTE, .PHDR, .NULL, .SHLIB => {
                 debug.infoPrint("idk what to do about this segment ¯\\_(ツ)_/¯: {s}\n", .{@tagName(phdr.p_type)});
@@ -511,5 +522,41 @@ pub fn loadFileExec(elfHdr: *Elf32Ehdr) bool {
             },
         }
     }
+
+    const programMemory = vmm.mapVirtualAddressRange(lo_addr, hi_addr - lo_addr) orelse {
+        debug.errorPrint("loadFileExec:  failed to map virtual address range\n", .{});
+        return false;
+    };
+    errdefer {
+        vmm.freePages(programMemory, (hi_addr - lo_addr) / memory.PAGE_SIZE);
+    }
+
+    for (phdrSlice) |phdr| {
+        if (phdr.p_type != Elf32Phdr.Elf32PhdrType.LOAD) continue;
+
+        const segmentOffsetFile = phdr.p_offset;
+        const segmentAtFileSize = phdr.p_filesz;
+        const segmentDestIndex = phdr.p_vaddr - lo_addr;
+
+        @memcpy(
+            programMemory[segmentDestIndex..][0..segmentAtFileSize],
+            File[segmentOffsetFile..][0..segmentAtFileSize],
+        );
+    }
+
+    // debug.infoPrint("\n", .{});
+    // for (programMemory, 0..) |byte, i| {
+    //     debug.printf("{X} ", .{byte});
+    //     if (i % 16 == 15) {
+    //         debug.printf("\n", .{});
+    //     }
+    // }
+    // debug.printf("\n", .{});
+
     return true;
+}
+
+pub fn getEntryPoint(File: []u8) *u8 {
+    const elfHdr: *Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
+    return @ptrFromInt(elfHdr.entry);
 }
