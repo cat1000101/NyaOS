@@ -4,23 +4,27 @@ const memory = @import("mem/memory.zig");
 const multibootType = @import("multiboot.zig");
 
 // multiboot headers values
-const ALIGN = 1 << 0;
-const MEMINFO = 1 << 1;
-const MAGIC = 0x1BADB002;
-const FLAGS = ALIGN | MEMINFO;
+const MAGIC: u32 = 0x1BADB002;
+const FLAGS: u32 = 1 << 0 | 1 << 1 | 1 << 2;
 
 // multiboot struct
 const MultibootHeader = extern struct {
-    magic: i32 = MAGIC,
-    flags: i32 align(1),
-    checksum: i32 align(1),
+    magic: u32 = MAGIC,
+    flags: u32 = FLAGS,
+    checksum: u32 = 0xFFFFFFFF - (MAGIC + FLAGS - 1),
+    header_addr: u32 = 0,
+    load_addr: u32 = 0,
+    load_end_addr: u32 = 0,
+    bss_end_addr: u32 = 0,
+    entry_addr: u32 = 0,
+    mode_type: u32 = 0,
+    width: u32 = 320,
+    height: u32 = 200,
+    depth: u32 = 32,
 };
 
 // exporting the multiboot headers so that grub can find it
-export var multiboot align(4) linksection(".multiboot") = MultibootHeader{
-    .flags = FLAGS,
-    .checksum = -(MAGIC + FLAGS),
-};
+export var multiboot: MultibootHeader align(4) linksection(".multiboot") = .{};
 
 const kernelNumberOf4MIBPages = 1;
 // setting up the paging stolen from https://github.com/ZystemOS/pluto again

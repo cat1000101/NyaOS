@@ -179,17 +179,59 @@ pub var multibootInfo: *multiboot_info = undefined;
 
 pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        debug.printf("bootloader multiboot2 header invalid magic number: {d}\n", .{magic});
+        debug.errorPrint("bootloader multiboot header invalid magic number: {d}\n", .{magic});
         return false;
     }
     if (header.flags >> 6 & 1 == 0) {
-        debug.printf("No memory map provided by GRUB or other multiboot2 bootloader sad\n", .{});
+        debug.errorPrint("No memory map provided by GRUB or other multiboot bootloader sad\n", .{});
         return false;
     }
 
     multibootInfo = header;
     // printRawMemoryMap();
     return true;
+}
+
+pub fn getVideoFrameBuffer() ?*struct {
+    framebuffer_addr: u32,
+    framebuffer_pitch: u32,
+    framebuffer_bpp: u8,
+    framebuffer_rgb: packed struct {
+        red: u8,
+        green: u8,
+        blue: u8,
+        padding: u8,
+    },
+    framebuffer_width: u32,
+    framebuffer_height: u32,
+} {
+    const lmultibootInfo = multibootInfo;
+    if (lmultibootInfo.flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO == 0) {
+        debug.errorPrint("No framebuffer info provided by GRUB or other multiboot bootloader sag\n", .{});
+        return null;
+    }
+    if (lmultibootInfo.framebuffer_type != MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
+        debug.errorPrint("Framebuffer type is not RGB\n", .{});
+        return null;
+    }
+    if (lmultibootInfo.framebuffer_bpp != 32) {
+        debug.errorPrint("Framebuffer bpp is not 32\n", .{});
+        return null;
+    }
+
+    return .{
+        .framebuffer_addr = lmultibootInfo.framebuffer_addr,
+        .framebuffer_pitch = lmultibootInfo.framebuffer_pitch,
+        .framebuffer_bpp = lmultibootInfo.framebuffer_bpp,
+        .framebuffer_rgb = packed struct {
+            red: u8 = lmultibootInfo.unnamed_0.unnamed_1.framebuffer_red_field_position,
+            green: u8 = lmultibootInfo.unnamed_0.unnamed_1.framebuffer_green_field_position,
+            blue: u8 = lmultibootInfo.unnamed_0.unnamed_1.framebuffer_blue_field_position,
+            padding: u8 = 0,
+        },
+        .framebuffer_width = lmultibootInfo.framebuffer_width,
+        .framebuffer_height = lmultibootInfo.framebuffer_height,
+    };
 }
 
 pub fn getModuleInfo() ?[*]multiboot_mod_list {

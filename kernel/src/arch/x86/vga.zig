@@ -96,7 +96,3 @@ fn callback(_: void, string: []const u8) error{}!usize {
 pub fn printf(comptime format: []const u8, args: anytype) void {
     fmt.format(writer, format, args) catch unreachable;
 }
-
-pub fn getVideoBuffer() []volatile u16 {
-    return videoBuffer;
-}
