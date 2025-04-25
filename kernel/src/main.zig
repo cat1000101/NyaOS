@@ -1,25 +1,30 @@
 const kmainFile = @import("kmain.zig");
 const paging = @import("arch/x86/paging.zig");
 const memory = @import("mem/memory.zig");
-const multibootType = @import("multiboot.zig");
+const multiboot = @import("multiboot.zig");
 
 // multiboot headers values
-const ALIGN = 1 << 0;
-const MEMINFO = 1 << 1;
-const MAGIC = 0x1BADB002;
-const FLAGS = ALIGN | MEMINFO;
+const MAGIC = 0xE85250D6;
+const ARCHITECTURE = 0x00;
 
 // multiboot struct
-const MultibootHeader = extern struct {
-    magic: i32 = MAGIC,
-    flags: i32 align(1),
-    checksum: i32 align(1),
-};
+fn MultibootHeader(num: usize) type {
+    const length = 16 + num * 8;
+    return struct {
+        // multiboot header
+        magic: u32 = MAGIC,
+        architecture: u32 = ARCHITECTURE,
+        length: u32 = length,
+        checksum: u32 = 0xFFFFFFFF - (MAGIC + ARCHITECTURE + length),
+        tags: [num]u64,
+    };
+}
 
 // exporting the multiboot headers so that grub can find it
-export var multiboot align(4) linksection(".multiboot") = MultibootHeader{
-    .flags = FLAGS,
-    .checksum = -(MAGIC + FLAGS),
+export var multibootHeader align(4) linksection(".multiboot") = mbhBlk: {
+    break :mbhBlk MultibootHeader(){
+        .tags = [_]u64{},
+    };
 };
 
 const kernelNumberOf4MIBPages = 1;
