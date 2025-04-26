@@ -17,9 +17,6 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
     debug.debugPrint("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
     _ = multiboot.checkMultibootHeader(mbh, magic);
 
-    tty.initialize();
-    tty.printf("meow i like {any} cats\n", .{69});
-
     gdt.initGdt();
 
     idt.initIdt();
@@ -27,6 +24,9 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
     pmm.initPmm();
 
     vmm.initVmm();
+
+    tty.initialize();
+    tty.printf("meow i like {any} cats\n", .{69});
 
     pit.initPit(1193); // 1193 for 1ms~ per tick
 

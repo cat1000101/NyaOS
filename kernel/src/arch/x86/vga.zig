@@ -23,9 +23,9 @@ const VGA_WIDTH = 80;
 const VGA_HEIGHT = 25;
 const VGA_SIZE = VGA_WIDTH * VGA_HEIGHT;
 
-var row: usize = 0;
-var column: usize = 0;
-var color = vgaEntryColor(ConsoleColors.LightGray, ConsoleColors.Black);
+var textRow: usize = 0;
+var textColumn: usize = 0;
+var charColor = vgaEntryColor(ConsoleColors.LightGray, ConsoleColors.Black);
 var buffer = @as([*]volatile u16, @ptrFromInt(0xC00B8000));
 
 const VGA_VIDEO_WIDTH = 320;
@@ -44,11 +44,11 @@ fn vgaEntry(uc: u8, new_color: u8) u16 {
 }
 
 pub fn setColor(new_color: u8) void {
-    color = new_color;
+    charColor = new_color;
 }
 
 pub fn clear() void {
-    @memset(buffer[0..VGA_SIZE], vgaEntry(' ', color));
+    @memset(buffer[0..VGA_SIZE], vgaEntry(' ', charColor));
 }
 
 pub fn putCharAt(c: u8, new_color: u8, x: usize, y: usize) void {
@@ -58,20 +58,20 @@ pub fn putCharAt(c: u8, new_color: u8, x: usize, y: usize) void {
 
 pub fn putChar(c: u8) void {
     if (c == '\n') {
-        column = 0;
-        row += 1;
-        if (row == VGA_HEIGHT)
+        textColumn = 0;
+        textRow += 1;
+        if (textRow == VGA_HEIGHT)
             nextLine();
         return;
     } else {
-        putCharAt(c, color, column, row);
+        putCharAt(c, charColor, textColumn, textRow);
     }
 
-    column += 1;
-    if (column == VGA_WIDTH) {
-        column = 0;
-        row += 1;
-        if (row == VGA_HEIGHT)
+    textColumn += 1;
+    if (textColumn == VGA_WIDTH) {
+        textColumn = 0;
+        textRow += 1;
+        if (textRow == VGA_HEIGHT)
             nextLine();
     }
 }
@@ -81,18 +81,14 @@ fn nextLine() void {
         buffer[i - VGA_WIDTH] = buffer[i];
 }
 
-pub fn puts(data: []const u8) void {
-    for (data) |c|
-        putChar(c);
-}
-
-pub const writer = Writer(void, error{}, callback){ .context = {} };
+pub const vgaTextWriter = Writer(void, error{}, callback){ .context = {} };
 
 fn callback(_: void, string: []const u8) error{}!usize {
-    puts(string);
+    for (string) |c|
+        putChar(c);
     return string.len;
 }
 
 pub fn printf(comptime format: []const u8, args: anytype) void {
-    fmt.format(writer, format, args) catch unreachable;
+    fmt.format(vgaTextWriter, format, args) catch unreachable;
 }

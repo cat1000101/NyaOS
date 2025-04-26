@@ -29,25 +29,33 @@ pub const MULTIBOOT_SEARCH: u32 = 8192;
 pub const MULTIBOOT_HEADER_ALIGN: u32 = 4;
 pub const MULTIBOOT_HEADER_MAGIC: u32 = 0x1BADB002;
 pub const MULTIBOOT_BOOTLOADER_MAGIC: u32 = 0x2BADB002;
-pub const MULTIBOOT_MOD_ALIGN: u32 = 0x00001000;
-pub const MULTIBOOT_INFO_ALIGN: u32 = 0x00000004;
-pub const MULTIBOOT_PAGE_ALIGN: u32 = 0x00000001;
-pub const MULTIBOOT_MEMORY_INFO: u32 = 0x00000002;
-pub const MULTIBOOT_VIDEO_MODE: u32 = 0x00000004;
-pub const MULTIBOOT_AOUT_KLUDGE: u32 = 0x00010000;
-pub const MULTIBOOT_INFO_MEMORY: u32 = 0x00000001;
-pub const MULTIBOOT_INFO_BOOTDEV: u32 = 0x00000002;
-pub const MULTIBOOT_INFO_CMDLINE: u32 = 0x00000004;
-pub const MULTIBOOT_INFO_MODS: u32 = 0x00000008;
-pub const MULTIBOOT_INFO_AOUT_SYMS: u32 = 0x00000010;
-pub const MULTIBOOT_INFO_ELF_SHDR: u32 = 0x00000020;
-pub const MULTIBOOT_INFO_MEM_MAP: u32 = 0x00000040;
-pub const MULTIBOOT_INFO_DRIVE_INFO: u32 = 0x00000080;
-pub const MULTIBOOT_INFO_CONFIG_TABLE: u32 = 0x00000100;
-pub const MULTIBOOT_INFO_BOOT_LOADER_NAME: u32 = 0x00000200;
-pub const MULTIBOOT_INFO_APM_TABLE: u32 = 0x00000400;
-pub const MULTIBOOT_INFO_VBE_INFO: u32 = 0x00000800;
-pub const MULTIBOOT_INFO_FRAMEBUFFER_INFO: u32 = 0x00001000;
+
+pub const MOD_ALIGN = 0x00001000;
+pub const INFO_ALIGN = 0x00000004;
+
+pub const InfoFlags = enum(u32) {
+    MEMORY = 0x00000001,
+    BOOTDEV = 0x00000002,
+    CMDLINE = 0x00000004,
+    MODS = 0x00000008,
+    AOUT_SYMS = 0x00000010,
+    ELF_SHDR = 0x00000020,
+    MEM_MAP = 0x00000040,
+    DRIVE_INFO = 0x00000080,
+    CONFIG_TABLE = 0x00000100,
+    BOOT_LOADER_NAME = 0x00000200,
+    APM_TABLE = 0x00000400,
+    VBE_INFO = 0x00000800,
+    FRAMEBUFFER_INFO = 0x00001000,
+};
+
+pub const HeaderFlags = enum(u32) {
+    PAGE_ALIGN = 0x00000001,
+    MEMORY_INFO = 0x00000002,
+    VIDEO_MODE = 0x00000004,
+    AOUT_KLUDGE = 0x00010000,
+};
+
 pub const MULTIBOOT_FRAMEBUFFER_TYPE_INDEXED: u32 = 0;
 pub const MULTIBOOT_FRAMEBUFFER_TYPE_RGB: u32 = 1;
 pub const MULTIBOOT_FRAMEBUFFER_TYPE_EGA_TEXT: u32 = 2;
@@ -86,17 +94,17 @@ pub const multiboot_elf_section_header_table = extern struct {
     shndx: u32 = 0,
 };
 
-const union_unnamed_1 = extern union {
+const debug_format = extern union {
     aout_sym: multiboot_aout_symbol_table,
     elf_sec: multiboot_elf_section_header_table,
 };
 
-const unnamed_3 = extern struct {
+const palette_format = extern struct {
     framebuffer_palette_addr: u32 = 0,
     framebuffer_palette_num_colors: u16 = 0,
 };
 
-const unnamed_4 = extern struct {
+const rgb_format = extern struct {
     framebuffer_red_field_position: u8 = 0,
     framebuffer_red_mask_size: u8 = 0,
     framebuffer_green_field_position: u8 = 0,
@@ -105,9 +113,9 @@ const unnamed_4 = extern struct {
     framebuffer_blue_mask_size: u8 = 0,
 };
 
-const union_unnamed_2 = extern union {
-    unnamed_0: unnamed_3,
-    unnamed_1: unnamed_4,
+const color_format = extern union {
+    palette: palette_format,
+    rgb: rgb_format,
 };
 
 pub const multiboot_info = extern struct {
@@ -118,7 +126,7 @@ pub const multiboot_info = extern struct {
     cmdline: u32 = 0,
     mods_count: u32 = 0,
     mods_addr: u32 = 0,
-    u: union_unnamed_1, // need to made this generic and deafult being 0?
+    kernel_debug_info: debug_format, // need to made this generic and deafult being 0?
     mmap_length: u32 = 0,
     mmap_addr: u32 = 0,
     drives_length: u32 = 0,
@@ -138,7 +146,7 @@ pub const multiboot_info = extern struct {
     framebuffer_height: u32 = 0,
     framebuffer_bpp: u8 = 0,
     framebuffer_type: u8 = 0,
-    unnamed_0: union_unnamed_2, // need to made this generic and deafult being 0?
+    framebuffer_color: color_format, // need to made this generic and deafult being 0?
 };
 
 pub const multiboot_color = extern struct {
@@ -192,21 +200,20 @@ pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
     return true;
 }
 
-pub fn getVideoFrameBuffer() ?*struct {
+pub fn getVideoFrameBuffer() ?struct {
     framebuffer_addr: u32,
     framebuffer_pitch: u32,
     framebuffer_bpp: u8,
-    framebuffer_rgb: packed struct {
-        red: u8,
-        green: u8,
-        blue: u8,
-        padding: u8,
+    framebuffer_rgb: struct {
+        redOffset: u8,
+        greenOffset: u8,
+        blueOffset: u8,
     },
     framebuffer_width: u32,
     framebuffer_height: u32,
 } {
     const lmultibootInfo = multibootInfo;
-    if (lmultibootInfo.flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO == 0) {
+    if (lmultibootInfo.flags & @intFromEnum(InfoFlags.FRAMEBUFFER_INFO) == 0) {
         debug.errorPrint("No framebuffer info provided by GRUB or other multiboot bootloader sag\n", .{});
         return null;
     }
@@ -218,16 +225,19 @@ pub fn getVideoFrameBuffer() ?*struct {
         debug.errorPrint("Framebuffer bpp is not 32\n", .{});
         return null;
     }
+    if (lmultibootInfo.framebuffer_color.rgb.framebuffer_red_mask_size != 8 or lmultibootInfo.framebuffer_color.rgb.framebuffer_blue_mask_size != 8 or lmultibootInfo.framebuffer_color.rgb.framebuffer_green_mask_size != 8) {
+        debug.errorPrint("Framebuffer color mask size is not 8\n", .{});
+        return null;
+    }
 
     return .{
-        .framebuffer_addr = lmultibootInfo.framebuffer_addr,
+        .framebuffer_addr = @truncate(lmultibootInfo.framebuffer_addr),
         .framebuffer_pitch = lmultibootInfo.framebuffer_pitch,
         .framebuffer_bpp = lmultibootInfo.framebuffer_bpp,
-        .framebuffer_rgb = packed struct {
-            red: u8 = lmultibootInfo.unnamed_0.unnamed_1.framebuffer_red_field_position,
-            green: u8 = lmultibootInfo.unnamed_0.unnamed_1.framebuffer_green_field_position,
-            blue: u8 = lmultibootInfo.unnamed_0.unnamed_1.framebuffer_blue_field_position,
-            padding: u8 = 0,
+        .framebuffer_rgb = .{
+            .redOffset = lmultibootInfo.framebuffer_color.rgb.framebuffer_red_field_position,
+            .greenOffset = lmultibootInfo.framebuffer_color.rgb.framebuffer_green_field_position,
+            .blueOffset = lmultibootInfo.framebuffer_color.rgb.framebuffer_blue_field_position,
         },
         .framebuffer_width = lmultibootInfo.framebuffer_width,
         .framebuffer_height = lmultibootInfo.framebuffer_height,

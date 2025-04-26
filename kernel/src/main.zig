@@ -1,11 +1,11 @@
 const kmainFile = @import("kmain.zig");
 const paging = @import("arch/x86/paging.zig");
 const memory = @import("mem/memory.zig");
-const multibootType = @import("multiboot.zig");
+const multiboot = @import("multiboot.zig");
 
 // multiboot headers values
 const MAGIC: u32 = 0x1BADB002;
-const FLAGS: u32 = 1 << 0 | 1 << 1 | 1 << 2;
+const FLAGS: u32 = @intFromEnum(multiboot.HeaderFlags.PAGE_ALIGN) | @intFromEnum(multiboot.HeaderFlags.MEMORY_INFO) | @intFromEnum(multiboot.HeaderFlags.VIDEO_MODE);
 
 // multiboot struct
 const MultibootHeader = extern struct {
@@ -18,13 +18,17 @@ const MultibootHeader = extern struct {
     bss_end_addr: u32 = 0,
     entry_addr: u32 = 0,
     mode_type: u32 = 0,
-    width: u32 = 320,
-    height: u32 = 200,
-    depth: u32 = 32,
+    width: u32 = 0,
+    height: u32 = 0,
+    depth: u32 = 0,
 };
 
 // exporting the multiboot headers so that grub can find it
-export var multiboot: MultibootHeader align(4) linksection(".multiboot") = .{};
+export var multibootHeader: MultibootHeader align(4) linksection(".multiboot") = .{
+    .width = 800,
+    .height = 600,
+    .depth = 32,
+};
 
 const kernelNumberOf4MIBPages = 1;
 // setting up the paging stolen from https://github.com/ZystemOS/pluto again
