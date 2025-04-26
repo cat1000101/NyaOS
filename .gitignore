@@ -56,8 +56,6 @@ dkms.conf
 .zig-cache/
 zig-out/
 
-doomgeneric/
-
 # debug files placed in .extras(place for extra things)
 *.log
 bochs-out.txt
