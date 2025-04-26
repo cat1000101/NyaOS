@@ -2,8 +2,6 @@ const std = @import("std");
 const debug = @import("debug.zig");
 const main = @import("../../main.zig");
 
-const NUMBER_OF_ENTRIES: u16 = 0x06;
-
 pub const GdtEntry = packed struct {
     limit_low: u16,
     base_low: u24,
@@ -62,28 +60,28 @@ const GdtPtr = packed struct {
 const Flags = packed struct {
     preserved: u1 = 0,
     /// Long-mode code flag. If set (1), the descriptor defines a 64-bit code segment. When set, DB should always be clear. For any other type of segment (other code types or any data segment), it should be clear (0).
-    l: u1,
+    l: u1 = 0,
     /// Size flag. If clear (0), the descriptor defines a 16-bit protected mode segment. If set (1) it defines a 32-bit protected mode segment. A GDT can have both 16-bit and 32-bit selectors at once.
-    db: u1,
+    db: u1 = 0,
     /// Granularity flag, indicates the size the Limit value is scaled by. If clear (0), the Limit is in 1 Byte blocks (byte granularity). If set (1), the Limit is in 4 KiB blocks (page granularity).
-    g: u1,
+    g: u1 = 0,
 };
 
 const Access = packed struct {
     /// Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
-    a: u1,
+    a: u1 = 0,
     /// Readable bit/Writable bit.
-    rw: u1,
+    rw: u1 = 0,
     /// Direction bit/Conforming bit. when data sector : 0 for up 1 for down when code sector : 0 execute from the same ring 1 for jumping to higher place.
-    dc: u1,
+    dc: u1 = 0,
     /// Executable bit. If clear (0) the descriptor defines a data segment. If set (1) it defines a code segment which can be executed from.
-    e: u1,
+    e: u1 = 0,
     /// Descriptor type bit. If clear (0) the descriptor defines a system segment (eg. a Task State Segment). If set (1) it defines a code or data segment.
-    s: u1,
+    s: u1 = 0,
     /// Descriptor privilege level field. Contains the CPU Privilege level of the segment. 0 = highest privilege (kernel), 3 = lowest privilege (user applications).
-    dpl: u2,
+    dpl: u2 = 0,
     /// Present bit. Allows an entry to refer to a valid segment. Must be set (1) for any valid segment.
-    p: u1,
+    p: u1 = 0,
 };
 
 const NULL_ACCESS: Access = std.mem.zeroes(Access);
@@ -103,6 +101,12 @@ pub const KERNEL_DATA_OFFSET = 0x10;
 pub const USER_CODE_OFFSET = 0x18;
 pub const USER_DATA_OFFSET = 0x20;
 pub const TASK_STATE_OFFSET = 0x28;
+
+pub const THREAD_TLS_START = 5;
+pub const THREAD_TLS_END = 7;
+
+pub const NUMBER_OF_ENTRIES: u16 = 0x09;
+const TSS_ENTRY_NUMBER: u16 = (NUMBER_OF_ENTRIES - 1) * 8;
 
 var gdt_entries: [NUMBER_OF_ENTRIES]GdtEntry = undefined;
 var tss_entry: Tss = std.mem.zeroes(Tss);
@@ -150,6 +154,27 @@ pub fn initGdt() void {
     ); // user data segment
     setGdtGate(
         5,
+        0,
+        0,
+        .{},
+        .{},
+    ); // thread TLS?
+    setGdtGate(
+        6,
+        0,
+        0,
+        .{},
+        .{},
+    ); // thread TLS?
+    setGdtGate(
+        7,
+        0,
+        0,
+        .{},
+        .{},
+    ); // thread TLS?
+    setGdtGate(
+        8,
         @intFromPtr(&tss_entry),
         @sizeOf(Tss),
         TASK_STATE_ACCESS,
@@ -163,13 +188,24 @@ pub fn initGdt() void {
     debug.infoPrint("loaded Tss\n", .{});
 }
 
-fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) void {
+pub fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) void {
+    debug.debugPrint("setGdtGate:  gdt entry: {}\n", .{getGdtEntry(num)});
+    defer debug.debugPrint("setGdtGate:  gdt entry after set: {}\n", .{getGdtEntry(num)});
+
     gdt_entries[num].base_low = @truncate(base);
     gdt_entries[num].base_high = @truncate(base >> 24);
     gdt_entries[num].limit_low = @truncate(limit);
     gdt_entries[num].limit_high = @truncate(limit >> 16);
     gdt_entries[num].flags = flags;
     gdt_entries[num].access = access;
+}
+
+pub fn getGdtEntry(num: u32) *GdtEntry {
+    return &gdt_entries[num];
+}
+
+pub fn isEntryPresent(num: u32) bool {
+    return gdt_entries[num].access.p == 1;
 }
 
 fn setTssTable(tss: *Tss, ss0: u16, esp0: u32, iopb: u16) void {
@@ -208,7 +244,8 @@ fn gdtFlush(gdt_ptr_: *const GdtPtr) void {
 pub fn loadTss() void {
     // Load the Tss into the CPU
     asm volatile (
-        \\ movw $0x28 , %%ax
-        \\ ltr %%ax
-        ::: "%ax");
+        \\ ltr %[tssEntryNum]
+        :
+        : [tssEntryNum] "{ax}" (TSS_ENTRY_NUMBER),
+    );
 }

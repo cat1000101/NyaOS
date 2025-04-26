@@ -8,32 +8,37 @@ export fn Handler(cpu_state: *ExeptionCpuState) void {
     switch (cpu_state.interrupt_number) {
         0x00...0x1F => {
             // half stolen thing for the printing: https://github.com/Ashet-Technologies/Ashet-OS/blob/9b595e38815dcc1ed1f7e20abd44ab43c1a63012/src/kernel/port/platform/x86/idt.zig#L67
-            debug.errorPrint("Unhandled exception 0x{X}: {s}\n", .{ cpu_state.interrupt_number, @as([]const u8, switch (cpu_state.interrupt_number) {
-                0x00 => "Divide By Zero",
-                0x01 => "Debug",
-                0x02 => "Non Maskable Interrupt",
-                0x03 => "Breakpoint",
-                0x04 => "Overflow",
-                0x05 => "Bound Range",
-                0x06 => "Invalid Opcode",
-                0x07 => "Device Not Available",
-                0x08 => "Double Fault",
-                0x09 => "Coprocessor Segment Overrun",
-                0x0A => "Invalid TSS",
-                0x0B => "Segment not Present",
-                0x0C => "Stack Fault",
-                0x0D => "General Protection Fault",
-                0x0E => "Page Fault",
-                0x0F => "Reserved",
-                0x10 => "x87 Floating Point",
-                0x11 => "Alignment Check",
-                0x12 => "Machine Check",
-                0x13 => "SIMD Floating Point",
-                0x14...0x1D => "Reserved",
-                0x1E => "Security-sensitive event in Host",
-                0x1F => "Reserved",
-                else => "Unknown",
-            }) });
+            debug.errorPrint("Unhandled exception 0x{X}: {s}, error code: 0x{X}/{b}\n", .{
+                cpu_state.interrupt_number,
+                @as([]const u8, switch (cpu_state.interrupt_number) {
+                    0x00 => "Divide By Zero",
+                    0x01 => "Debug",
+                    0x02 => "Non Maskable Interrupt",
+                    0x03 => "Breakpoint",
+                    0x04 => "Overflow",
+                    0x05 => "Bound Range",
+                    0x06 => "Invalid Opcode",
+                    0x07 => "Device Not Available",
+                    0x08 => "Double Fault",
+                    0x09 => "Coprocessor Segment Overrun",
+                    0x0A => "Invalid TSS",
+                    0x0B => "Segment not Present",
+                    0x0C => "Stack Fault",
+                    0x0D => "General Protection Fault",
+                    0x0E => "Page Fault",
+                    0x0F => "Reserved",
+                    0x10 => "x87 Floating Point",
+                    0x11 => "Alignment Check",
+                    0x12 => "Machine Check",
+                    0x13 => "SIMD Floating Point",
+                    0x14...0x1D => "Reserved",
+                    0x1E => "Security-sensitive event in Host",
+                    0x1F => "Reserved",
+                    else => "Unknown",
+                }),
+                cpu_state.error_code,
+                cpu_state.error_code,
+            });
             debug.debugPrint("cpu state: {}\n", .{cpu_state});
             if (cpu_state.interrupt_number == 0xE) {
                 var faulting_address: u32 = 0;
@@ -49,11 +54,14 @@ export fn Handler(cpu_state: *ExeptionCpuState) void {
                 });
                 debug.errorPrint("Offending location address(eip):0x{X:0>8}\n", .{cpu_state.eip});
 
-                debug.errorPrint("offending page page directory entry: {any}\noffending page table entry: {any}\n", .{
+                debug.errorPrint("offending page directory entry: {any}\n", .{
                     paging.getPageDirectoryEntryRecursivly(faulting_address >> 22),
+                });
+                debug.errorPrint("offending page table entry: {any}\n", .{
                     paging.getPageTableEntryRecursivly(faulting_address >> 22, (faulting_address >> 12) & 0x3FF),
                 });
             }
+            hlt(); // remember to remove this ====================================================================
         },
         else => {
             debug.errorPrint("interrupt has accured yippe? not exeption. interrupt:{}, error:{}\n", .{ cpu_state.interrupt_number, cpu_state.error_code });
@@ -80,36 +88,15 @@ pub const ExeptionCpuState = extern struct {
     eax: u32,
 
     interrupt_number: u32, // Interrupt number pushed by me :3
-
     // Items pushed by the CPU during an interrupt
     error_code: u32, // Error code pushed by the interrupt or us
+
+    // Items pushed by the CPU if a privilege level change occurs ¯\_(ツ)_/¯
     eip: u32,
     cs: u32,
     eflags: u32,
-
-    // Items pushed by the CPU if a privilege level change occurs ¯\_(ツ)_/¯
-    // idk so there is the option for latter ignore for now
     user_esp: u32, // ESP if there is a privilege level change
     ss: u32, // SS if there is a privilege level change
-};
-
-// cpu state when using generateStub
-pub const CpuState = extern struct {
-    // Segment registers pushed manually
-    gs: u16,
-    fs: u16,
-    es: u16,
-    ds: u16,
-
-    // General-purpose registers pushed by pusha
-    edi: u32,
-    esi: u32,
-    ebp: u32,
-    esp: u32,
-    ebx: u32,
-    edx: u32,
-    ecx: u32,
-    eax: u32,
 };
 
 export fn ExeptionCommonStub() callconv(.naked) void {
@@ -162,6 +149,59 @@ export fn ExeptionCommonStub() callconv(.naked) void {
     );
 }
 
+// stollen/"inspired" from https://github.com/ZystemOS/pluto
+// that is a good refrence for good practive maybe idk
+fn generateExeptionStub(comptime interrupt_num: u32) fn () callconv(.naked) void {
+    return struct {
+        fn func() callconv(.naked) void {
+            asm volatile (
+                \\ cli
+            );
+
+            // These interrupts don't push an error code onto the stack, so will push a zero. meanng 0-31 other then those
+            if (interrupt_num != 8 and !(interrupt_num >= 10 and interrupt_num <= 14) and interrupt_num != 17) {
+                asm volatile (
+                    \\ pushl $0
+                );
+            }
+
+            asm volatile (
+                \\ pushl %[nr]
+                \\ jmp %[ExeptionCommonStub:P]
+                :
+                : [nr] "n" (interrupt_num),
+                  [ExeptionCommonStub] "X" (&ExeptionCommonStub),
+            );
+        }
+    }.func;
+}
+
+// cpu state when using generateStub
+pub const CpuState = extern struct {
+    // Segment registers pushed manually
+    gs: u16,
+    fs: u16,
+    es: u16,
+    ds: u16,
+
+    // General-purpose registers pushed by pusha
+    edi: u32,
+    esi: u32,
+    ebp: u32,
+    esp: u32,
+    ebx: u32,
+    edx: u32,
+    ecx: u32,
+    eax: u32,
+
+    // Items pushed by the CPU if a privilege level change occurs ¯\_(ツ)_/¯
+    eip: u32,
+    cs: u32,
+    eflags: u32,
+    user_esp: u32,
+    ss: u32,
+};
+
 pub fn generateStub(function: *const fn (*CpuState) callconv(.c) void) fn () callconv(.naked) void {
     return struct {
         fn func() callconv(.naked) void {
@@ -209,33 +249,6 @@ pub fn generateStub(function: *const fn (*CpuState) callconv(.c) void) fn () cal
                 \\
                 \\  popa                // pop what we pushed with pusha
                 \\  iret                // will pop: cs, eip, eflags and ss, esp if there was a privlige level change
-            );
-        }
-    }.func;
-}
-
-// stollen/"inspired" from https://github.com/ZystemOS/pluto it is a good zig os
-// that is a good refrence for good practive maybe idk
-fn generateExeptionStub(comptime interrupt_num: u32) fn () callconv(.naked) void {
-    return struct {
-        fn func() callconv(.naked) void {
-            asm volatile (
-                \\ cli
-            );
-
-            // These interrupts don't push an error code onto the stack, so will push a zero. meanng 0-31 other then those
-            if (interrupt_num != 8 and !(interrupt_num >= 10 and interrupt_num <= 14) and interrupt_num != 17) {
-                asm volatile (
-                    \\ pushl $0
-                );
-            }
-
-            asm volatile (
-                \\ pushl %[nr]
-                \\ jmp %[ExeptionCommonStub:P]
-                :
-                : [nr] "n" (interrupt_num),
-                  [ExeptionCommonStub] "X" (&ExeptionCommonStub),
             );
         }
     }.func;
