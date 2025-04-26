@@ -5,7 +5,7 @@ const Builder = std.Build;
 pub fn build(b: *Builder) void {
     // building executables from dependencies
     const kernel_dep = b.dependency("kernel", .{});
-    const user_dep = b.dependency("user", .{});
+    const user_dep = b.dependency("apps", .{});
 
     const user_exe = user_dep.artifact("program");
     const user_exe_step = &b.addInstallArtifact(user_exe, .{

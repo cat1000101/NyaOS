@@ -11,7 +11,7 @@
         .kernel = .{
             .path = "kernel",
         },
-        .user = .{
+        .apps = .{
             .path = "modules",
         },
     },
@@ -23,6 +23,7 @@
         "README.md",
         "kernel",
         "bootloader",
-        "", // maybe remove? i am not sure about conventions
+        "modules",
+        "", // maybe remove? i am not sure about conventions, update: ok i dont care, conventions are for the weak
     },
 }

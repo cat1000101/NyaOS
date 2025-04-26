@@ -1,10 +1,26 @@
 .{
     .name = .UserPrograms,
-    .version = "0.3.0",
+
+    .version = "0.0.0",
+
     .fingerprint = 0x3c4b239c6df3983d,
+
+    .minimum_zig_version = "0.14.0",
+
+    .dependencies = .{
+        // local deps
+        .testApp = .{
+            .path = "test",
+        },
+        .doomgeneric = .{
+            .path = "doomgeneric",
+        },
+    },
+
     .paths = .{
         "build.zig",
         "build.zig.zon",
-        "src",
+        "doomgeneric",
+        "test",
     },
 }
