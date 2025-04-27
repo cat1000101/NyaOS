@@ -13,7 +13,7 @@ pub fn switchToUserMode() void {
     const userStackBottom: usize = 0xAFC00000; // 2.75GiB - 4MiB virtual
     const userStackAddress: usize = 0x2000000; // 32MiB physical
     const elfFileMap: usize = 0x10000000; // 256MiB virtual
-    const programRandomHeap: usize = 0xA0000000; // 2.5GiB virtual
+    const programRandomHeap: usize = 0x8000000; // 128MiB virtual
 
     paging.setBigEntryRecursivly(userStackBottom, userStackAddress, .{
         .page_size = 1,
