@@ -1,8 +1,6 @@
 const interrupts = @import("interrupts.zig");
 const debug = @import("debug.zig");
-
-const ERROR_RETURN: u32 = 0xFFFFFFFF; // -1
-const SUCCESS_RETURN: u32 = 0x00000000; // 0
+const syscallUtil = @import("syscallUtil.zig");
 
 // the syscall arguments are passed in registers
 // eax: syscall number
@@ -29,6 +27,9 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
         context.esi,
         context.edi,
     });
+    debug.infoPrint("syscall:  ebp(arg5):           0x{X:0>8}\n", .{
+        context.ebp,
+    });
     defer {
         debug.debugPrint("\n", .{});
         debug.debugPrint("--syscall()\n", .{});
@@ -38,16 +39,26 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
     if (context.eax == 69) {
         const printString: [*:0]u8 = @ptrFromInt(context.ebx);
         debug.printf("syscall print: {s}\n", .{printString});
-        context.eax = SUCCESS_RETURN;
+        context.eax = syscallUtil.SUCCESS_RETURN;
         return;
-    }
-    if (context.eax == 0xF3) {
+    } else if (context.eax == 0xF3) {
         context.eax = __syscall_set_thread_area(@ptrFromInt(context.ebx));
         return;
+    } else if (context.eax == 0xC0) {
+        context.eax = __syscall_mmap(context.ebx, context.ecx, context.edx, context.esi, context.edi, context.ebp);
+        return;
+    } else if (context.eax == 0x2D) {
+        // context.eax = __syscall_brk(context.ebx);
+        context.eax = syscallUtil.ERROR_RETURN;
+        return;
+    } else if (context.eax == 0x5C) {
+        context.eax = __syscall_truncate(@ptrFromInt(context.ebx), context.ecx);
+        return;
+    } else {
+        debug.errorPrint("syscall:  unknown syscall number: 0x{X} or not implumented\n", .{context.eax});
+        context.eax = syscallUtil.ERROR_RETURN;
+        return;
     }
-
-    context.eax = ERROR_RETURN;
-    return;
 }
 
 const gdt = @import("gdt.zig");
@@ -95,10 +106,10 @@ fn __syscall_set_thread_area(userDesc: ?*user_desc) u32 {
                     .{},
                     .{},
                 );
-                return SUCCESS_RETURN;
+                return syscallUtil.SUCCESS_RETURN;
             } else {
                 debug.errorPrint("__syscall_set_thread_area:  user_desc entry number is out of range\n", .{});
-                return ERROR_RETURN;
+                return syscallUtil.ERROR_RETURN;
             }
         } else if (description.entry_number <= gdt.THREAD_TLS_END and description.entry_number >= gdt.THREAD_TLS_START) {
             debug.debugPrint("user_desc entry number is in range\n", .{});
@@ -119,7 +130,7 @@ fn __syscall_set_thread_area(userDesc: ?*user_desc) u32 {
                     .db = description.bitfeild.seg_32bit,
                 },
             );
-            return SUCCESS_RETURN;
+            return syscallUtil.SUCCESS_RETURN;
         } else if (description.entry_number == 0xFFFFFFFF) {
             debug.debugPrint("user_desc entry number is 0xFFFFFFFF(-1) also means i chose\n", .{});
 
@@ -142,16 +153,86 @@ fn __syscall_set_thread_area(userDesc: ?*user_desc) u32 {
                         },
                     );
                     description.entry_number = i;
-                    return SUCCESS_RETURN;
+                    return syscallUtil.SUCCESS_RETURN;
                 }
             }
-            return ERROR_RETURN;
+            return syscallUtil.ERROR_RETURN;
         } else {
             debug.errorPrint("__syscall_set_thread_area:  user_desc entry number is out of range\n", .{});
-            return ERROR_RETURN;
+            return syscallUtil.ERROR_RETURN;
         }
     } else {
         debug.errorPrint("__syscall_set_thread_area:  user_desc is null\n", .{});
-        return ERROR_RETURN;
+        return syscallUtil.ERROR_RETURN;
+    }
+}
+
+const vmm = @import("../../mem/vmm.zig");
+const memory = @import("../../mem/memory.zig");
+const userThread = @import("userLand.zig");
+const mmap_prot = enum(u32) {
+    PROT_READ = 0x1, // Page can be read
+    PROT_WRITE = 0x2, // Page can be written
+    PROT_EXEC = 0x4, // Page can be executed
+    PROT_NONE = 0x0, // Page cannot be accessed
+}; // we dont use protection
+const mmap_flags = enum(u32) {
+    MAP_SHARED = 0x01, // Share this mapping
+    MAP_PRIVATE = 0x02, // Changes are private
+    MAP_FIXED = 0x10, // Interpret addr exactly
+    MAP_ANONYMOUS = 0x20, // Don't use a file
+};
+fn __syscall_mmap(addr: u32, length: u32, prot: u32, flags: u32, fd: u32, pgoffset: u32) u32 {
+    debug.debugPrint("\n", .{});
+    debug.debugPrint("++__syscall_mmap()\n", .{});
+    debug.debugPrint("\n", .{});
+    defer {
+        debug.debugPrint("\n", .{});
+        debug.debugPrint("--__syscall_mmap()\n", .{});
+        debug.debugPrint("\n", .{});
+    }
+    _ = prot;
+    _ = flags;
+    _ = pgoffset;
+    if (length == 0) {
+        debug.errorPrint("__syscall_mmap:  length is 0\n", .{});
+        return syscallUtil.ERROR_RETURN;
+    }
+    const llength: u32 = memory.alignAddressUp(length, memory.PAGE_SIZE);
+
+    if (fd != 0xFFFFFFFF) {
+        debug.errorPrint("__syscall_mmap:  fd is not -1 i dont support file rn\n", .{});
+        return syscallUtil.ERROR_RETURN;
+    }
+    if (addr == 0) {
+        const retSlice = vmm.mapVirtualAddressRange(userThread.threadData.threadBreak, llength) orelse {
+            debug.errorPrint("__syscall_mmap:  failed to map virtual address range\n", .{});
+            return syscallUtil.ERROR_RETURN;
+        };
+        const retaddr: u32 = @intFromPtr(retSlice.ptr);
+        userThread.threadData.threadBreak = retaddr + retSlice.len;
+        debug.debugPrint("mmap:  addr is null, allocated at: 0x{X} length: 0x{X}\n", .{ retaddr, retSlice.len });
+        return retaddr;
+    } else {
+        const retSlice = vmm.mapVirtualAddressRange(addr, llength) orelse {
+            debug.errorPrint("__syscall_mmap:  failed to map virtual address range\n", .{});
+            return syscallUtil.ERROR_RETURN;
+        };
+        const retaddr: u32 = @intFromPtr(retSlice.ptr);
+        debug.debugPrint("mmap:  addr is not null, mapped at: 0x{X} length: 0x{X}\n", .{ retaddr, retSlice.len });
+        return retaddr;
+    }
+}
+
+// fn __syscall_brk(addr: u32) u32 {}
+
+// idk why i did this, but i did, was never called
+fn __syscall_truncate(path: ?[*]u8, length: u32) u32 {
+    if (path) |lpath| {
+        debug.debugPrint("truncate:  path: {s}\n", .{lpath[0..length]});
+        return syscallUtil.SUCCESS_RETURN;
+    } else {
+        debug.debugPrint("__syscall_truncate:  path is null?\n", .{});
+        return syscallUtil.SUCCESS_RETURN;
     }
 }

@@ -624,7 +624,7 @@ pub fn mapForbiddenZones(mbh: *multiboot.multiboot_info) void {
         idPagesRecursivly(
             memory.alignAddress(paddr, memory.PAGE_SIZE),
             memory.alignAddress(paddr, memory.PAGE_SIZE),
-            memory.alignAddressUp(entryLen - 1, memory.PAGE_SIZE),
+            memory.alignAddressUp(entryLen, memory.PAGE_SIZE),
             true,
         ) catch |err| {
             debug.errorPrint("mapForbiddenZones:  Can't id map forbidden zone error: {}\n", .{err});

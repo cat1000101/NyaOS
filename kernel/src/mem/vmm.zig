@@ -86,7 +86,7 @@ pub fn freePages(address: [*]u8, num: usize) void {
 // idk need to check this latter was having brain damage when trying to do something similar without reason ; -;
 pub fn mapVirtualAddressRange(virtualAddr: u32, size: u32) ?[]u8 {
     if (size >= memory.DIR_SIZE * 2) {
-        const lsize = memory.alignAddressUp(size - 1, memory.DIR_SIZE);
+        const lsize = memory.alignAddressUp(size, memory.DIR_SIZE);
         const physicalAddr: u32 = @intFromPtr(pmm.physBitMap.alloc(lsize / memory.PAGE_SIZE) catch |err| {
             debug.errorPrint("vmm.mapVirtualAddressRange:  failed to allocate physical memory: {}\n", .{err});
             return null;
@@ -99,7 +99,7 @@ pub fn mapVirtualAddressRange(virtualAddr: u32, size: u32) ?[]u8 {
             return null;
         };
     } else {
-        const lsize = memory.alignAddressUp(size - 1, memory.PAGE_SIZE);
+        const lsize = memory.alignAddressUp(size, memory.PAGE_SIZE);
         const physicalAddr: u32 = @intFromPtr(pmm.physBitMap.alloc(lsize / memory.PAGE_SIZE) catch |err| {
             debug.errorPrint("vmm.mapVirtualAddressRange:  failed to allocate physical memory: {}\n", .{err});
             return null;
@@ -107,7 +107,7 @@ pub fn mapVirtualAddressRange(virtualAddr: u32, size: u32) ?[]u8 {
         errdefer {
             pmm.physBitMap.free(@ptrFromInt(physicalAddr), lsize / memory.PAGE_SIZE);
         }
-        paging.idPagesRecursivly(virtualAddr, physicalAddr, memory.alignAddressUp(size - 1, memory.PAGE_SIZE), true) catch |err| {
+        paging.idPagesRecursivly(virtualAddr, physicalAddr, memory.alignAddressUp(size, memory.PAGE_SIZE), true) catch |err| {
             debug.errorPrint("vmm.mapVirtualAddressRange:  failed to id map virtual address range: {}\n", .{err});
             return null;
         };

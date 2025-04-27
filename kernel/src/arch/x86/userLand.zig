@@ -12,7 +12,6 @@ pub fn switchToUserMode() void {
     const userStack: usize = 0xAFFFF000; // before the start of the kernel by 1 page
     const userStackBottom: usize = 0xAFC00000; // 1GiB - 4MiB
     const userStackAddress: usize = 0x800000; // 8MiB physical
-    // const programAddress: usize = 0xC00000; // 12MiB physical
     const elfFileMap: usize = 0xC00000; // 12MiB virtual
 
     paging.setBigEntryRecursivly(userStackBottom, userStackAddress, .{
@@ -44,6 +43,10 @@ pub fn switchToUserMode() void {
         return;
     }
     const programEntry = elf.getEntryPoint(fileSlice);
+    threadData = .{
+        .threadEntry = programEntry,
+        .threadBreak = 0x1000000,
+    };
 
     // Set up a stack structure for switching to user mode.
     // 0x23 is the data segment with user privileges.
@@ -75,3 +78,9 @@ pub fn switchToUserMode() void {
     );
     sched.switchContext(highSched.correntContext, highSched.correntContext);
 }
+
+pub const ThreadContext = struct {
+    threadEntry: u32,
+    threadBreak: u32,
+};
+pub var threadData: ThreadContext = undefined;

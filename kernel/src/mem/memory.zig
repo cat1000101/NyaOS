@@ -43,7 +43,7 @@ pub const BitMapAllocatorGeneric = struct {
     end: usize = 0,
     pub fn init(bitmap: []u8, allocationSize: usize, start: usize, end: usize, full: bool) @This() {
         const byte: u8 = if (full) 0xff else 0x00;
-        const lstart = alignAddressUp(start - 1, allocationSize);
+        const lstart = alignAddressUp(start, allocationSize);
         const lend = alignAddressDown(end, allocationSize);
         for (bitmap) |*byteView| {
             byteView.* = byte;
@@ -299,5 +299,5 @@ pub fn alignAddressDown(addr: u32, alignment: usize) u32 {
     return alignAddress(addr - physPageSizes, alignment);
 }
 pub fn alignAddressUp(addr: u32, alignment: usize) u32 {
-    return alignAddress(addr + physPageSizes, alignment);
+    return alignAddress(addr + physPageSizes - 1, alignment);
 }
