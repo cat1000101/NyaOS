@@ -25,8 +25,8 @@ const MultibootHeader = extern struct {
 
 // exporting the multiboot headers so that grub can find it
 export var multibootHeader: MultibootHeader align(4) linksection(".multiboot") = .{
-    .width = 800,
-    .height = 600,
+    .width = 640,
+    .height = 400,
     .depth = 32,
 };
 

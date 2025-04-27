@@ -14,7 +14,7 @@ const syscallUtil = @import("syscallUtil.zig");
 pub export fn syscallHandler(context: *interrupts.CpuState) void {
     debug.debugPrint("\n", .{});
     debug.debugPrint("++syscall()\n", .{});
-    debug.debugPrint("\n", .{});
+    debug.infoPrint("\n", .{});
     debug.infoPrint("syscall:  eax(syscall number): 0x{X:0>8},  ebx(arg0): 0x{X:0>8}\n", .{
         context.eax,
         context.ebx,
@@ -27,11 +27,12 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
         context.esi,
         context.edi,
     });
-    debug.infoPrint("syscall:  ebp(arg5):           0x{X:0>8}\n", .{
+    debug.infoPrint("syscall:  ebp(arg5):           0x{X:0>8},  syscall: {s}\n", .{
         context.ebp,
+        if (context.eax <= 385 and context.eax >= 0) syscallUtil.syscallNames[context.eax] else "unknown",
     });
     defer {
-        debug.debugPrint("\n", .{});
+        debug.infoPrint("\n", .{});
         debug.debugPrint("--syscall()\n", .{});
         debug.debugPrint("\n", .{});
     }
@@ -47,15 +48,14 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
     } else if (context.eax == 0xC0) {
         context.eax = __syscall_mmap(context.ebx, context.ecx, context.edx, context.esi, context.edi, context.ebp);
         return;
-    } else if (context.eax == 0x2D) {
-        // context.eax = __syscall_brk(context.ebx);
-        context.eax = syscallUtil.ERROR_RETURN;
-        return;
     } else if (context.eax == 0x5C) {
         context.eax = __syscall_truncate(@ptrFromInt(context.ebx), context.ecx);
         return;
     } else {
-        debug.errorPrint("syscall:  unknown syscall number: 0x{X} or not implumented\n", .{context.eax});
+        debug.errorPrint("syscall:  not implumented syscall {s} number: 0x{X} \n", .{
+            if (context.eax <= 385 and context.eax >= 0) syscallUtil.syscallNames[context.eax] else "unknown",
+            context.eax,
+        });
         context.eax = syscallUtil.ERROR_RETURN;
         return;
     }
@@ -78,22 +78,16 @@ const user_desc = extern struct {
     },
 };
 fn __syscall_set_thread_area(userDesc: ?*user_desc) u32 {
-    debug.debugPrint("\n", .{});
     debug.debugPrint("++__syscall_set_thread_area()\n", .{});
-    debug.debugPrint("\n", .{});
     defer {
-        debug.debugPrint("\n", .{});
         debug.debugPrint("--__syscall_set_thread_area()\n", .{});
-        debug.debugPrint("\n", .{});
     }
 
     if (userDesc) |description| {
-        debug.debugPrint("\n", .{});
         debug.debugPrint("user_desc.entry_number = 0x{X}\n", .{description.entry_number});
         debug.debugPrint("user_desc.base_addr    = 0x{X}\n", .{description.base_addr});
         debug.debugPrint("user_desc.limit        = 0x{X}\n", .{description.limit});
         debug.debugPrint("user_desc.bitfeild     = {b}\n", .{@as(u32, @bitCast(description.bitfeild))});
-        debug.debugPrint("\n", .{});
 
         if (@as(u32, @bitCast(description.bitfeild)) == user_desc.EMPTY_FLAGS) {
             debug.debugPrint("user_desc is empty\n", .{});
@@ -183,13 +177,9 @@ const mmap_flags = enum(u32) {
     MAP_ANONYMOUS = 0x20, // Don't use a file
 };
 fn __syscall_mmap(addr: u32, length: u32, prot: u32, flags: u32, fd: u32, pgoffset: u32) u32 {
-    debug.debugPrint("\n", .{});
     debug.debugPrint("++__syscall_mmap()\n", .{});
-    debug.debugPrint("\n", .{});
     defer {
-        debug.debugPrint("\n", .{});
         debug.debugPrint("--__syscall_mmap()\n", .{});
-        debug.debugPrint("\n", .{});
     }
     _ = prot;
     _ = flags;
@@ -211,7 +201,7 @@ fn __syscall_mmap(addr: u32, length: u32, prot: u32, flags: u32, fd: u32, pgoffs
         };
         const retaddr: u32 = @intFromPtr(retSlice.ptr);
         userThread.threadData.threadBreak = retaddr + retSlice.len;
-        debug.debugPrint("mmap:  addr is null, allocated at: 0x{X} length: 0x{X}\n", .{ retaddr, retSlice.len });
+        debug.infoPrint("mmap:  addr is null, allocated at: 0x{X} length: 0x{X}\n", .{ retaddr, retSlice.len });
         return retaddr;
     } else {
         const retSlice = vmm.mapVirtualAddressRange(addr, llength) orelse {
@@ -219,12 +209,17 @@ fn __syscall_mmap(addr: u32, length: u32, prot: u32, flags: u32, fd: u32, pgoffs
             return syscallUtil.ERROR_RETURN;
         };
         const retaddr: u32 = @intFromPtr(retSlice.ptr);
-        debug.debugPrint("mmap:  addr is not null, mapped at: 0x{X} length: 0x{X}\n", .{ retaddr, retSlice.len });
+        debug.infoPrint("mmap:  addr is not null, mapped at: 0x{X} length: 0x{X}\n", .{ retaddr, retSlice.len });
         return retaddr;
     }
 }
 
 // fn __syscall_brk(addr: u32) u32 {}
+// else if (context.eax == 0x2D) {
+//         // context.eax = __syscall_brk(context.ebx);
+//         context.eax = syscallUtil.ERROR_RETURN;
+//         return;
+//     }
 
 // idk why i did this, but i did, was never called
 fn __syscall_truncate(path: ?[*]u8, length: u32) u32 {

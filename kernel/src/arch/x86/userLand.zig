@@ -44,7 +44,7 @@ pub fn switchToUserMode() void {
     }
     const programEntry = elf.getEntryPoint(fileSlice);
     threadData = .{
-        .threadEntry = programEntry,
+        .threadEntry = @intFromPtr(programEntry),
         .threadBreak = 0x1000000,
     };
 
