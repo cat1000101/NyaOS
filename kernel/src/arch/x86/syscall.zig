@@ -103,6 +103,7 @@ fn __syscall_set_thread_area(userDesc: ?*user_desc) u32 {
                     .{},
                     .{},
                 );
+                debug.infoPrint("set_thread_area:  set empty gdt entry in entry: #{}\n", .{description.entry_number});
                 return syscallUtil.SUCCESS_RETURN;
             } else {
                 debug.errorPrint("__syscall_set_thread_area:  user_desc entry number is out of range\n", .{});
@@ -127,6 +128,10 @@ fn __syscall_set_thread_area(userDesc: ?*user_desc) u32 {
                     .db = description.bitfeild.seg_32bit,
                 },
             );
+            debug.infoPrint("set_thread_area:  set entry: #{}, gdt entry {}\n", .{
+                gdt.getGdtEntry(description.entry_number),
+                description.entry_number,
+            });
             return syscallUtil.SUCCESS_RETURN;
         } else if (description.entry_number == 0xFFFFFFFF) {
             debug.debugPrint("user_desc entry number is 0xFFFFFFFF(-1) also means i chose\n", .{});
@@ -150,6 +155,10 @@ fn __syscall_set_thread_area(userDesc: ?*user_desc) u32 {
                         },
                     );
                     description.entry_number = i;
+                    debug.infoPrint("set_thread_area:  set chosen entry: #{}, gdt entry {}\n", .{
+                        gdt.getGdtEntry(description.entry_number),
+                        description.entry_number,
+                    });
                     return syscallUtil.SUCCESS_RETURN;
                 }
             }

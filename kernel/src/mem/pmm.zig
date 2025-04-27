@@ -22,6 +22,7 @@ pub fn initPmm() void {
     );
     // physBitMap.debugPrint();
     // testPageAllocator();
+    debug.infoPrint("pmm initilized\n", .{});
 }
 
 pub fn testPageAllocator() void {

@@ -44,7 +44,10 @@ pub const BitMapAllocatorGeneric = struct {
     pub fn init(bitmap: []u8, allocationSize: usize, start: usize, end: usize, full: bool) @This() {
         const byte: u8 = if (full) 0xff else 0x00;
         const lstart = alignAddressUp(start, allocationSize);
-        const lend = alignAddressDown(end, allocationSize);
+        var lend = alignAddressDown(end, allocationSize);
+        if (lend - lstart < bitmap.len * 8 * allocationSize) {
+            lend = lstart + (bitmap.len * 8 * allocationSize);
+        }
         for (bitmap) |*byteView| {
             byteView.* = byte;
         }
@@ -193,24 +196,6 @@ pub const BitMapAllocatorGeneric = struct {
         return true;
     }
 
-    pub fn isAligned(this: *@This(), addr: usize) bool {
-        return (addr & (this.allocationSize - 1)) == 0;
-    }
-    pub fn set(this: *@This(), index: usize) void {
-        const byteIndex = index / 8;
-        const bitIndex: u3 = @intCast(index % 8);
-        this.bitmap[byteIndex] |= (@as(u8, 1) << bitIndex);
-    }
-    pub fn clear(this: *@This(), index: usize) void {
-        const byteIndex = index / 8;
-        const bitIndex: u3 = @intCast(index % 8);
-        this.bitmap[byteIndex] &= ~(@as(u8, 1) << bitIndex);
-    }
-    pub fn check(this: *@This(), index: usize) bool {
-        const byteIndex = index / 8;
-        const bitIndex: u3 = @intCast(index % 8);
-        return (this.bitmap[byteIndex] & (@as(u8, 1) << bitIndex)) != 0;
-    }
     pub fn setUsableMemory(this: *@This(), mbh: *multiboot.multiboot_info) void {
         debug.debugPrint("++setting usable memory for page allocator\n", .{});
         defer debug.debugPrint("--finished usable memory setting?\n", .{});
@@ -218,7 +203,6 @@ pub const BitMapAllocatorGeneric = struct {
         const header = mbh;
         const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
         const startIndex = this.start / this.allocationSize;
-        const endIndex = this.end / this.allocationSize;
         for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
             const start = alignAddressUp(@intCast(entry.addr), this.allocationSize);
             var end: u32 = 0;
@@ -241,9 +225,6 @@ pub const BitMapAllocatorGeneric = struct {
             if (entryEndIndex < startIndex) {
                 debug.debugPrint("memory.setUsableMemory:  entry not in range(before)\n", .{});
                 continue;
-            } else if (entryStartIndex > endIndex) {
-                debug.debugPrint("memory.setUsableMemory:  entry not in range(after)\n", .{});
-                break;
             } else if (entryStartIndex > this.size + startIndex) {
                 debug.debugPrint("memory.setUsableMemory:  entry start index out of range\n", .{});
                 break;
@@ -251,17 +232,14 @@ pub const BitMapAllocatorGeneric = struct {
             if (startIndex > entryStartIndex) {
                 entryStartIndex = startIndex;
             }
-            if (endIndex < entryEndIndex) {
-                entryEndIndex = endIndex;
+            if (this.size + startIndex < entryEndIndex) {
+                entryEndIndex = this.size + startIndex;
             }
 
             for (entryStartIndex..entryEndIndex) |index| {
                 if (entry.type != 1) {
                     this.set(index - startIndex);
                     continue;
-                } else if (index >= this.size) {
-                    debug.debugPrint("memory.setUsableMemory:  entry index out of range\n", .{});
-                    break;
                 }
                 const address = index * this.allocationSize;
                 if (address <= physMemStart or (address >= @intFromPtr(kernel_physical_start) and address <= @intFromPtr(kernel_physical_end)) or (address >= @intFromPtr(kernel_start) and address <= @intFromPtr(kernel_end))) {
@@ -271,6 +249,63 @@ pub const BitMapAllocatorGeneric = struct {
                 this.clear(index - startIndex);
             }
         }
+
+        debug.debugPrint("\n", .{});
+
+        const moudleList = multiboot.getModuleInfo() orelse {
+            debug.debugPrint("memory.setUsableMemory:  failed to get module list\n", .{});
+            return;
+        };
+        for (moudleList) |moudle| {
+            const moudleStart = alignAddress(moudle.mod_start, this.allocationSize);
+            const moudleEnd = alignAddressUp(moudle.mod_end, this.allocationSize);
+
+            var moudleStartIndex = moudleStart / this.allocationSize;
+            var moudleEndIndex = moudleEnd / this.allocationSize;
+
+            debug.debugPrint("memory.setUsableMemory:  moudle start index: {} moudle end index: {} start,end {},{}\n", .{
+                moudleStartIndex,
+                moudleEndIndex,
+                moudleStart,
+                moudleEnd,
+            });
+
+            if (moudleEndIndex < startIndex) {
+                debug.debugPrint("memory.setUsableMemory:  entry not in range(before)\n", .{});
+                continue;
+            } else if (moudleStartIndex > this.size + startIndex) {
+                debug.debugPrint("memory.setUsableMemory:  entry start index out of range\n", .{});
+                break;
+            }
+            if (startIndex > moudleStartIndex) {
+                moudleStartIndex = startIndex;
+            }
+            if (this.size + startIndex < moudleEndIndex) {
+                moudleEndIndex = this.size + startIndex;
+            }
+
+            for (moudleStartIndex..moudleEndIndex) |index| {
+                this.set(index - startIndex);
+            }
+        }
+    }
+    pub fn isAligned(this: *@This(), addr: usize) bool {
+        return (addr & (this.allocationSize - 1)) == 0;
+    }
+    pub fn set(this: *@This(), index: usize) void {
+        const byteIndex = index / 8;
+        const bitIndex: u3 = @intCast(index % 8);
+        this.bitmap[byteIndex] |= (@as(u8, 1) << bitIndex);
+    }
+    pub fn clear(this: *@This(), index: usize) void {
+        const byteIndex = index / 8;
+        const bitIndex: u3 = @intCast(index % 8);
+        this.bitmap[byteIndex] &= ~(@as(u8, 1) << bitIndex);
+    }
+    pub fn check(this: *@This(), index: usize) bool {
+        const byteIndex = index / 8;
+        const bitIndex: u3 = @intCast(index % 8);
+        return (this.bitmap[byteIndex] & (@as(u8, 1) << bitIndex)) != 0;
     }
     pub fn debugPrint(this: *@This()) void {
         debug.infoPrint("++memory bitmap debug print\n", .{});
@@ -284,7 +319,7 @@ pub const BitMapAllocatorGeneric = struct {
                 if (this.check(index) == true) {
                     debug.printf("10x{X} ", .{address});
                 } else {
-                    debug.printf("00x{X} ", .{address});
+                    // debug.printf("00x{X} ", .{address});
                 }
             }
         }

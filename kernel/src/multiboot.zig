@@ -244,13 +244,13 @@ pub fn getVideoFrameBuffer() ?struct {
     };
 }
 
-pub fn getModuleInfo() ?[*]multiboot_mod_list {
+pub fn getModuleInfo() ?[]multiboot_mod_list {
     const header = multibootInfo;
     if (header.mods_addr == 0) {
         debug.printf("No module list found\n", .{});
         return null;
     }
-    const modList: [*]multiboot_mod_list = @ptrFromInt(header.mods_addr);
+    const modList = @as([*]multiboot_mod_list, @ptrFromInt(header.mods_addr))[0..header.mods_count];
     // for (0..header.mods_count) |i| {
     //     debug.printf(
     //         "Module {d}: start: 0x{X} end: 0x{X} cmdline: 0x{X}\n",

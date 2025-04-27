@@ -9,10 +9,10 @@ const elf = @import("../../drivers/elf.zig");
 
 pub fn switchToUserMode() void {
     // Set up the stack for user mode.
-    const userStack: usize = 0xAFFFF000; // before the start of the kernel by 1 page
-    const userStackBottom: usize = 0xAFC00000; // 1GiB - 4MiB
-    const userStackAddress: usize = 0x800000; // 8MiB physical
-    const elfFileMap: usize = 0xC00000; // 12MiB virtual
+    const userStack: usize = 0xAFFFF000; // 2.75GiB - 4KiB virtual
+    const userStackBottom: usize = 0xAFC00000; // 2.75GiB - 4MiB virtual
+    const userStackAddress: usize = 0x2000000; // 32MiB physical
+    const elfFileMap: usize = 0x1800000; // 24MiB virtual
 
     paging.setBigEntryRecursivly(userStackBottom, userStackAddress, .{
         .page_size = 1,
@@ -29,6 +29,7 @@ pub fn switchToUserMode() void {
     };
     const physcialAddress: u32 = moudleList[0].mod_start;
     const length: u32 = moudleList[0].mod_end - moudleList[0].mod_start;
+    debug.infoPrint("elf file physical location: 0x{X} length: 0x{X}\n", .{ physcialAddress, length });
 
     paging.idPagesRecursivly(elfFileMap, physcialAddress, memory.alignAddressUp(length, memory.PAGE_SIZE), true) catch {
         debug.errorPrint("userLand.switchToUserMode:  failed to id map virtual address range\n", .{});

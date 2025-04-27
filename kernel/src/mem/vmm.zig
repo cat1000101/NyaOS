@@ -25,6 +25,7 @@ pub fn initVmm() void {
     paging.mapForbiddenZones(multiboot.multibootInfo);
 
     kmalloc.init();
+    debug.infoPrint("vmm initilized\n", .{});
 }
 
 pub fn allocatePages(num: usize) ?[*]u8 {
