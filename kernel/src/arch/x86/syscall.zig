@@ -15,6 +15,19 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
     debug.debugPrint("\n", .{});
     debug.debugPrint("++syscall()\n", .{});
     debug.infoPrint("\n", .{});
+    defer {
+        debug.infoPrint("\n", .{});
+        debug.debugPrint("--syscall()\n", .{});
+        debug.debugPrint("\n", .{});
+    }
+
+    if (context.eax == 69) {
+        const printString: [*:0]u8 = @ptrFromInt(context.ebx);
+        debug.printf("syscall print: {s}\n", .{printString});
+        context.eax = syscallUtil.SUCCESS_RETURN;
+        return;
+    }
+
     debug.infoPrint("syscall:  eax(syscall number): 0x{X:0>8},  ebx(arg0): 0x{X:0>8}\n", .{
         context.eax,
         context.ebx,
@@ -31,18 +44,8 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
         context.ebp,
         if (context.eax <= 385 and context.eax >= 0) syscallUtil.syscallNames[context.eax] else "unknown",
     });
-    defer {
-        debug.infoPrint("\n", .{});
-        debug.debugPrint("--syscall()\n", .{});
-        debug.debugPrint("\n", .{});
-    }
 
-    if (context.eax == 69) {
-        const printString: [*:0]u8 = @ptrFromInt(context.ebx);
-        debug.printf("syscall print: {s}\n", .{printString});
-        context.eax = syscallUtil.SUCCESS_RETURN;
-        return;
-    } else if (context.eax == 0xF3) {
+    if (context.eax == 0xF3) {
         context.eax = __syscall_set_thread_area(@ptrFromInt(context.ebx));
         return;
     } else if (context.eax == 0xC0) {

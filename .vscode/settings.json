@@ -6,6 +6,9 @@
     "files.associations": {
         "doomkeys.h": "c",
         "string.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "stdio.h": "c",
+        "stdarg.h": "c",
+        "nyaosstdio.h": "c"
     }
 }
