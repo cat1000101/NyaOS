@@ -336,3 +336,6 @@ pub fn alignAddressDown(addr: u32, alignment: usize) u32 {
 pub fn alignAddressUp(addr: u32, alignment: usize) u32 {
     return alignAddress(addr + physPageSizes - 1, alignment);
 }
+pub fn isAligned(addr: u32, alignment: usize) bool {
+    return (addr & (alignment - 1)) == 0;
+}

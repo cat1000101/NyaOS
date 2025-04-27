@@ -343,7 +343,7 @@ pub fn getPageTableRecursivlyAlways(index: u32) !*PageTable {
 }
 
 /// should only be used when using kernel space page directory as the current page directory
-/// /// will always try to set page table entry and if it doesnt exist it will allocate and make a new one
+/// will always try to set page table entry and if it doesnt exist it will allocate and make a new one
 pub fn setPageTableEntryRecursivlyAlways(vaddr: u32, paddr: u32, flags: PageTableEntry.Flags) !void {
     const split: AddressSplit = @bitCast(vaddr);
     const pageTable = getPageTableRecursivlyAlways(split.directoryEntry) catch |err| {

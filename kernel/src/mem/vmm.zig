@@ -77,7 +77,7 @@ pub fn freePages(address: [*]u8, num: usize) void {
             return;
         };
         pmm.physBitMap.free(@ptrFromInt(physAddr), 1);
-        paging.setPageTableEntryRecursivly(@intFromPtr(address) + i * memory.PAGE_SIZE, 0, .{}) catch |setErr| {
+        paging.setPageTableEntryRecursivlyAlways(@intFromPtr(address) + i * memory.PAGE_SIZE, 0, .{}) catch |setErr| {
             debug.errorPrint("vmm.allocatePage:  failed to set page table entry: {}\n", .{setErr});
         };
     }
@@ -86,34 +86,39 @@ pub fn freePages(address: [*]u8, num: usize) void {
 
 // idk need to check this latter was having brain damage when trying to do something similar without reason ; -;
 pub fn mapVirtualAddressRange(virtualAddr: u32, size: u32) ?[]u8 {
-    if (size >= memory.DIR_SIZE * 2) {
-        const lsize = memory.alignAddressUp(size, memory.DIR_SIZE);
-        const physicalAddr: u32 = @intFromPtr(pmm.physBitMap.alloc(lsize / memory.PAGE_SIZE) catch |err| {
-            debug.errorPrint("vmm.mapVirtualAddressRange:  failed to allocate physical memory: {}\n", .{err});
-            return null;
+    if (!memory.isAligned(virtualAddr, memory.PAGE_SIZE)) {
+        debug.errorPrint("vmm.mapVirtualAddressRange:  virtual address is not aligned virtualAddr: 0x{X}\n", .{
+            virtualAddr,
         });
-        errdefer {
-            pmm.physBitMap.free(@ptrFromInt(physicalAddr), lsize / memory.PAGE_SIZE);
-        }
-        paging.idBigPagesRecursivly(virtualAddr, physicalAddr, lsize, true) catch |err| {
-            debug.errorPrint("vmm.mapVirtualAddressRange:  failed to big id map virtual address range: {}\n", .{err});
-            return null;
-        };
-    } else {
-        const lsize = memory.alignAddressUp(size, memory.PAGE_SIZE);
-        const physicalAddr: u32 = @intFromPtr(pmm.physBitMap.alloc(lsize / memory.PAGE_SIZE) catch |err| {
-            debug.errorPrint("vmm.mapVirtualAddressRange:  failed to allocate physical memory: {}\n", .{err});
-            return null;
-        });
-        errdefer {
-            pmm.physBitMap.free(@ptrFromInt(physicalAddr), lsize / memory.PAGE_SIZE);
-        }
-        paging.idPagesRecursivly(virtualAddr, physicalAddr, memory.alignAddressUp(size, memory.PAGE_SIZE), true) catch |err| {
-            debug.errorPrint("vmm.mapVirtualAddressRange:  failed to id map virtual address range: {}\n", .{err});
-            return null;
-        };
+        return null;
     }
-    const memoryRangeSlice = @as([*]u8, @ptrFromInt(virtualAddr))[0..size];
+    // if (size >= memory.DIR_SIZE * 2) {
+    //     const lsize = memory.alignAddressUp(size, memory.DIR_SIZE);
+    //     const physicalAddr: u32 = @intFromPtr(pmm.physBitMap.alloc(lsize / memory.PAGE_SIZE) catch |err| {
+    //         debug.errorPrint("vmm.mapVirtualAddressRange:  failed to allocate physical memory: {}\n", .{err});
+    //         return null;
+    //     });
+    //     errdefer {
+    //         pmm.physBitMap.free(@ptrFromInt(physicalAddr), lsize / memory.PAGE_SIZE);
+    //     }
+    //     paging.idBigPagesRecursivly(virtualAddr, physicalAddr, lsize, true) catch |err| {
+    //         debug.errorPrint("vmm.mapVirtualAddressRange:  failed to big id map virtual address range: {}\n", .{err});
+    //         return null;
+    //     };
+    // } else {
+    const lsize = memory.alignAddressUp(size, memory.PAGE_SIZE);
+    const physicalAddr: u32 = @intFromPtr(pmm.physBitMap.alloc(lsize / memory.PAGE_SIZE) catch |err| {
+        debug.errorPrint("vmm.mapVirtualAddressRange:  failed to allocate physical memory: {}\n", .{err});
+        return null;
+    });
+
+    paging.idPagesRecursivly(virtualAddr, physicalAddr, lsize, true) catch |err| {
+        debug.errorPrint("vmm.mapVirtualAddressRange:  failed to id map virtual address range: {}\n", .{err});
+        pmm.physBitMap.free(@ptrFromInt(physicalAddr), lsize / memory.PAGE_SIZE);
+        return null;
+    };
+    // }
+    const memoryRangeSlice = @as([*]u8, @ptrFromInt(virtualAddr))[0..lsize];
     @memset(memoryRangeSlice, 0);
     return memoryRangeSlice;
 }

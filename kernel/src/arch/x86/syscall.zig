@@ -12,6 +12,17 @@ const syscallUtil = @import("syscallUtil.zig");
 // ebp: arg5
 
 pub export fn syscallHandler(context: *interrupts.CpuState) void {
+    if (context.eax == 69) {
+        const printString: [*:0]u8 = @ptrFromInt(context.ebx);
+        debug.printf("{s}\n", .{printString});
+        context.eax = syscallUtil.SUCCESS_RETURN;
+        return;
+    } else if (context.eax == 420) {
+        debug.printf("{c}", .{@as(u8, @truncate(context.ebx))});
+        context.eax = syscallUtil.SUCCESS_RETURN;
+        return;
+    }
+
     debug.debugPrint("\n", .{});
     debug.debugPrint("++syscall()\n", .{});
     debug.infoPrint("\n", .{});
@@ -19,13 +30,6 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
         debug.infoPrint("\n", .{});
         debug.debugPrint("--syscall()\n", .{});
         debug.debugPrint("\n", .{});
-    }
-
-    if (context.eax == 69) {
-        const printString: [*:0]u8 = @ptrFromInt(context.ebx);
-        debug.printf("syscall print: {s}\n", .{printString});
-        context.eax = syscallUtil.SUCCESS_RETURN;
-        return;
     }
 
     debug.infoPrint("syscall:  eax(syscall number): 0x{X:0>8},  ebx(arg0): 0x{X:0>8}\n", .{
@@ -50,6 +54,9 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
         return;
     } else if (context.eax == 0xC0) {
         context.eax = __syscall_mmap(context.ebx, context.ecx, context.edx, context.esi, context.edi, context.ebp);
+        return;
+    } else if (context.eax == 0x2D) {
+        context.eax = __syscall_brk(context.ebx);
         return;
     } else if (context.eax == 0x5C) {
         context.eax = __syscall_truncate(@ptrFromInt(context.ebx), context.ecx);
@@ -207,13 +214,13 @@ fn __syscall_mmap(addr: u32, length: u32, prot: u32, flags: u32, fd: u32, pgoffs
         return syscallUtil.ERROR_RETURN;
     }
     if (addr == 0) {
-        const retSlice = vmm.mapVirtualAddressRange(userThread.threadData.threadBreak, llength) orelse {
+        const retSlice = vmm.mapVirtualAddressRange(userThread.threadData.threadRandomHeap, llength) orelse {
             debug.errorPrint("__syscall_mmap:  failed to map virtual address range\n", .{});
             return syscallUtil.ERROR_RETURN;
         };
         const retaddr: u32 = @intFromPtr(retSlice.ptr);
-        userThread.threadData.threadBreak = retaddr + retSlice.len;
-        debug.infoPrint("mmap:  addr is null, allocated at: 0x{X} length: 0x{X}\n", .{ retaddr, retSlice.len });
+        userThread.threadData.threadRandomHeap = retaddr + retSlice.len;
+        debug.infoPrint("__syscall_mmap:  addr is null, allocated at: 0x{X} length: 0x{X}\n", .{ retaddr, retSlice.len });
         return retaddr;
     } else {
         const retSlice = vmm.mapVirtualAddressRange(addr, llength) orelse {
@@ -221,19 +228,44 @@ fn __syscall_mmap(addr: u32, length: u32, prot: u32, flags: u32, fd: u32, pgoffs
             return syscallUtil.ERROR_RETURN;
         };
         const retaddr: u32 = @intFromPtr(retSlice.ptr);
-        debug.infoPrint("mmap:  addr is not null, mapped at: 0x{X} length: 0x{X}\n", .{ retaddr, retSlice.len });
+        debug.infoPrint("__syscall_mmap:  addr is not null, mapped at: 0x{X} length: 0x{X}\n", .{ retaddr, retSlice.len });
         return retaddr;
     }
 }
 
-// fn __syscall_brk(addr: u32) u32 {}
-// else if (context.eax == 0x2D) {
-//         // context.eax = __syscall_brk(context.ebx);
-//         context.eax = syscallUtil.ERROR_RETURN;
-//         return;
-//     }
+fn __syscall_brk(addr: u32) u32 {
+    if (addr == 0) {
+        debug.infoPrint("__syscall_brk:  addr is null corrent break: 0x{X}\n", .{userThread.threadData.threadBreak});
+        return userThread.threadData.threadBreak;
+    } else if (addr >= memory.KERNEL_ADDRESS_SPACE) {
+        debug.errorPrint("__syscall_brk:  it wanted to expand to kernel: 0x{X} nughty nughty\n", .{addr});
+        return userThread.threadData.threadBreak;
+    } else if (addr > userThread.threadData.threadBreak) {
+        const alignedAddr = memory.alignAddressUp(addr, memory.PAGE_SIZE);
+        const retSlice = vmm.mapVirtualAddressRange(userThread.threadData.threadBreak, alignedAddr - userThread.threadData.threadBreak) orelse {
+            debug.errorPrint("__syscall_brk:  failed to allocate pages\n", .{});
+            return userThread.threadData.threadBreak;
+        };
+        debug.infoPrint("__syscall_brk:  expand from 0x{X} to: 0x{X}\n", .{
+            userThread.threadData.threadBreak,
+            @intFromPtr(retSlice.ptr) + retSlice.len,
+        });
+        userThread.threadData.threadBreak = @intFromPtr(retSlice.ptr) + retSlice.len;
+        return userThread.threadData.threadBreak;
+    } else if (addr < userThread.threadData.threadBreak) {
+        debug.infoPrint("__syscall_brk:  shrink from 0x{X} to: 0x{X}\n", .{
+            userThread.threadData.threadBreak,
+            addr,
+        });
+        const alignedAddr = memory.alignAddressUp(addr, memory.PAGE_SIZE);
+        vmm.freePages(@ptrFromInt(alignedAddr), (userThread.threadData.threadBreak - alignedAddr) / memory.PAGE_SIZE);
+        userThread.threadData.threadBreak = alignedAddr;
+        return userThread.threadData.threadBreak;
+    }
+    return userThread.threadData.threadBreak;
+}
 
-// idk why i did this, but i did, was never called
+// idk why i did this, but i did, was never called (oh i was looking at the wrong syscall table)
 fn __syscall_truncate(path: ?[*]u8, length: u32) u32 {
     if (path) |lpath| {
         debug.debugPrint("truncate:  path: {s}\n", .{lpath[0..length]});

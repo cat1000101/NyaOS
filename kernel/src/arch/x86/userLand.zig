@@ -12,7 +12,8 @@ pub fn switchToUserMode() void {
     const userStack: usize = 0xAFFFF000; // 2.75GiB - 4KiB virtual
     const userStackBottom: usize = 0xAFC00000; // 2.75GiB - 4MiB virtual
     const userStackAddress: usize = 0x2000000; // 32MiB physical
-    const elfFileMap: usize = 0x1800000; // 24MiB virtual
+    const elfFileMap: usize = 0x10000000; // 256MiB virtual
+    const programRandomHeap: usize = 0xA0000000; // 2.5GiB virtual
 
     paging.setBigEntryRecursivly(userStackBottom, userStackAddress, .{
         .page_size = 1,
@@ -39,14 +40,15 @@ pub fn switchToUserMode() void {
     const fileManyPointer: [*]u8 = @ptrFromInt(elfFileMap);
     const fileSlice: []u8 = fileManyPointer[0..length];
 
-    if (!elf.loadFile(fileSlice)) {
-        debug.errorPrint("userLand.switchToUserMode:  failed to load elf file\n", .{});
+    const programMemory = elf.loadFile(fileSlice) catch |err| {
+        debug.errorPrint("userLand.switchToUserMode:  failed to load elf: {}\n", .{err});
         return;
-    }
+    };
     const programEntry = elf.getEntryPoint(fileSlice);
     threadData = .{
         .threadEntry = @intFromPtr(programEntry),
-        .threadBreak = 0x1000000,
+        .threadBreak = programMemory.len + @intFromPtr(programMemory.ptr),
+        .threadRandomHeap = programRandomHeap,
     };
 
     // Set up a stack structure for switching to user mode.
@@ -83,5 +85,6 @@ pub fn switchToUserMode() void {
 pub const ThreadContext = struct {
     threadEntry: u32,
     threadBreak: u32,
+    threadRandomHeap: u32,
 };
 pub var threadData: ThreadContext = undefined;

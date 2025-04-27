@@ -12,6 +12,15 @@ const Elf32Addr = u32;
 const Elf32Off = u32;
 const Elf32Sword = i32;
 
+pub const ElfError = error{
+    /// The ELF file is not supported
+    UnsupportedElf,
+    /// The ELF file is not a valid ELF file
+    InvalidElf,
+    /// wasn't able to load the program
+    LoadProgramFailed,
+};
+
 const Elf32Ehdr = extern struct {
     /// e_ident The initial bytes mark the file as an object file and provide machine-independent
     /// data with which to decode and interpret the file's contents.
@@ -470,11 +479,11 @@ pub fn isSupportedElf(elfHdr: *Elf32Ehdr) bool {
     return true;
 }
 
-pub fn loadFile(File: []u8) bool {
+pub fn loadFile(File: []u8) ElfError![]u8 {
     const elfHdr: *Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
     if (!isSupportedElf(elfHdr)) {
         debug.errorPrint("loadFile:  unsupported ELF file\n", .{});
-        return false;
+        return ElfError.InvalidElf;
     }
 
     switch (elfHdr.type) {
@@ -483,12 +492,12 @@ pub fn loadFile(File: []u8) bool {
         },
         else => {
             debug.errorPrint("loadFile:  unsupported ELF file type\n", .{});
-            return false;
+            return ElfError.UnsupportedElf;
         },
     }
 }
 
-pub fn loadFileExec(elfHdr: *Elf32Ehdr, File: []u8) bool {
+pub fn loadFileExec(elfHdr: *Elf32Ehdr, File: []u8) ElfError![]u8 {
     const phdrSlice = getPhdrSlice(elfHdr);
 
     var lo_addr: usize = 0;
@@ -525,11 +534,9 @@ pub fn loadFileExec(elfHdr: *Elf32Ehdr, File: []u8) bool {
 
     const programMemory = vmm.mapVirtualAddressRange(lo_addr, hi_addr - lo_addr) orelse {
         debug.errorPrint("loadFileExec:  failed to map virtual address range\n", .{});
-        return false;
+        return ElfError.LoadProgramFailed;
     };
-    errdefer {
-        vmm.freePages(programMemory, (hi_addr - lo_addr) / memory.PAGE_SIZE);
-    }
+    debug.infoPrint("Mapped program memory:  0x{X} - 0x{X}\n", .{ lo_addr, hi_addr });
 
     for (phdrSlice) |phdr| {
         if (phdr.p_type != Elf32Phdr.Elf32PhdrType.LOAD) continue;
@@ -553,7 +560,7 @@ pub fn loadFileExec(elfHdr: *Elf32Ehdr, File: []u8) bool {
     // }
     // debug.printf("\n", .{});
 
-    return true;
+    return programMemory;
 }
 
 pub fn getEntryPoint(File: []u8) *u8 {
