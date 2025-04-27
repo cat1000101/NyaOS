@@ -7,7 +7,7 @@ pub fn build(b: *Builder) void {
     const kernel_dep = b.dependency("kernel", .{});
     const user_dep = b.dependency("apps", .{});
 
-    const user_exe = user_dep.artifact("program");
+    const user_exe = user_dep.artifact("program.elf");
     const user_exe_step = &b.addInstallArtifact(user_exe, .{
         .dest_dir = .{
             .override = .{

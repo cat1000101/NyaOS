@@ -6,6 +6,9 @@
             "type": "lldb",
             "request": "attach",
             "program": "${workspaceFolder}/zig-out/extra/kernel.elf",
+            "preRunCommands": [
+                "target module add ${workspaceFolder}/zig-out/extra/program.elf",
+            ],
             "processCreateCommands": [
                 "gdb-remote localhost:1234",
                 "b kmain",
