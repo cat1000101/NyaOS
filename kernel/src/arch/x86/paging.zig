@@ -447,6 +447,23 @@ pub fn idBigPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void
     }
 }
 
+pub fn unMap(address: u32, size: u32) !void {
+    debug.debugPrint("++unmapping pages\n", .{});
+    defer debug.debugPrint("--unmapped pages\n", .{});
+
+    var lsize: u32 = size;
+    var lvaddr: u32 = address;
+    while (lsize > 0) : ({
+        lvaddr += memory.PAGE_SIZE;
+        lsize -= memory.PAGE_SIZE;
+    }) {
+        setPageTableEntryRecursivlyAlways(lvaddr, 0, .{}) catch |err| {
+            debug.errorPrint("unMap:  Can't unmap virtual page, error: {}\n", .{err});
+            return err;
+        };
+    }
+}
+
 pub fn getPageDirectoryRecursivly() *PageDirectory {
     const lpageDirectory: *PageDirectory = @ptrFromInt(RECURSIVE_PAGE_DIRECTORY_ADDRESS);
     return lpageDirectory;

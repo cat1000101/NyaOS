@@ -24,15 +24,18 @@ pub fn build(b: *Builder) void {
         .cpu_features_add = enabled_features,
     });
 
-    const userModule = b.createModule(.{
-        .optimize = .Debug,
-        .target = target,
-        .root_source_file = b.path("src/testProgram.zig"),
-        .code_model = .default, // may need to change this to something else
-    });
+    const userModule = b.addModule(
+        "test",
+        .{
+            .optimize = .Debug,
+            .target = target,
+            .root_source_file = b.path("src/testProgram.zig"),
+            .code_model = .default, // may need to change this to something else
+        },
+    );
 
     const userExe = b.addExecutable(.{
-        .name = "program.elf",
+        .name = "testProgram.elf",
         .root_module = userModule,
     });
 

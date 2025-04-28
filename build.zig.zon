@@ -16,14 +16,5 @@
         },
     },
 
-    .paths = .{
-        "build.zig",
-        "build.zig.zon",
-        "LICENSE",
-        "README.md",
-        "kernel",
-        "bootloader",
-        "modules",
-        "", // maybe remove? i am not sure about conventions, update: ok i dont care, conventions are for the weak
-    },
+    .paths = .{"."},
 }

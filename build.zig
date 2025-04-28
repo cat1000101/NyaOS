@@ -7,7 +7,8 @@ pub fn build(b: *Builder) void {
     const kernel_dep = b.dependency("kernel", .{});
     const user_dep = b.dependency("apps", .{});
 
-    const user_exe = user_dep.artifact("program.elf");
+    const user_exe = user_dep.artifact("doomgeneric.elf");
+    const doomgenericWadFile = user_dep.namedLazyPath("doom1.wad");
     const user_exe_step = &b.addInstallArtifact(user_exe, .{
         .dest_dir = .{
             .override = .{
@@ -32,7 +33,8 @@ pub fn build(b: *Builder) void {
     // setting the paths and commands
     const grub_path = b.path("bootloader/grub.cfg");
     const kernel_sys = "sysroot/boot/kernel.elf";
-    const user_modules_sys = "sysroot/modules/program";
+    const user_modules_sys = "sysroot/modules/doomgeneric.elf";
+    const doomgenericWadFile_sys = "sysroot/modules/doom1.wad";
     const grub_sys = "sysroot/boot/grub/grub.cfg";
     const iso_cmd = [_][]const u8{ "grub2-mkrescue", "-o" };
     const common_qemu_args = [_][]const u8{
@@ -55,6 +57,7 @@ pub fn build(b: *Builder) void {
     // const sysroot_path = wf.add(sub_path: []const u8, bytes: []const u8);
     _ = wf.addCopyFile(kernel_path, kernel_sys);
     _ = wf.addCopyFile(user_path, user_modules_sys);
+    _ = wf.addCopyFile(doomgenericWadFile, doomgenericWadFile_sys);
     _ = wf.addCopyFile(grub_path, grub_sys);
 
     const sysroot_extra_step = &b.addInstallDirectory(.{

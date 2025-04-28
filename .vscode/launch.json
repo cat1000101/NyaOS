@@ -7,7 +7,7 @@
             "request": "attach",
             "program": "${workspaceFolder}/zig-out/extra/kernel.elf",
             "preRunCommands": [
-                "target module add ${workspaceFolder}/zig-out/extra/program.elf",
+                "target module add ${workspaceFolder}/zig-out/extra/doomgeneric.elf",
             ],
             "processCreateCommands": [
                 "gdb-remote localhost:1234",

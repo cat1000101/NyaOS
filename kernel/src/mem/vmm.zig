@@ -70,18 +70,19 @@ pub fn allocatePages(num: usize) ?[*]u8 {
     return page;
 }
 
-pub fn freePages(address: [*]u8, num: usize) void {
+pub fn freePages(address: [*]u8, num: usize) !void {
+    defer virtualBitMap.free(address, num);
     for (0..num) |i| {
         const physAddr = paging.virtualToPhysical(@intFromPtr(address) + i * memory.PAGE_SIZE) catch |err| {
             debug.errorPrint("vmm.freePage:  failed to get physical address: {}\n", .{err});
-            return;
+            return err;
         };
         pmm.physBitMap.free(@ptrFromInt(physAddr), 1);
         paging.setPageTableEntryRecursivlyAlways(@intFromPtr(address) + i * memory.PAGE_SIZE, 0, .{}) catch |setErr| {
             debug.errorPrint("vmm.allocatePage:  failed to set page table entry: {}\n", .{setErr});
+            return setErr;
         };
     }
-    virtualBitMap.free(address, num);
 }
 
 // idk need to check this latter was having brain damage when trying to do something similar without reason ; -;

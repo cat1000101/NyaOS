@@ -1,20 +1,18 @@
 const debug = @import("debug.zig");
 const paging = @import("paging.zig");
-const vmm = @import("../../mem/vmm.zig");
-const memory = @import("../../mem/memory.zig");
-const multiboot = @import("../../multiboot.zig");
+const files = @import("../../mem/files.zig");
 const sched = @import("sched.zig");
 const highSched = @import("../../sched.zig");
 const elf = @import("../../drivers/elf.zig");
 
+pub const userStack: usize = 0xAFFFF000; // 2.75GiB - 4KiB virtual
+pub const userStackBottom: usize = 0xAFC00000; // 2.75GiB - 4MiB virtual
+pub const userStackAddress: usize = 0x2000000; // 32MiB physical
+pub var fileMaps: usize = 0x10000000; // 256MiB virtual
+pub const programRandomHeap: usize = 0x8000000; // 128MiB virtual
+
 pub fn switchToUserMode() void {
     // Set up the stack for user mode.
-    const userStack: usize = 0xAFFFF000; // 2.75GiB - 4KiB virtual
-    const userStackBottom: usize = 0xAFC00000; // 2.75GiB - 4MiB virtual
-    const userStackAddress: usize = 0x2000000; // 32MiB physical
-    const elfFileMap: usize = 0x10000000; // 256MiB virtual
-    const programRandomHeap: usize = 0x8000000; // 128MiB virtual
-
     paging.setBigEntryRecursivly(userStackBottom, userStackAddress, .{
         .page_size = 1,
         .present = 1,
@@ -24,21 +22,11 @@ pub fn switchToUserMode() void {
         debug.errorPrint("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
     };
 
-    const moudleList = multiboot.getModuleInfo() orelse {
-        debug.errorPrint("userLand.switchToUserMode:  failed to get module list\n", .{});
+    const file = files.open("doomgeneric.elf", 0) catch |err| {
+        debug.errorPrint("userLand.switchToUserMode:  failed to open userLand program: {}\n", .{err});
         return;
     };
-    const physcialAddress: u32 = moudleList[0].mod_start;
-    const length: u32 = moudleList[0].mod_end - moudleList[0].mod_start;
-    debug.infoPrint("elf file physical location: 0x{X} length: 0x{X}\n", .{ physcialAddress, length });
-
-    paging.idPagesRecursivly(elfFileMap, physcialAddress, memory.alignAddressUp(length, memory.PAGE_SIZE), true) catch {
-        debug.errorPrint("userLand.switchToUserMode:  failed to id map virtual address range\n", .{});
-        return;
-    };
-
-    const fileManyPointer: [*]u8 = @ptrFromInt(elfFileMap);
-    const fileSlice: []u8 = fileManyPointer[0..length];
+    const fileSlice = file.file;
 
     const programMemory = elf.loadFile(fileSlice) catch |err| {
         debug.errorPrint("userLand.switchToUserMode:  failed to load elf: {}\n", .{err});

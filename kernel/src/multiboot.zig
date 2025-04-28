@@ -247,31 +247,22 @@ pub fn getVideoFrameBuffer() ?struct {
 pub fn getModuleInfo() ?[]multiboot_mod_list {
     const header = multibootInfo;
     if (header.mods_addr == 0) {
-        debug.printf("No module list found\n", .{});
+        debug.errorPrint("No module list found\n", .{});
         return null;
     }
     const modList = @as([*]multiboot_mod_list, @ptrFromInt(header.mods_addr))[0..header.mods_count];
-    // for (0..header.mods_count) |i| {
-    //     debug.printf(
-    //         "Module {d}: start: 0x{X} end: 0x{X} cmdline: 0x{X}\n",
-    //         .{
-    //             i,
-    //             modList[i].mod_start,
-    //             modList[i].mod_end,
-    //             modList[i].cmdline,
-    //         },
-    //     );
-    // }
+    for (0..header.mods_count) |i| {
+        debug.debugPrint(
+            "Module {d}: start: 0x{X} end: 0x{X} cmdline: 0x{X}\n",
+            .{
+                i,
+                modList[i].mod_start,
+                modList[i].mod_end,
+                modList[i].cmdline,
+            },
+        );
+    }
     return modList;
-}
-
-pub fn getModuleEntry(num: usize) ?*fn () void {
-    const modlist = getModuleInfo() orelse {
-        debug.printf("No module list found\n", .{});
-        return null;
-    };
-
-    return @ptrFromInt(modlist[num].mod_start);
 }
 
 fn printRawMemoryMap() void {

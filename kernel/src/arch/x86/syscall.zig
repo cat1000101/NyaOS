@@ -1,6 +1,8 @@
 const interrupts = @import("interrupts.zig");
-const debug = @import("debug.zig");
 const syscallUtil = @import("syscallUtil.zig");
+
+const std = @import("std");
+const debug = @import("debug.zig");
 
 // the syscall arguments are passed in registers
 // eax: syscall number
@@ -58,8 +60,11 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
     } else if (context.eax == 0x2D) {
         context.eax = __syscall_brk(context.ebx);
         return;
-    } else if (context.eax == 0x5C) {
-        context.eax = __syscall_truncate(@ptrFromInt(context.ebx), context.ecx);
+    } else if (context.eax == 0x5) {
+        context.eax = __syscall_open(@ptrFromInt(context.ebx), context.ecx, context.edx);
+        return;
+    } else if (context.eax == 0x6) {
+        context.eax = __syscall_close(context.ebx);
         return;
     } else {
         debug.errorPrint("syscall:  not implumented syscall {s} number: 0x{X} \n", .{
@@ -234,6 +239,11 @@ fn __syscall_mmap(addr: u32, length: u32, prot: u32, flags: u32, fd: u32, pgoffs
 }
 
 fn __syscall_brk(addr: u32) u32 {
+    debug.debugPrint("++__syscall_brk()\n", .{});
+    defer {
+        debug.debugPrint("--__syscall_brk()\n", .{});
+    }
+
     if (addr == 0) {
         debug.infoPrint("__syscall_brk:  addr is null corrent break: 0x{X}\n", .{userThread.threadData.threadBreak});
         return userThread.threadData.threadBreak;
@@ -258,7 +268,10 @@ fn __syscall_brk(addr: u32) u32 {
             addr,
         });
         const alignedAddr = memory.alignAddressUp(addr, memory.PAGE_SIZE);
-        vmm.freePages(@ptrFromInt(alignedAddr), (userThread.threadData.threadBreak - alignedAddr) / memory.PAGE_SIZE);
+        vmm.freePages(@ptrFromInt(alignedAddr), (userThread.threadData.threadBreak - alignedAddr) / memory.PAGE_SIZE) catch |err| {
+            debug.errorPrint("__syscall_brk:  failed to free pages: {}\n", .{err});
+            return userThread.threadData.threadBreak;
+        };
         userThread.threadData.threadBreak = alignedAddr;
         return userThread.threadData.threadBreak;
     }
@@ -274,4 +287,58 @@ fn __syscall_truncate(path: ?[*]u8, length: u32) u32 {
         debug.debugPrint("__syscall_truncate:  path is null?\n", .{});
         return syscallUtil.SUCCESS_RETURN;
     }
+}
+
+const files = @import("../../mem/files.zig");
+
+fn __syscall_open(path: ?[*:0]u8, flags: u32, mode: u32) u32 {
+    _ = mode;
+    debug.debugPrint("++__syscall_open()\n", .{});
+    defer {
+        debug.debugPrint("--__syscall_open()\n", .{});
+    }
+    if (path) |lpath| {
+        debug.debugPrint("open:  path: {s}\n", .{lpath});
+        const pathSlice = std.mem.span(lpath);
+        const file = files.open(pathSlice, flags) catch |err| {
+            debug.errorPrint("__syscall_open:  failed to open file: {}\n", .{err});
+            return syscallUtil.ERROR_RETURN;
+        };
+        debug.infoPrint("__syscall_open:  opened file: {s} fd: {}\n", .{ pathSlice, file.fd });
+        return file.fd;
+    } else {
+        debug.debugPrint("__syscall_open:  path is null?\n", .{});
+        return syscallUtil.ERROR_RETURN;
+    }
+}
+
+fn __syscall_close(fd: u32) u32 {
+    debug.debugPrint("++__syscall_close()\n", .{});
+    defer {
+        debug.debugPrint("--__syscall_close()\n", .{});
+    }
+    if (fd > files.fds.len) {
+        debug.errorPrint("__syscall_close:  fd is out of range\n", .{});
+        return syscallUtil.ERROR_RETURN;
+    }
+
+    files.close(fd) catch |err| {
+        debug.errorPrint("__syscall_close:  failed to close file: {}\n", .{err});
+        return syscallUtil.ERROR_RETURN;
+    };
+    debug.infoPrint("__syscall_close:  closed file: {}\n", .{fd});
+    return syscallUtil.SUCCESS_RETURN;
+}
+
+fn __syscall_llseek(fd: u32, offset_high: u32, offset_low: u32, result: *u64, whence: u32) u32 {
+    debug.debugPrint("++__syscall_llseek()\n", .{});
+    defer {
+        debug.debugPrint("--__syscall_llseek()\n", .{});
+    }
+    _ = fd;
+    _ = offset_high;
+    _ = offset_low;
+    _ = result;
+    _ = whence;
+    return syscallUtil.SUCCESS_RETURN;
 }
