@@ -66,6 +66,9 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
     } else if (context.eax == 0x6) {
         context.eax = __syscall_close(context.ebx);
         return;
+    } else if (context.eax == 0x8C) {
+        context.eax = __syscall_llseek(context.ebx, context.ecx, context.edx, @ptrFromInt(context.esi), context.edi);
+        return;
     } else {
         debug.errorPrint("syscall:  not implumented syscall {s} number: 0x{X} \n", .{
             if (context.eax <= 385 and context.eax >= 0) syscallUtil.syscallNames[context.eax] else "unknown",
@@ -330,15 +333,79 @@ fn __syscall_close(fd: u32) u32 {
     return syscallUtil.SUCCESS_RETURN;
 }
 
-fn __syscall_llseek(fd: u32, offset_high: u32, offset_low: u32, result: *u64, whence: u32) u32 {
+const OffsetType = enum(u32) {
+    SEEK_SET = 0,
+    SEEK_CUR = 1,
+    SEEK_END = 2,
+    _,
+};
+
+fn __syscall_llseek(fd: u32, offset_high: u32, offset_low: u32, result: ?*u64, whence: u32) u32 {
     debug.debugPrint("++__syscall_llseek()\n", .{});
     defer {
         debug.debugPrint("--__syscall_llseek()\n", .{});
     }
-    _ = fd;
-    _ = offset_high;
-    _ = offset_low;
-    _ = result;
-    _ = whence;
-    return syscallUtil.SUCCESS_RETURN;
+    if (fd > files.fds.len) {
+        debug.errorPrint("__syscall_llseek:  fd is out of range\n", .{});
+        return syscallUtil.ERROR_RETURN;
+    }
+
+    const returnPointer: *u64 = result orelse {
+        debug.errorPrint("__syscall_llseek:  result is null\n", .{});
+        return syscallUtil.ERROR_RETURN;
+    };
+    if (files.fds[fd]) |*file| {
+        debug.debugPrint("llseek:  fd: {}, offset_high: 0x{X}, offset_low: 0x{X}, result: 0x{X}, whence: {}\n", .{
+            file.fd,
+            offset_high,
+            offset_low,
+            @intFromPtr(returnPointer),
+            @as(OffsetType, @enumFromInt(whence)),
+        });
+        const offset: i64 = @bitCast(@as(u64, offset_high) << 32 | @as(u64, offset_low));
+        if (@abs(offset) > file.file.len) {
+            debug.errorPrint("__syscall_llseek:  offset is out of range\n", .{});
+            return syscallUtil.ERROR_RETURN;
+        }
+        switch (@as(OffsetType, @enumFromInt(whence))) {
+            OffsetType.SEEK_SET => {
+                debug.debugPrint("llseek:  SEEK_SET\n", .{});
+                if (offset < 0) {
+                    debug.errorPrint("__syscall_llseek:  offset is negative\n", .{});
+                    return syscallUtil.ERROR_RETURN;
+                }
+                file.offset = @intCast(offset);
+                debug.infoPrint("__syscall_llseek:  set new offset: 0x{X}\n", .{file.offset});
+            },
+            OffsetType.SEEK_CUR => {
+                debug.debugPrint("llseek:  SEEK_CUR\n", .{});
+                if (offset + @as(i64, @intCast(file.offset)) < 0) {
+                    debug.errorPrint("__syscall_llseek:  offset is negative\n", .{});
+                    return syscallUtil.ERROR_RETURN;
+                }
+                const newOffset: u64 = @intCast(@as(i64, @intCast(file.offset)) + offset);
+                file.offset = newOffset;
+                debug.infoPrint("__syscall_llseek:  add to cur {} new offset: 0x{X}\n", .{ offset, file.offset });
+            },
+            OffsetType.SEEK_END => {
+                debug.debugPrint("llseek:  SEEK_END\n", .{});
+                if (offset > 0) {
+                    debug.errorPrint("__syscall_llseek:  offset is positive\n", .{});
+                    return syscallUtil.ERROR_RETURN;
+                }
+                file.offset = file.file.len - @abs(offset);
+                debug.infoPrint("__syscall_llseek:  from the end {} new offset: 0x{X}\n", .{ offset, file.offset });
+            },
+            else => {
+                debug.errorPrint("__syscall_llseek:  invalid whence\n", .{});
+                return syscallUtil.ERROR_RETURN;
+            },
+        }
+        returnPointer.* = file.offset;
+        debug.debugPrint("__syscall_llseek:  return pointer content: 0x{X}\n", .{returnPointer.*});
+        return syscallUtil.SUCCESS_RETURN;
+    } else {
+        debug.errorPrint("__syscall_llseek:  fd is not valid\n", .{});
+        return syscallUtil.ERROR_RETURN;
+    }
 }
