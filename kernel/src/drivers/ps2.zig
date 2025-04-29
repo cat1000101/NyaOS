@@ -304,7 +304,7 @@ const keyboardIdentifier = enum(u16) {
     _,
 };
 
-const scanCodeSet2 = [_]u8{
+const scanCodeSet1 = [_]u8{
     0,   0,   '1', '2', '3', '4', '5', '6', '7',  '8', '9', '0',  '-', '=', 0,   0,
     'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O',  'P', '[', ']',  0,   0,   'A', 'S',
     'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', '\'', '`', 0,   '\\', 'Z', 'X', 'C', 'V',
@@ -357,6 +357,15 @@ fn initializeKeyboard() void {
     debug.infoPrint("keyboard initialized!!!\n", .{});
 }
 
+pub const keyboardData = extern struct {
+    scancode: u8 = 0,
+    ascii: u8 = 0,
+    modifiers: u8 = 0,
+    pad: u8 = 0,
+};
+pub var kayboardData: [16]keyboardData = [_]keyboardData{.{}} ** 16;
+pub var currentKey: u8 = 0;
+var extendedCode: usize = 0; // 0 - no, 1 - 0xe0 extended code, 2 - 0xe1 extended code 3 - 0xe1 extended code final
 fn ps2KeyboardHandeler(cpuState: *interrupts.CpuState) callconv(.c) void {
     _ = cpuState;
     if (readStatus().outputBufferStatus == 0) {
@@ -365,13 +374,57 @@ fn ps2KeyboardHandeler(cpuState: *interrupts.CpuState) callconv(.c) void {
         return;
     }
 
-    const data = reciveData();
-    const char = scanCodeSet2[data & 0x7f];
-    const release = data & 0x80 != 0;
-    if (!release) {
+    var finalData: u8 = 0;
+    var pressed: bool = false;
+    const data1 = reciveData();
+    if (data1 == 0xE0) {
+        extendedCode = 1;
+        pic.picSendEOI(1);
+        return;
+    } else if (data1 == 0xE1) {
+        extendedCode = 2;
+        pic.picSendEOI(1);
+        return;
+    } else {
+        if (data1 < 0x80) {
+            finalData = data1;
+            pressed = true;
+        } else {
+            finalData = data1 - 0x80;
+        }
+    }
+    if (extendedCode == 2) {
+        extendedCode = 3;
+    } else if (extendedCode == 3) {
+        extendedCode = 0;
+        pic.picSendEOI(1);
+        return;
+    }
+
+    const char = scanCodeSet1[finalData];
+    kayboardData[currentKey].scancode = finalData;
+    kayboardData[currentKey].ascii = char;
+    kayboardData[currentKey].modifiers = @intFromBool(pressed);
+    currentKey = (currentKey + 1) % 16;
+    extendedCode = 0;
+
+    if (pressed) {
         debug.putcharAsm(char);
         tty.putChar(char);
     }
 
     pic.picSendEOI(1);
+}
+
+pub fn getKey() keyboardData {
+    const retData = kayboardData[currentKey];
+    kayboardData[currentKey].scancode = 0;
+    kayboardData[currentKey].ascii = 0;
+    kayboardData[currentKey].modifiers = 0;
+    if (currentKey == 0) {
+        currentKey = 15;
+    } else {
+        currentKey -= 1;
+    }
+    return retData;
 }

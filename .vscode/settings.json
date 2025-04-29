@@ -14,6 +14,8 @@
         "ctype.h": "c",
         "doomgeneric.h": "c",
         "stdlib.h": "c",
-        "stdint.h": "c"
+        "stdint.h": "c",
+        "time.h": "c",
+        "m_config.h": "c"
     }
 }

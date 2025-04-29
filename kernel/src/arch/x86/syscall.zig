@@ -26,6 +26,9 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
     } else if (context.eax == 69420) { // get frame and size in pixels and set the screen frame buffer to it
         context.eax = __syscall_set_framebuffer(@ptrFromInt(context.ebx), context.ecx);
         return;
+    } else if (context.eax == 69421) { // get frame and size in pixels and set the screen frame buffer to it
+        context.eax = __syscall_get_key();
+        return;
     } else if (context.eax == 421) { // sleeb in ms
         pit.ksleep(context.ebx);
         return;
@@ -115,6 +118,16 @@ fn __syscall_set_framebuffer(framebuffer: ?[*]tty.FrameBuffer.Pixel, size: u32) 
         debug.errorPrint("__syscall_set_framebuffer:  framebuffer is null\n", .{});
         return syscallUtil.ERROR_RETURN;
     }
+}
+
+const ps2 = @import("../../drivers/ps2.zig");
+fn __syscall_get_key() u32 {
+    debug.debugPrint("++__syscall_get_key()\n", .{});
+    defer {
+        debug.debugPrint("--__syscall_get_key()\n", .{});
+    }
+    const key = ps2.getKey();
+    return @bitCast(key);
 }
 
 const gdt = @import("gdt.zig");
