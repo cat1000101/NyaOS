@@ -27,27 +27,29 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
 
     debug.debugPrint("\n", .{});
     debug.debugPrint("++syscall()\n", .{});
-    debug.infoPrint("\n", .{});
     defer {
-        debug.infoPrint("\n", .{});
         debug.debugPrint("--syscall()\n", .{});
         debug.debugPrint("\n", .{});
     }
 
-    debug.infoPrint("syscall:  eax(syscall number): 0x{X:0>8},  ebx(arg0): 0x{X:0>8}\n", .{
+    debug.debugPrint("syscall:  eax(syscall number): 0x{X:0>8},  ebx(arg0): 0x{X:0>8}\n", .{
         context.eax,
         context.ebx,
     });
-    debug.infoPrint("syscall:  ecx(arg1):           0x{X:0>8},  edx(arg2): 0x{X:0>8}\n", .{
+    debug.debugPrint("syscall:  ecx(arg1):           0x{X:0>8},  edx(arg2): 0x{X:0>8}\n", .{
         context.ecx,
         context.edx,
     });
-    debug.infoPrint("syscall:  esi(arg3):           0x{X:0>8},  edi(arg4): 0x{X:0>8}\n", .{
+    debug.debugPrint("syscall:  esi(arg3):           0x{X:0>8},  edi(arg4): 0x{X:0>8}\n", .{
         context.esi,
         context.edi,
     });
-    debug.infoPrint("syscall:  ebp(arg5):           0x{X:0>8},  syscall: {s}\n", .{
+    debug.debugPrint("syscall:  ebp(arg5):           0x{X:0>8},  syscall: {s}\n", .{
         context.ebp,
+        if (context.eax <= 385 and context.eax >= 0) syscallUtil.syscallNames[context.eax] else "unknown",
+    });
+    debug.infoPrint("syscall:  eax(syscall number): 0x{X:0>8},  syscall: {s}\n", .{
+        context.eax,
         if (context.eax <= 385 and context.eax >= 0) syscallUtil.syscallNames[context.eax] else "unknown",
     });
 
@@ -65,6 +67,12 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
         return;
     } else if (context.eax == 0x6) {
         context.eax = __syscall_close(context.ebx);
+        return;
+    } else if (context.eax == 0x91) {
+        context.eax = __syscall_readv(context.ebx, @ptrFromInt(context.ecx), @bitCast(context.edx));
+        return;
+    } else if (context.eax == 0x92) {
+        context.eax = __syscall_writev(context.ebx, @ptrFromInt(context.ecx), @bitCast(context.edx));
         return;
     } else if (context.eax == 0x8C) {
         context.eax = __syscall_llseek(context.ebx, context.ecx, context.edx, @ptrFromInt(context.esi), context.edi);
@@ -408,4 +416,111 @@ fn __syscall_llseek(fd: u32, offset_high: u32, offset_low: u32, result: ?*u64, w
         debug.errorPrint("__syscall_llseek:  fd is not valid\n", .{});
         return syscallUtil.ERROR_RETURN;
     }
+}
+
+const IoVec = extern struct {
+    iov_base: ?[*]u8,
+    iov_len: isize,
+};
+fn __syscall_readv(fd: u32, iov: ?[*]IoVec, iovcnt: i32) u32 {
+    debug.debugPrint("++__syscall_readv()\n", .{});
+    defer {
+        debug.debugPrint("--__syscall_readv()\n", .{});
+    }
+    if (fd > files.fds.len) {
+        debug.errorPrint("__syscall_readv:  fd is out of range: {}\n", .{fd});
+        return syscallUtil.ERROR_RETURN;
+    }
+    if (iovcnt <= 0) {
+        debug.errorPrint("__syscall_readv:  iovcnt is below or equal 0: {}\n", .{iovcnt});
+        return syscallUtil.ERROR_RETURN;
+    }
+    const liovcnt: u32 = @intCast(iovcnt);
+    const file = files.fds[fd] orelse {
+        debug.errorPrint("__syscall_readv:  fd is not valid: {}\n", .{fd});
+        return syscallUtil.ERROR_RETURN;
+    };
+    const iovSlice: []IoVec = (iov orelse {
+        debug.errorPrint("__syscall_readv:  iov is null\n", .{});
+        return syscallUtil.ERROR_RETURN;
+    })[0..liovcnt];
+    var bytesRead: u32 = 0;
+    for (iovSlice) |iovec| {
+        if (iovec.iov_len <= 0) {
+            debug.debugPrint("__syscall_readv:  iovec is empty or negetive: {}\n", .{iovec.iov_len});
+            continue;
+        }
+        const iovecLength: usize = @intCast(iovec.iov_len);
+        const writeSlice = (iovec.iov_base orelse {
+            debug.errorPrint("__syscall_readv:  iovec base is null\n", .{});
+            return syscallUtil.ERROR_RETURN;
+        })[0..iovecLength];
+        const readBytes = files.readWithOffset(fd, bytesRead, writeSlice) catch |err| {
+            debug.errorPrint("__syscall_readv:  failed to read file: {}\n", .{err});
+            return syscallUtil.ERROR_RETURN;
+        };
+        bytesRead += readBytes;
+        if (readBytes < iovecLength) {
+            debug.debugPrint("__syscall_readv:  reached end of file saj\n", .{});
+            break;
+        }
+    }
+    debug.infoPrint("__syscall_readv:  read 0x{X} bytes, from 0x{X} to 0x{X} in file, file size: 0x{X}\n", .{
+        bytesRead,
+        file.offset,
+        file.offset + bytesRead,
+        file.file.len,
+    });
+    return bytesRead;
+}
+fn __syscall_writev(fd: u32, iov: ?[*]IoVec, iovcnt: i32) u32 {
+    debug.debugPrint("++__syscall_writev()\n", .{});
+    defer {
+        debug.debugPrint("--__syscall_writev()\n", .{});
+    }
+    if (fd > files.fds.len) {
+        debug.errorPrint("__syscall_writev:  fd is out of range: {}\n", .{fd});
+        return syscallUtil.ERROR_RETURN;
+    }
+    if (iovcnt <= 0) {
+        debug.errorPrint("__syscall_writev:  iovcnt is below or equal 0: {}\n", .{iovcnt});
+        return syscallUtil.ERROR_RETURN;
+    }
+    const liovcnt: u32 = @intCast(iovcnt);
+    const file = files.fds[fd] orelse {
+        debug.errorPrint("__syscall_readv:  fd is not valid: {}\n", .{fd});
+        return syscallUtil.ERROR_RETURN;
+    };
+    const iovSlice: []IoVec = (iov orelse {
+        debug.errorPrint("__syscall_writev:  iov is null\n", .{});
+        return syscallUtil.ERROR_RETURN;
+    })[0..liovcnt];
+    var wroteBytes: u32 = 0;
+    for (iovSlice) |iovec| {
+        if (iovec.iov_len <= 0) {
+            debug.debugPrint("__syscall_writev:  iovec is empty or negetive: {}\n", .{iovec.iov_len});
+            continue;
+        }
+        const iovecLength: usize = @intCast(iovec.iov_len);
+        const writeSlice = (iovec.iov_base orelse {
+            debug.errorPrint("__syscall_readv:  iovec base is null\n", .{});
+            return syscallUtil.ERROR_RETURN;
+        })[0..iovecLength];
+        const writeBytes = files.readWithOffset(fd, wroteBytes, writeSlice) catch |err| {
+            debug.errorPrint("__syscall_readv:  failed to read file: {}\n", .{err});
+            return syscallUtil.ERROR_RETURN;
+        };
+        wroteBytes += writeBytes;
+        if (writeBytes < iovecLength) {
+            debug.debugPrint("__syscall_readv:  reached end of file saj\n", .{});
+            break;
+        }
+    }
+    debug.infoPrint("__syscall_writev:  wrote 0x{X} bytes, from 0x{X} to 0x{X} in file, file size: 0x{X}\n", .{
+        wroteBytes,
+        file.offset,
+        file.offset + wroteBytes,
+        file.file.len,
+    });
+    return wroteBytes;
 }
