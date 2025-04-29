@@ -48,7 +48,7 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
         context.ebp,
         if (context.eax <= 385 and context.eax >= 0) syscallUtil.syscallNames[context.eax] else "unknown",
     });
-    debug.infoPrint("syscall:  eax(syscall number): 0x{X:0>8},  syscall: {s}\n", .{
+    debug.debugPrint("syscall:  eax(syscall number): 0x{X:0>8},  syscall: {s}\n", .{
         context.eax,
         if (context.eax <= 385 and context.eax >= 0) syscallUtil.syscallNames[context.eax] else "unknown",
     });
@@ -383,7 +383,7 @@ fn __syscall_llseek(fd: u32, offset_high: u32, offset_low: u32, result: ?*u64, w
                     return syscallUtil.ERROR_RETURN;
                 }
                 file.offset = @intCast(offset);
-                debug.infoPrint("__syscall_llseek:  set new offset: 0x{X}\n", .{file.offset});
+                debug.debugPrint("__syscall_llseek:  set new offset: 0x{X}\n", .{file.offset});
             },
             OffsetType.SEEK_CUR => {
                 debug.debugPrint("llseek:  SEEK_CUR\n", .{});
@@ -393,7 +393,7 @@ fn __syscall_llseek(fd: u32, offset_high: u32, offset_low: u32, result: ?*u64, w
                 }
                 const newOffset: u64 = @intCast(@as(i64, @intCast(file.offset)) + offset);
                 file.offset = newOffset;
-                debug.infoPrint("__syscall_llseek:  add to cur {} new offset: 0x{X}\n", .{ offset, file.offset });
+                debug.debugPrint("__syscall_llseek:  add to cur {} new offset: 0x{X}\n", .{ offset, file.offset });
             },
             OffsetType.SEEK_END => {
                 debug.debugPrint("llseek:  SEEK_END\n", .{});
@@ -402,7 +402,7 @@ fn __syscall_llseek(fd: u32, offset_high: u32, offset_low: u32, result: ?*u64, w
                     return syscallUtil.ERROR_RETURN;
                 }
                 file.offset = file.file.len - @abs(offset);
-                debug.infoPrint("__syscall_llseek:  from the end {} new offset: 0x{X}\n", .{ offset, file.offset });
+                debug.debugPrint("__syscall_llseek:  from the end {} new offset: 0x{X}\n", .{ offset, file.offset });
             },
             else => {
                 debug.errorPrint("__syscall_llseek:  invalid whence\n", .{});
@@ -465,7 +465,7 @@ fn __syscall_readv(fd: u32, iov: ?[*]IoVec, iovcnt: i32) u32 {
             break;
         }
     }
-    debug.infoPrint("__syscall_readv:  read 0x{X} bytes, from 0x{X} to 0x{X} in file, file size: 0x{X}\n", .{
+    debug.debugPrint("__syscall_readv:  read 0x{X} bytes, from 0x{X} to 0x{X} in file, file size: 0x{X}\n", .{
         bytesRead,
         file.offset,
         file.offset + bytesRead,
@@ -516,7 +516,7 @@ fn __syscall_writev(fd: u32, iov: ?[*]IoVec, iovcnt: i32) u32 {
             break;
         }
     }
-    debug.infoPrint("__syscall_writev:  wrote 0x{X} bytes, from 0x{X} to 0x{X} in file, file size: 0x{X}\n", .{
+    debug.debugPrint("__syscall_writev:  wrote 0x{X} bytes, from 0x{X} to 0x{X} in file, file size: 0x{X}\n", .{
         wroteBytes,
         file.offset,
         file.offset + wroteBytes,

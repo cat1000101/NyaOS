@@ -206,6 +206,10 @@ pub fn generateStub(function: *const fn (*CpuState) callconv(.c) void) fn () cal
     return struct {
         fn func() callconv(.naked) void {
             asm volatile (
+                \\ push %ebp
+                \\ mov %esp, %ebp
+            );
+            asm volatile (
                 \\  pusha               // pushes in order: eax, ecx, edx, ebx, esp, ebp, esi, edi
                 \\
                 \\  xor %eax, %eax
@@ -248,6 +252,7 @@ pub fn generateStub(function: *const fn (*CpuState) callconv(.c) void) fn () cal
                 \\  mov %ax, %ds
                 \\
                 \\  popa                // pop what we pushed with pusha
+                \\  pop %ebp
                 \\  iret                // will pop: cs, eip, eflags and ss, esp if there was a privlige level change
             );
         }
