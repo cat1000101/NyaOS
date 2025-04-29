@@ -9,6 +9,11 @@
         "unistd.h": "c",
         "stdio.h": "c",
         "stdarg.h": "c",
-        "nyaosstdio.h": "c"
+        "nyaosstdio.h": "c",
+        "syscall.h": "c",
+        "ctype.h": "c",
+        "doomgeneric.h": "c",
+        "stdlib.h": "c",
+        "stdint.h": "c"
     }
 }

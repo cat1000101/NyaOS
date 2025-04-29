@@ -195,16 +195,21 @@ fn pitHandler(cpuState: *interrupts.CpuState) callconv(.c) void {
 /// uses hlt which is a privliged instruction
 pub fn ksleep(ms: u32) void {
     const startMs: u32 = timerMsSinceStart;
-    const startFraction: u32 = timerFractionSinceStart;
+    const startFraction: f32 = @floatFromInt(timerFractionSinceStart);
     countDown = (ms * timerFrequency + 500) / 1000;
     while (countDown > 0) {
         interrupts.hlt();
     }
-    const timePassed: f32 = @as(f32, @floatFromInt(timerMsSinceStart - startMs)) + (@as(f32, @floatFromInt(timerFractionSinceStart - startFraction)) / @as(f32, @floatFromInt(timerFrequency)));
+    const timePassedMs = @as(f32, @floatFromInt(timerMsSinceStart - startMs));
+    const timePassed: f32 = timePassedMs + ((@as(f32, @floatFromInt(timerFractionSinceStart)) - startFraction) / @as(f32, @floatFromInt(timerFrequency)));
     debug.debugPrint("slept for {} ms, amount of ms passed: {d}~\n", .{
         ms,
         timePassed,
     });
+}
+
+pub fn getTimeMs() u32 {
+    return timerMsSinceStart;
 }
 
 fn testSleep() void {

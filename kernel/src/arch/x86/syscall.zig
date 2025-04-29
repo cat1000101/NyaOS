@@ -14,14 +14,24 @@ const debug = @import("debug.zig");
 // ebp: arg5
 
 pub export fn syscallHandler(context: *interrupts.CpuState) void {
-    if (context.eax == 69) {
+    if (context.eax == 69) { // put string
         const printString: [*:0]u8 = @ptrFromInt(context.ebx);
         debug.printf("{s}\n", .{printString});
         context.eax = syscallUtil.SUCCESS_RETURN;
         return;
-    } else if (context.eax == 420) {
+    } else if (context.eax == 420) { // put char
         debug.printf("{c}", .{@as(u8, @truncate(context.ebx))});
         context.eax = syscallUtil.SUCCESS_RETURN;
+        return;
+    } else if (context.eax == 69420) { // get frame and size in pixels and set the screen frame buffer to it
+        context.eax = __syscall_set_framebuffer(@ptrFromInt(context.ebx), context.ecx);
+        return;
+    } else if (context.eax == 421) { // sleeb in ms
+        pit.ksleep(context.ebx);
+        return;
+    } else if (context.eax == 422) { // get ms sience startup
+        context.eax = pit.getTimeMs();
+        debug.debugPrint("time sience start: {}\n", .{context.eax});
         return;
     }
 
@@ -84,6 +94,26 @@ pub export fn syscallHandler(context: *interrupts.CpuState) void {
         });
         context.eax = syscallUtil.ERROR_RETURN;
         return;
+    }
+}
+
+const pit = @import("pit.zig");
+const tty = @import("../../drivers/tty.zig");
+fn __syscall_set_framebuffer(framebuffer: ?[*]tty.FrameBuffer.Pixel, size: u32) u32 {
+    debug.debugPrint("++__syscall_set_framebuffer()\n", .{});
+    defer {
+        debug.debugPrint("--__syscall_set_framebuffer()\n", .{});
+    }
+    if (framebuffer) |lframe| {
+        const frameSlice = lframe[0..size];
+        tty.framebuffer.flushWithFrame(frameSlice) catch |err| {
+            debug.errorPrint("__syscall_set_framebuffer:  failed to flush framebuffer: {}\n", .{err});
+            return syscallUtil.ERROR_RETURN;
+        };
+        return syscallUtil.SUCCESS_RETURN;
+    } else {
+        debug.errorPrint("__syscall_set_framebuffer:  framebuffer is null\n", .{});
+        return syscallUtil.ERROR_RETURN;
     }
 }
 
