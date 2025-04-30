@@ -1,8 +1,8 @@
-const debug = @import("../arch/x86/debug.zig");
-const std = @import("std");
-
 const vmm = @import("../mem/vmm.zig");
 const memory = @import("../mem/memory.zig");
+
+const std = @import("std");
+const log = std.log;
 
 // ELF file format used https://refspecs.linuxfoundation.org/elf/elf.pdf spec
 
@@ -442,20 +442,20 @@ pub inline fn getStrFromStrTable(elfHdr: *Elf32Ehdr, index: usize) ?[:0]const u8
 
 pub fn getSymValue(elfHdr: *Elf32Ehdr, symTableIndex: usize, index: usize) ?*Elf32Sym {
     if (symTableIndex == ElfSpecialSections.UNDEF or index == ElfSpecialSections.UNDEF) {
-        debug.errorPrint("getSymValue:  symbol index Undefined: {} , {}\n", .{ symTableIndex, index });
+        log.err("getSymValue:  symbol index Undefined: {} , {}\n", .{ symTableIndex, index });
         return null;
     }
     const symTable = getSection(elfHdr, symTableIndex);
     const symTableEntries = symTable.size / symTable.entsize;
     if (index >= symTableEntries) {
-        debug.errorPrint("getSymValue:  symbol index out of bounds: {} >= {}\n", .{ index, symTableEntries });
+        log.err("getSymValue:  symbol index out of bounds: {} >= {}\n", .{ index, symTableEntries });
         return null;
     }
 
     const sym: *Elf32Sym = @ptrFromInt(@intFromPtr(elfHdr) + symTable.offset + index * symTable.entsize);
 
     if (sym.shndx == ElfSpecialSections.UNDEF) {
-        debug.errorPrint("getSymValue:  symbol shndx Undefined: {any}\n", .{sym});
+        log.err("getSymValue:  symbol shndx Undefined: {any}\n", .{sym});
         return null;
     } else if (sym.shndx == ElfSpecialSections.ABS) {
         return sym.value;
@@ -482,7 +482,7 @@ pub fn isSupportedElf(elfHdr: *Elf32Ehdr) bool {
 pub fn loadFile(File: []u8) ElfError![]u8 {
     const elfHdr: *Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
     if (!isSupportedElf(elfHdr)) {
-        debug.errorPrint("loadFile:  unsupported ELF file\n", .{});
+        log.err("loadFile:  unsupported ELF file\n", .{});
         return ElfError.InvalidElf;
     }
 
@@ -491,7 +491,7 @@ pub fn loadFile(File: []u8) ElfError![]u8 {
             return loadFileExec(elfHdr, File);
         },
         else => {
-            debug.errorPrint("loadFile:  unsupported ELF file type\n", .{});
+            log.err("loadFile:  unsupported ELF file type\n", .{});
             return ElfError.UnsupportedElf;
         },
     }
@@ -510,7 +510,7 @@ pub fn loadFileExec(elfHdr: *Elf32Ehdr, File: []u8) ElfError![]u8 {
                 const segmentAtFileSize = phdr.p_filesz;
                 const segmentVirtualSize = phdr.p_memsz;
                 const segmentAddr = phdr.p_vaddr;
-                debug.infoPrint("Program Header:  Type: {s} Offset: 0x{X} Vitrual Address: 0x{X} FileSize: 0x{X} memSize: 0x{X}\n", .{
+                log.info("Program Header:  Type: {s} Offset: 0x{X} Vitrual Address: 0x{X} FileSize: 0x{X} memSize: 0x{X}\n", .{
                     @tagName(phdr.p_type),
                     segmentOffsetFile,
                     segmentAddr,
@@ -524,19 +524,19 @@ pub fn loadFileExec(elfHdr: *Elf32Ehdr, File: []u8) ElfError![]u8 {
                 hi_addr = @max(hi_addr, segmentAddr + segmentVirtualSize);
             },
             .DYNAMIC, .HIPROC, .INTERP, .LOPROC, .NOTE, .PHDR, .NULL, .SHLIB => {
-                debug.infoPrint("idk what to do about this segment ¯\\_(ツ)_/¯: {s}\n", .{@tagName(phdr.p_type)});
+                log.info("idk what to do about this segment ¯\\_(ツ)_/¯: {s}\n", .{@tagName(phdr.p_type)});
             },
             else => {
-                debug.infoPrint("got segment type idk about ¯\\_(ツ)_/¯\n", .{});
+                log.info("got segment type idk about ¯\\_(ツ)_/¯\n", .{});
             },
         }
     }
 
     const programMemory = vmm.mapVirtualAddressRange(lo_addr, hi_addr - lo_addr) orelse {
-        debug.errorPrint("loadFileExec:  failed to map virtual address range\n", .{});
+        log.err("loadFileExec:  failed to map virtual address range\n", .{});
         return ElfError.LoadProgramFailed;
     };
-    debug.infoPrint("Mapped program memory:  0x{X} - 0x{X}\n", .{ lo_addr, hi_addr });
+    log.info("Mapped program memory:  0x{X} - 0x{X}\n", .{ lo_addr, hi_addr });
 
     for (phdrSlice) |phdr| {
         if (phdr.p_type != Elf32Phdr.Elf32PhdrType.LOAD) continue;
@@ -550,15 +550,6 @@ pub fn loadFileExec(elfHdr: *Elf32Ehdr, File: []u8) ElfError![]u8 {
             File[segmentOffsetFile..][0..segmentAtFileSize],
         );
     }
-
-    // debug.infoPrint("\n", .{});
-    // for (programMemory, 0..) |byte, i| {
-    //     debug.printf("{X} ", .{byte});
-    //     if (i % 16 == 15) {
-    //         debug.printf("\n", .{});
-    //     }
-    // }
-    // debug.printf("\n", .{});
 
     return programMemory;
 }

@@ -1,8 +1,9 @@
-const std = @import("std");
 const multiboot = @import("../multiboot.zig");
 const paging = @import("../arch/x86/paging.zig");
 const vga = @import("../arch/x86/vga.zig");
-const debug = @import("../arch//x86/debug.zig");
+
+const std = @import("std");
+const log = std.log;
 
 const logo = "                           /^--^\\     /^--^\\     /^--^\\                                                    \\____/     \\____/     \\____/                                                  /      \\   /      \\   /      \\                                                  |        | |        | |        |                                                \\__  __/   \\__  __/   \\__  __/                            |^|^|^|^|^|^|^|^|^|^|^|^\\ \\^|^|^|^/ /^|^|^|^|^\\ \\^|^|^|^|^|^|^|^|^|^|^|^|       | | | | | | | | | | | | |\\ \\| | |/ /| | | | | | \\ \\ | | | | | | | | | | |       ########################/ /######\\ \\###########/ /#######################       | | | | | | | | | | | | \\/| | | | \\/| | | | | |\\/ | | | | | | | | | | | |       |_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|    ";
 pub var framebuffer: FrameBuffer = undefined;
@@ -15,7 +16,7 @@ pub fn initialize() void {
         printf("{s}", .{logo});
     } else {
         framebuffer = FrameBuffer.initFrameBuffer() orelse {
-            debug.errorPrint("No framebuffer found\n", .{});
+            log.err("No framebuffer found\n", .{});
             return;
         };
     }
@@ -52,13 +53,13 @@ pub const FrameBuffer = struct {
     /// get the info from multiboot about the framebuffer and return the slice to the framebuffer
     pub fn initFrameBuffer() ?FrameBuffer {
         const frameBufferInfo = multiboot.getVideoFrameBuffer() orelse {
-            debug.errorPrint("No framebuffer found\n", .{});
+            log.err("No framebuffer found\n", .{});
             return null;
         };
-        debug.infoPrint("screen frame buffer: {}\n", .{frameBufferInfo});
+        log.info("screen frame buffer: {}\n", .{frameBufferInfo});
 
         const sizeInPixels = frameBufferInfo.framebuffer_width * frameBufferInfo.framebuffer_height;
-        debug.errorPrint("size in pixels: 0x{X}\n", .{sizeInPixels});
+        log.err("size in pixels: 0x{X}\n", .{sizeInPixels});
         var retFrameBuffer = FrameBuffer{
             .frameBuffer = @as([*]volatile Pixel, @ptrFromInt(frameBufferInfo.framebuffer_addr))[0..sizeInPixels],
             .width = frameBufferInfo.framebuffer_width,
@@ -73,7 +74,7 @@ pub const FrameBuffer = struct {
             std.mem.alignForward(u32, sizeInPixels * @sizeOf(Pixel), 0x1000),
             true,
         ) catch |err| {
-            debug.errorPrint("Failed to map framebuffer: {}\n", .{err});
+            log.err("Failed to map framebuffer: {}\n", .{err});
             return null;
         };
 
@@ -83,7 +84,7 @@ pub const FrameBuffer = struct {
             .red2 = 51,
         });
 
-        // debug.infoPrint("initFrameBuffer: retFrameBuffer: {}", .{retFrameBuffer});
+        // log.info("initFrameBuffer: retFrameBuffer: {}", .{retFrameBuffer});
 
         return retFrameBuffer;
     }
@@ -104,7 +105,7 @@ pub const FrameBuffer = struct {
 
     pub fn flushWithFrame(this: *FrameBuffer, frame: []Pixel) !void {
         if (frame.len != this.frameBuffer.len) {
-            debug.errorPrint("frame length: 0x{X} frameBuffer size: 0x{X}\n", .{
+            log.err("frame length: 0x{X} frameBuffer size: 0x{X}\n", .{
                 frame.len,
                 this.frameBuffer.len,
             });

@@ -4,8 +4,9 @@
 // at the end i align and put the bitmap at the end of the kernel
 // fill the bitmap for existing memory
 const multiboot = @import("../multiboot.zig");
-const debug = @import("../arch/x86/debug.zig");
 const memory = @import("memory.zig");
+
+const log = @import("std").log;
 
 var tempBuffer: [memory.PAGE_SIZE]u8 = [_]u8{0xff} ** memory.PAGE_SIZE;
 var tempBufferSlice: []u8 = &tempBuffer;
@@ -22,15 +23,15 @@ pub fn initPmm() void {
     );
     // physBitMap.debugPrint();
     // testPageAllocator();
-    debug.infoPrint("pmm initilized\n", .{});
+    log.info("pmm initilized\n", .{});
 }
 
 pub fn testPageAllocator() void {
     const testAllocation = physBitMap.alloc(1) catch |err| {
-        debug.errorPrint("pmm.testPageAllocator:  failed to allocate memory error: {}\n", .{err});
+        log.err("pmm.testPageAllocator:  failed to allocate memory error: {}\n", .{err});
         return;
     };
-    debug.debugPrint("pmm.testPageAllocator:  allocated memory at: 0x{X} size: 0x{X}\n", .{
+    log.debug("pmm.testPageAllocator:  allocated memory at: 0x{X} size: 0x{X}\n", .{
         @intFromPtr(testAllocation),
         physBitMap.allocationSize,
             // @import("std").mem.sliceAsBytes(memory).len,

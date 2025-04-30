@@ -29,7 +29,7 @@ pub inline fn outl(port: u16, data: u32) void {
 pub inline fn inb(port: u16) u8 {
     var ret: u8 = 0;
     asm volatile ("inb %[port], %[ret]"
-        : [ret] "=r" (ret),
+        : [ret] "={al}" (ret),
         : [port] "{dx}" (port),
     );
     return ret;
@@ -39,7 +39,7 @@ pub inline fn inb(port: u16) u8 {
 pub inline fn inw(port: u16) u16 {
     var ret: u16 = 0;
     asm volatile ("inw %[port], %[ret]"
-        : [ret] "=r" (ret),
+        : [ret] "={ax}" (ret),
         : [port] "{dx}" (port),
     );
     return ret;
@@ -49,7 +49,7 @@ pub inline fn inw(port: u16) u16 {
 pub inline fn inl(port: u16) u32 {
     var ret: u32 = 0;
     asm volatile ("inl %[port], %[ret]"
-        : [ret] "=r" (ret),
+        : [ret] "={eax}" (ret),
         : [port] "{dx}" (port),
     );
     return ret;

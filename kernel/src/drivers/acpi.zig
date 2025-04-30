@@ -1,7 +1,9 @@
 const debug = @import("../arch/x86/debug.zig");
 const port = @import("../arch/x86/port.zig");
-const std = @import("std");
 const vmm = @import("../mem/vmm.zig");
+
+const std = @import("std");
+const log = std.log;
 
 const RSDP_FINDING_POSITION: [2]u32 = [2]u32{ 0x000E0000, 0x000FFFFF };
 const IDENTIFIER = "RSD PTR ";
@@ -151,7 +153,7 @@ fn findRSDP() ?*RSDP {
             return ptr;
         }
     }
-    debug.errorPrint("findRSDP:  rsdp not found?\n", .{});
+    log.err("findRSDP:  rsdp not found?\n", .{});
     return null;
 }
 
@@ -183,7 +185,7 @@ fn getFADT() ?*FADT {
 
 pub fn findTable(signature: []const u8) ?*SDTHeader {
     const localRsdp = tables.rsdp orelse {
-        debug.errorPrint("findTable:  can't find table rsdp not found\n", .{});
+        log.err("findTable:  can't find table rsdp not found\n", .{});
         return null;
     };
     const rsdt = localRsdp.rsdt_address;
@@ -195,7 +197,7 @@ pub fn findTable(signature: []const u8) ?*SDTHeader {
             return header;
         }
     }
-    debug.errorPrint("findTable:  table not found with signiture {s}\n", .{signature});
+    log.err("findTable:  table not found with signiture {s}\n", .{signature});
     return null;
 }
 
@@ -217,22 +219,22 @@ pub fn initACPI() void {
     const rsdp: *RSDP = findRSDP() orelse return;
     tables.rsdp = rsdp;
     if (!validationRsdpChecksum(rsdp)) {
-        debug.errorPrint("initACPI:  rsdp checksum failed\n", .{});
+        log.err("initACPI:  rsdp checksum failed\n", .{});
         return;
     }
     const fadt: *FADT = getFADT() orelse return;
     tables.fadt = fadt;
     if (!validationChecksum(@ptrCast(fadt))) {
-        debug.errorPrint("initACPI:  fadt checksum failed\n", .{});
+        log.err("initACPI:  fadt checksum failed\n", .{});
         return;
     }
 
     if (fadt.smi_command_port == 0 and fadt.acpi_enable == 0 and fadt.acpi_disable == 0 and (fadt.pm1a_control_block & 1) == 1) {
-        debug.errorPrint("initACPI:  acpi not supported or already enabled?\n", .{}); // i think there is miss information but idk
+        log.err("initACPI:  acpi not supported or already enabled?\n", .{}); // i think there is miss information but idk
         return;
     }
 
     port.outb(@intCast(fadt.smi_command_port), fadt.acpi_enable);
 
-    debug.infoPrint("acpi init success yippe\n", .{});
+    log.info("acpi init success yippe\n", .{});
 }

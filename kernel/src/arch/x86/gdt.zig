@@ -1,6 +1,8 @@
-const std = @import("std");
 const debug = @import("debug.zig");
-const main = @import("../../main.zig");
+const bootEntry = @import("../../entry.zig");
+
+const std = @import("std");
+const log = std.log;
 
 pub const GdtEntry = packed struct {
     limit_low: u16,
@@ -115,7 +117,7 @@ var gdt_ptr: GdtPtr = undefined;
 pub fn initGdt() void {
     gdt_ptr.limit = (@sizeOf(GdtEntry) * NUMBER_OF_ENTRIES) - 1;
     gdt_ptr.base = &gdt_entries;
-    setTssTable(&tss_entry, 0x10, @intFromPtr(main.stack_top), @sizeOf(Tss));
+    setTssTable(&tss_entry, 0x10, @intFromPtr(bootEntry.stack_top), @sizeOf(Tss));
 
     setGdtGate(
         0,
@@ -181,16 +183,18 @@ pub fn initGdt() void {
         TASK_STATE,
     ); // Task State Segment
 
+    log.debug("guh?\n", .{});
+
     gdtFlush(&gdt_ptr);
-    debug.infoPrint("initialized and loaded the gdt\n", .{});
+    log.info("initialized and loaded the gdt\n", .{});
 
     loadTss();
-    debug.infoPrint("loaded Tss\n", .{});
+    log.info("loaded Tss\n", .{});
 }
 
 pub fn setGdtGate(num: u32, base: u32, limit: u20, access: Access, flags: Flags) void {
-    debug.debugPrint("setGdtGate:  gdt entry: {}\n", .{getGdtEntry(num)});
-    defer debug.debugPrint("setGdtGate:  gdt entry after set: {}\n", .{getGdtEntry(num)});
+    log.debug("setGdtGate:  gdt entry: {}\n", .{getGdtEntry(num)});
+    defer log.debug("setGdtGate:  gdt entry after set: {}\n", .{getGdtEntry(num)});
 
     gdt_entries[num].base_low = @truncate(base);
     gdt_entries[num].base_high = @truncate(base >> 24);
@@ -220,20 +224,21 @@ pub fn updateTss(esp: u32) void {
 
 fn gdtFlush(gdt_ptr_: *const GdtPtr) void {
     // Load the GDT into the CPU
-    asm volatile ("lgdt (%%eax)"
+    asm volatile ("lgdt (%eax)"
         :
         : [gdt_ptr_] "{eax}" (gdt_ptr_),
         : "%eax"
     );
 
     // Load the kernel data segment, index into the GDT
-    asm volatile ("mov $0x10, %%bx" ::: "%bx");
-    asm volatile ("mov %%bx, %%ds" ::: "%ds");
-    asm volatile ("mov %%bx, %%es" ::: "%es");
-    asm volatile ("mov %%bx, %%fs" ::: "%fs");
-    asm volatile ("mov %%bx, %%gs" ::: "%gs");
-    asm volatile ("mov %%bx, %%ss" ::: "%ss");
-
+    asm volatile (
+        \\  mov $0x10, %ebx
+        \\  mov %bx, %ds
+        \\  mov %bx, %es
+        \\  mov %bx, %fs
+        \\  mov %bx, %gs
+        \\  mov %bx, %ss
+        ::: "%ds", "%es", "%fs", "%gs", "%ss");
     // Load the kernel code segment into the CS register
     asm volatile (
         \\ljmp $0x08, $1f

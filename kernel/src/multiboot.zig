@@ -21,8 +21,7 @@
 //  IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-const debug = @import("arch/x86/debug.zig");
-const tty = @import("drivers/tty.zig");
+const log = @import("std").log;
 
 pub const MULTIBOOT_HEADER: u32 = 1;
 pub const MULTIBOOT_SEARCH: u32 = 8192;
@@ -187,11 +186,11 @@ pub var multibootInfo: *multiboot_info = undefined;
 
 pub fn checkMultibootHeader(header: *multiboot_info, magic: u32) bool {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        debug.errorPrint("bootloader multiboot header invalid magic number: {d}\n", .{magic});
+        log.err("bootloader multiboot header invalid magic number: {d}\n", .{magic});
         return false;
     }
     if (header.flags >> 6 & 1 == 0) {
-        debug.errorPrint("No memory map provided by GRUB or other multiboot bootloader sad\n", .{});
+        log.err("No memory map provided by GRUB or other multiboot bootloader sad\n", .{});
         return false;
     }
 
@@ -214,19 +213,19 @@ pub fn getVideoFrameBuffer() ?struct {
 } {
     const lmultibootInfo = multibootInfo;
     if (lmultibootInfo.flags & @intFromEnum(InfoFlags.FRAMEBUFFER_INFO) == 0) {
-        debug.errorPrint("No framebuffer info provided by GRUB or other multiboot bootloader sag\n", .{});
+        log.err("No framebuffer info provided by GRUB or other multiboot bootloader sag\n", .{});
         return null;
     }
     if (lmultibootInfo.framebuffer_type != MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
-        debug.errorPrint("Framebuffer type is not RGB\n", .{});
+        log.err("Framebuffer type is not RGB\n", .{});
         return null;
     }
     if (lmultibootInfo.framebuffer_bpp != 32) {
-        debug.errorPrint("Framebuffer bpp is not 32\n", .{});
+        log.err("Framebuffer bpp is not 32\n", .{});
         return null;
     }
     if (lmultibootInfo.framebuffer_color.rgb.framebuffer_red_mask_size != 8 or lmultibootInfo.framebuffer_color.rgb.framebuffer_blue_mask_size != 8 or lmultibootInfo.framebuffer_color.rgb.framebuffer_green_mask_size != 8) {
-        debug.errorPrint("Framebuffer color mask size is not 8\n", .{});
+        log.err("Framebuffer color mask size is not 8\n", .{});
         return null;
     }
 
@@ -247,12 +246,12 @@ pub fn getVideoFrameBuffer() ?struct {
 pub fn getModuleInfo() ?[]multiboot_mod_list {
     const header = multibootInfo;
     if (header.mods_addr == 0) {
-        debug.errorPrint("No module list found\n", .{});
+        log.err("No module list found\n", .{});
         return null;
     }
     const modList = @as([*]multiboot_mod_list, @ptrFromInt(header.mods_addr))[0..header.mods_count];
     for (0..header.mods_count) |i| {
-        debug.debugPrint(
+        log.debug(
             "Module {d}: start: 0x{X} end: 0x{X} cmdline: 0x{X}\n",
             .{
                 i,
@@ -269,7 +268,7 @@ fn printRawMemoryMap() void {
     const header = multibootInfo;
     const mmm: [*]multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
     for (mmm, 0..(header.mmap_length / @sizeOf(multiboot_mmap_entry))) |entry, i| {
-        debug.printf(
+        log.info(
             "Memory map entry {d}: size: 0x{X} address: 0x{X} len: 0x{X} type: 0x{X}\n",
             .{
                 i,

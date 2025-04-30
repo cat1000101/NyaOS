@@ -1,9 +1,11 @@
-const debug = @import("debug.zig");
 const paging = @import("paging.zig");
 const files = @import("../../mem/files.zig");
+const elf = @import("../../drivers/elf.zig");
 const sched = @import("sched.zig");
 const highSched = @import("../../sched.zig");
-const elf = @import("../../drivers/elf.zig");
+const debug = @import("debug.zig");
+
+const log = @import("std").log;
 
 pub const userStack: usize = 0xAFFFF000; // 2.75GiB - 4KiB virtual
 pub const userStackBottom: usize = 0xAFC00000; // 2.75GiB - 4MiB virtual
@@ -19,17 +21,17 @@ pub fn switchToUserMode() void {
         .read_write = 1,
         .user_supervisor = 1,
     }) catch |err| {
-        debug.errorPrint("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
+        log.err("userLand.switchToUserMode:  failed to set page table entry: {}\n", .{err});
     };
 
     const file = files.open("doomgeneric.elf", 0) catch |err| {
-        debug.errorPrint("userLand.switchToUserMode:  failed to open userLand program: {}\n", .{err});
+        log.err("userLand.switchToUserMode:  failed to open userLand program: {}\n", .{err});
         return;
     };
     const fileSlice = file.file;
 
     const programMemory = elf.loadFile(fileSlice) catch |err| {
-        debug.errorPrint("userLand.switchToUserMode:  failed to load elf: {}\n", .{err});
+        log.err("userLand.switchToUserMode:  failed to load elf: {}\n", .{err});
         return;
     };
     const programEntry = elf.getEntryPoint(fileSlice);

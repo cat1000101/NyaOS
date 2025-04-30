@@ -1,9 +1,10 @@
-const debug = @import("debug.zig");
 const pmm = @import("../../mem/pmm.zig");
 const vmm = @import("../../mem/vmm.zig");
-const boot = @import("../../main.zig");
+const bootEntry = @import("../../entry.zig");
 const memory = @import("../../mem/memory.zig");
 const multiboot = @import("../../multiboot.zig");
+
+const log = @import("std").log;
 
 // stolen from https://github.com/ZystemOS/pluto
 // The bitmasks for the bits in a DirectoryEntry
@@ -149,10 +150,10 @@ pub const PageDirectory = struct {
 
     fn setEntery(self: *PageDirectory, index: u32, pageTable: *PageTable, flags: PageDirectoryEntry.Flags) PageErrors!void {
         const physicalPageAddress: u32 = virtualToPhysical(@intFromPtr(pageTable)) catch |err| {
-            debug.errorPrint("PageDirectory.setEntery:  can't set normal directory entery at: #{} error: {}\n", .{ index, err });
+            log.err("PageDirectory.setEntery:  can't set normal directory entery at: #{} error: {}\n", .{ index, err });
             return err;
         };
-        debug.debugPrint("PageDirectory.setEntery:  set page directory entry, page addr: 0x{X} vaddr: 0x{X}, governing memory: 0x{X}, flags: {any}\n", .{
+        log.debug("PageDirectory.setEntery:  set page directory entry, page addr: 0x{X} vaddr: 0x{X}, governing memory: 0x{X}, flags: {any}\n", .{
             physicalPageAddress,
             @intFromPtr(pageTable),
             index << 22,
@@ -175,13 +176,13 @@ pub const PageDirectory = struct {
     /// should only be used with the page directory directly and not the RECURSIVE_PAGE_TABLE_BASE or RECURSIVE_PAGE_DIRECTORY_ADDRESS
     fn mapPageEntery(self: *PageDirectory, vaddr: u32, paddr: u32, flags: PageTableEntry.Flags) PageErrors!void {
         if (!isDirectDirectory(self)) {
-            debug.errorPrint("PageDirectory.mapPageEntery:  self is recursive pageDirectory\n", .{});
+            log.err("PageDirectory.mapPageEntery:  self is recursive pageDirectory\n", .{});
             return PageErrors.OnlyDirectDirectoryAllowed;
         }
         const pageTableIndex = (vaddr >> 12) & 1023;
         const pageDirectoryIndex = vaddr >> 22;
         const pageTable = self.getPageTable(pageDirectoryIndex) catch |err| {
-            debug.errorPrint("PageDirectory.mapPageEntery:  Can't get page table error: {}\n", .{err});
+            log.err("PageDirectory.mapPageEntery:  Can't get page table error: {}\n", .{err});
             return err;
         };
         pageTable.setEntery(pageTableIndex, paddr, flags);
@@ -191,7 +192,7 @@ pub const PageDirectory = struct {
     /// returns VIRTUAL address of the page table as pointer
     fn getPageTable(self: *PageDirectory, index: u32) PageErrors!*PageTable {
         if (!isDirectDirectory(self)) {
-            debug.errorPrint("PageDirectory.getPageTable:  self is recursive pageDirectory\n", .{});
+            log.err("PageDirectory.getPageTable:  self is recursive pageDirectory\n", .{});
             return PageErrors.OnlyDirectDirectoryAllowed;
         }
         if (@as(u32, @bitCast(self.entries[index].normal)) == 0) {
@@ -206,24 +207,24 @@ pub const PageDirectory = struct {
     /// should only be used with the page directory directly and not the RECURSIVE_PAGE_TABLE_BASE or RECURSIVE_PAGE_DIRECTORY_ADDRESS
     fn idPages(self: *PageDirectory, vaddr: u32, paddr: u32, size: u32, used: bool) PageErrors!void {
         if (!isDirectDirectory(self)) {
-            debug.errorPrint("PageDirectory.idPages:  self is recursive pageDirectory\n", .{});
+            log.err("PageDirectory.idPages:  self is recursive pageDirectory\n", .{});
             return PageErrors.OnlyDirectDirectoryAllowed;
         }
         if (!isAligned(vaddr, memory.PAGE_SIZE) or !isAligned(paddr, memory.PAGE_SIZE) or !isAligned(size, memory.PAGE_SIZE)) {
-            debug.errorPrint("PageDirectory.idPages:  idPaging input not aligned\n", .{});
+            log.err("PageDirectory.idPages:  idPaging input not aligned\n", .{});
             return PageErrors.InputNotAligned;
         }
         var lpaddr: u32 = paddr;
         var lvaddr: u32 = vaddr;
         var lsize: u32 = size;
-        debug.debugPrint("PageDirectory.idPages:  idPaging vaddr: 0x{X} paddr: 0x{X} size: 0x{X}\n", .{ lvaddr, lpaddr, lsize });
+        log.debug("PageDirectory.idPages:  idPaging vaddr: 0x{X} paddr: 0x{X} size: 0x{X}\n", .{ lvaddr, lpaddr, lsize });
         while (lsize > 0) : ({
             lpaddr += memory.PAGE_SIZE;
             lvaddr += memory.PAGE_SIZE;
             lsize -= memory.PAGE_SIZE;
         }) {
             self.mapPageEntery(lvaddr, lpaddr, .{ .present = 1, .read_write = 1, .used = @intFromBool(used) }) catch |err| {
-                debug.errorPrint("PageDirectory.idPages:  Can't map virtual page error: {}\n", .{err});
+                log.err("PageDirectory.idPages:  Can't map virtual page error: {}\n", .{err});
                 return err;
             };
         }
@@ -231,11 +232,11 @@ pub const PageDirectory = struct {
 };
 
 pub fn newPageTable(vaddr: u32) memory.AllocatorError!*PageTable {
-    debug.debugPrint("++allocates new page table\n", .{});
-    defer debug.debugPrint("--allocated new page table\n", .{});
+    log.debug("++allocates new page table\n", .{});
+    defer log.debug("--allocated new page table\n", .{});
 
     const physPage = pmm.physBitMap.alloc(1) catch |err| {
-        debug.errorPrint("newPageTable:  failed to allocate physical page error: {}\n", .{err});
+        log.err("newPageTable:  failed to allocate physical page error: {}\n", .{err});
         return err;
     };
     const physPageAddress = @intFromPtr(physPage);
@@ -254,8 +255,8 @@ pub fn newPageTable(vaddr: u32) memory.AllocatorError!*PageTable {
 
 /// will free everything assosieted with a pageTable
 pub fn freePageTableRecursivly(pageAddr: u32) void {
-    debug.debugPrint("++free page table and it's insides\n", .{});
-    defer debug.debugPrint("--freed page table and it's insides\n", .{});
+    log.debug("++free page table and it's insides\n", .{});
+    defer log.debug("--freed page table and it's insides\n", .{});
 
     const split: AddressSplit = @bitCast(pageAddr);
     var pageTable: *PageTable = undefined;
@@ -264,7 +265,7 @@ pub fn freePageTableRecursivly(pageAddr: u32) void {
         const lpageDirectory = getPageDirectoryRecursivly();
         const directoryEntry = lpageDirectory.entries[split.directoryEntry].normal;
         if (@as(u32, @bitCast(directoryEntry)) == 0) {
-            debug.errorPrint("freePageTableRecursivly:  page directory entry is empty\n", .{});
+            log.err("freePageTableRecursivly:  page directory entry is empty\n", .{});
             return;
         }
         pageTable = getPageTableRecursivly(split.directoryEntry);
@@ -273,7 +274,7 @@ pub fn freePageTableRecursivly(pageAddr: u32) void {
         pageTable = @ptrFromInt(pageAddr);
     }
     var pageTableIndex: usize = 0;
-    debug.debugPrint("freePageTableRecursivly:  start freeing page table entry at: 0x{X}, pageTableIndex: 0x{X}\n", .{ lvaddr, pageTableIndex });
+    log.debug("freePageTableRecursivly:  start freeing page table entry at: 0x{X}, pageTableIndex: 0x{X}\n", .{ lvaddr, pageTableIndex });
     while (pageTableIndex < 1024) : ({
         pageTableIndex += 1;
         lvaddr += memory.PAGE_SIZE;
@@ -281,7 +282,7 @@ pub fn freePageTableRecursivly(pageAddr: u32) void {
         const entry = pageTable.entries[pageTableIndex];
         if (entry.flags.used == 1) {
             const address: u32 = @as(u32, entry.address) << 12;
-            debug.debugPrint("freePageTableRecursivly:  freeing page table entry at: 0x{X}, paddr: 0x{X} entry: {any}\n", .{ lvaddr, address, entry });
+            log.debug("freePageTableRecursivly:  freeing page table entry at: 0x{X}, paddr: 0x{X} entry: {any}\n", .{ lvaddr, address, entry });
             pageTable.entries[pageTableIndex] = .{};
             pmm.physBitMap.free(@ptrFromInt(address), 1);
             if (lvaddr >= memory.KERNEL_ADDRESS_SPACE and pageAddr < RECURSIVE_PAGE_TABLE_BASE) {
@@ -332,11 +333,11 @@ pub fn getPageTableRecursivlyAlways(index: u32) !*PageTable {
     const pageTable: *PageTable = @ptrFromInt(pageTableAddress);
     if (@as(u32, @bitCast(lpageDirectory.entries[index].normal)) == 0) {
         return newPageTable(index << 22) catch |err| {
-            debug.errorPrint("getPageTableRecursivlyAlways:  Can't create new page table, error: {}\n", .{err});
+            log.err("getPageTableRecursivlyAlways:  Can't create new page table, error: {}\n", .{err});
             return err;
         };
     } else if (lpageDirectory.entries[index].big.flags.page_size == 1) {
-        debug.debugPrint("getPageTableRecursivlyAlways:  page table is big page\n", .{});
+        log.debug("getPageTableRecursivlyAlways:  page table is big page\n", .{});
         return PageErrors.IsBigPage;
     }
     return pageTable;
@@ -347,7 +348,7 @@ pub fn getPageTableRecursivlyAlways(index: u32) !*PageTable {
 pub fn setPageTableEntryRecursivlyAlways(vaddr: u32, paddr: u32, flags: PageTableEntry.Flags) !void {
     const split: AddressSplit = @bitCast(vaddr);
     const pageTable = getPageTableRecursivlyAlways(split.directoryEntry) catch |err| {
-        debug.errorPrint("setPageTableEntryRecursivlyAlways:  Can't get page table, error: {}\n", .{err});
+        log.err("setPageTableEntryRecursivlyAlways:  Can't get page table, error: {}\n", .{err});
         return err;
     };
     pageTable.setEntery(split.pageEntry, paddr, flags);
@@ -358,7 +359,7 @@ pub fn setPageTableEntryRecursivlyAlways(vaddr: u32, paddr: u32, flags: PageTabl
 pub fn getPageTableEntryRecursivlyAlways(vaddr: u32) !*PageTableEntry {
     const split: AddressSplit = @bitCast(vaddr);
     const pageTable = getPageTableRecursivlyAlways(split.directoryEntry) catch |err| {
-        debug.errorPrint("getPageTableEntryRecursivlyAlways:  Can't get page table, error: {}\n", .{err});
+        log.err("getPageTableEntryRecursivlyAlways:  Can't get page table, error: {}\n", .{err});
         return err;
     };
     return pageTable.getEntery(split.pageEntry);
@@ -392,17 +393,17 @@ pub fn getPageTableEntryDefualtFlags(vaddr: usize, used: bool) PageTableEntry.Fl
 
 /// should only be used when using kernel space page directory as the current page directory
 pub fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void {
-    debug.debugPrint("++id pages recursivly\n", .{});
-    defer debug.debugPrint("--mapped id pages recursivly\n", .{});
+    log.debug("++id pages recursivly\n", .{});
+    defer log.debug("--mapped id pages recursivly\n", .{});
 
     if (!isAligned(vaddr, memory.PAGE_SIZE) or !isAligned(paddr, memory.PAGE_SIZE) or !isAligned(size, memory.PAGE_SIZE)) {
-        debug.errorPrint("idPagesRecursivly:  idPaging input not aligned\n", .{});
+        log.err("idPagesRecursivly:  idPaging input not aligned\n", .{});
         return PageErrors.InputNotAligned;
     }
     var lpaddr: u32 = paddr;
     var lvaddr: u32 = vaddr;
     var lsize: u32 = size;
-    debug.debugPrint("idPagesRecursivly:  idPaging vaddr: 0x{X} paddr: 0x{X} size: 0x{X}\n", .{ lvaddr, lpaddr, lsize });
+    log.debug("idPagesRecursivly:  idPaging vaddr: 0x{X} paddr: 0x{X} size: 0x{X}\n", .{ lvaddr, lpaddr, lsize });
     while (lsize > 0) : ({
         lpaddr += memory.PAGE_SIZE;
         lvaddr += memory.PAGE_SIZE;
@@ -413,24 +414,24 @@ pub fn idPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void {
             lpaddr,
             getPageTableEntryDefualtFlags(lvaddr, used),
         ) catch |err| {
-            debug.errorPrint("idPagesRecursivly:  Can't map virtual page, error: {}\n", .{err});
+            log.err("idPagesRecursivly:  Can't map virtual page, error: {}\n", .{err});
             return err;
         };
     }
 }
 
 pub fn idBigPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void {
-    debug.debugPrint("++big id pages recursivly\n", .{});
-    defer debug.debugPrint("--mapped big id pages recursivly\n", .{});
+    log.debug("++big id pages recursivly\n", .{});
+    defer log.debug("--mapped big id pages recursivly\n", .{});
 
     if (!isAligned(vaddr, memory.DIR_SIZE) or !isAligned(paddr, memory.DIR_SIZE) or !isAligned(size, memory.DIR_SIZE)) {
-        debug.errorPrint("idBigPagesRecursivly:  idPaging input not aligned\n", .{});
+        log.err("idBigPagesRecursivly:  idPaging input not aligned\n", .{});
         return PageErrors.InputNotAligned;
     }
     var lpaddr: u32 = paddr;
     var lvaddr: u32 = vaddr;
     var lsize: u32 = size;
-    debug.debugPrint("idBigPagesRecursivly:  idPaging vaddr: 0x{X} paddr: 0x{X} size: 0x{X}\n", .{ lvaddr, lpaddr, lsize });
+    log.debug("idBigPagesRecursivly:  idPaging vaddr: 0x{X} paddr: 0x{X} size: 0x{X}\n", .{ lvaddr, lpaddr, lsize });
     while (lsize > 0) : ({
         lpaddr += memory.DIR_SIZE;
         lvaddr += memory.DIR_SIZE;
@@ -441,15 +442,15 @@ pub fn idBigPagesRecursivly(vaddr: u32, paddr: u32, size: u32, used: bool) !void
             lpaddr,
             getBigPageDirectoryEntryDefualtFlags(lvaddr, used),
         ) catch |err| {
-            debug.errorPrint("idBigPagesRecursivly:  Can't map virtual page, error: {}\n", .{err});
+            log.err("idBigPagesRecursivly:  Can't map virtual page, error: {}\n", .{err});
             return err;
         };
     }
 }
 
 pub fn unMap(address: u32, size: u32) !void {
-    debug.debugPrint("++unmapping pages\n", .{});
-    defer debug.debugPrint("--unmapped pages\n", .{});
+    log.debug("++unmapping pages\n", .{});
+    defer log.debug("--unmapped pages\n", .{});
 
     var lsize: u32 = size;
     var lvaddr: u32 = address;
@@ -458,7 +459,7 @@ pub fn unMap(address: u32, size: u32) !void {
         lsize -= memory.PAGE_SIZE;
     }) {
         setPageTableEntryRecursivlyAlways(lvaddr, 0, .{}) catch |err| {
-            debug.errorPrint("unMap:  Can't unmap virtual page, error: {}\n", .{err});
+            log.err("unMap:  Can't unmap virtual page, error: {}\n", .{err});
             return err;
         };
     }
@@ -508,32 +509,32 @@ const higherHalfPagePtr: *PageTable = &higherHalfPage;
 const firstPagePtr: *PageTable = &firstPage;
 
 pub fn initPaging() void {
-    debug.infoPrint("Initializing paging\n", .{});
-    defer debug.infoPrint("Paging initialized\n", .{});
+    log.info("Initializing paging\n", .{});
+    defer log.info("Paging initialized\n", .{});
 
     pageDirectory.setEntery(1023, @ptrCast(kernelPageDirectory), .{
         .present = 1,
         .read_write = 1,
     }) catch |err| {
-        debug.errorPrint("initPaging:  Can't set recursive page table error: {}\n", .{err});
+        log.err("initPaging:  Can't set recursive page table error: {}\n", .{err});
         return;
     };
     kernelPageDirectory.setEntery(0, firstPagePtr, .{
         .present = 1,
         .read_write = 1,
     }) catch |err| {
-        debug.errorPrint("initPaging:  Can't set first page table error: {}\n", .{err});
+        log.err("initPaging:  Can't set first page table error: {}\n", .{err});
         return;
     };
     kernelPageDirectory.setEntery(FIRST_KERNEL_DIR_NUMBER, higherHalfPagePtr, .{
         .present = 1,
         .read_write = 1,
     }) catch |err| {
-        debug.errorPrint("initPaging:  Can't set kernel page table error: {}\n", .{err});
+        log.err("initPaging:  Can't set kernel page table error: {}\n", .{err});
         return;
     };
     kernelPageDirectory.idPages(0, 0, 4 * memory.MIB, true) catch |err| {
-        debug.errorPrint("initPaging:  Can't id map first page table error: {}\n", .{err});
+        log.err("initPaging:  Can't id map first page table error: {}\n", .{err});
         return;
     };
     mapHigherHalf(kernelPageDirectory);
@@ -541,7 +542,7 @@ pub fn initPaging() void {
     // debugPrintPaging(pageDirectoryPtr);
 
     installPageDirectory(kernelPageDirectory) catch |err| {
-        debug.errorPrint("initPaging:  Can't install page directory error: {}\n", .{err});
+        log.err("initPaging:  Can't install page directory error: {}\n", .{err});
         return;
     };
 
@@ -557,18 +558,18 @@ pub fn virtualToPhysical(address: u32) PageErrors!u32 {
         if (err == PageErrors.IsBigPage) {
             return @intCast((@as(u32, @intCast(lpageDirectory.entries[split.directoryEntry].big.address_low)) << 22) | (@as(u32, @intCast(split.pageEntry)) << 12) | split.offset);
         } else {
-            debug.errorPrint("virtualToPhysical:  No page table found for dir: {}, error: {}\n", .{ split.directoryEntry, err });
+            log.err("virtualToPhysical:  No page table found for dir: {}, error: {}\n", .{ split.directoryEntry, err });
             return PageErrors.NotMapped;
         }
     }
 }
 
 fn installPageDirectory(pd: *PageDirectory) PageErrors!void {
-    debug.debugPrint("++Installing page directory\n", .{});
-    defer debug.debugPrint("--Page directory installed\n", .{});
+    log.debug("++Installing page directory\n", .{});
+    defer log.debug("--Page directory installed\n", .{});
 
     const pageDirectoryAddress = virtualToPhysical(@intFromPtr(pd)) catch |err| {
-        debug.errorPrint("installPageDirectory:  Can't get page directory address error: {}\n", .{err});
+        log.err("installPageDirectory:  Can't get page directory address error: {}\n", .{err});
         return err;
     };
     asm volatile (
@@ -606,23 +607,23 @@ pub fn isAligned(address: u32, alignment: u32) bool {
 }
 
 fn mapHigherHalf(pd: *PageDirectory) void {
-    debug.debugPrint("++map higher half kernel\n", .{});
-    defer debug.debugPrint("--higher half kernel mapped\n", .{});
+    log.debug("++map higher half kernel\n", .{});
+    defer log.debug("--higher half kernel mapped\n", .{});
 
     const size: u32 = (@intFromPtr(memory.kernel_end) - memory.KERNEL_ADDRESS_SPACE + memory.PAGE_SIZE) & 0xfffff000;
     pd.idPages(memory.KERNEL_ADDRESS_SPACE, 0, size, true) catch |err| {
-        debug.errorPrint("mapHigherHalf:  Can't id map higher half error: {}\n", .{err});
+        log.err("mapHigherHalf:  Can't id map higher half error: {}\n", .{err});
         return;
     };
 }
 
 pub fn mapForbiddenZones(mbh: *multiboot.multiboot_info) void {
-    debug.debugPrint("++map forbidden zones\n", .{});
-    defer debug.debugPrint("--forbidden zones mapped\n", .{});
+    log.debug("++map forbidden zones\n", .{});
+    defer log.debug("--forbidden zones mapped\n", .{});
 
     const header = mbh;
     const memorySize: u32 = header.mem_upper * 1024 + 1 * memory.MIB;
-    debug.infoPrint("usable ram size: 0x{X}\n", .{memorySize});
+    log.info("usable ram size: 0x{X}\n", .{memorySize});
     const mmm: [*]multiboot.multiboot_mmap_entry = @ptrFromInt(header.mmap_addr);
     for (mmm, 0..(header.mmap_length / @sizeOf(multiboot.multiboot_mmap_entry))) |entry, _| {
         const entryLen: u32 = @as(u32, @truncate(entry.len));
@@ -634,7 +635,7 @@ pub fn mapForbiddenZones(mbh: *multiboot.multiboot_info) void {
             continue;
         } else if (entryLen >= memory.DIR_SIZE) {
             idBigPagesRecursivly(paddr, paddr, entryLen, true) catch |err| {
-                debug.errorPrint("mapForbiddenZones:  Can't big id map forbidden zone error: {}\n", .{err});
+                log.err("mapForbiddenZones:  Can't big id map forbidden zone error: {}\n", .{err});
             };
             continue;
         }
@@ -644,23 +645,23 @@ pub fn mapForbiddenZones(mbh: *multiboot.multiboot_info) void {
             memory.alignAddressUp(entryLen, memory.PAGE_SIZE),
             true,
         ) catch |err| {
-            debug.errorPrint("mapForbiddenZones:  Can't id map forbidden zone error: {}\n", .{err});
+            log.err("mapForbiddenZones:  Can't id map forbidden zone error: {}\n", .{err});
             return;
         };
     }
 }
 
 fn testPaging() void {
-    debug.debugPrint("++testing paging by allocating a page and changing it's content\n", .{});
-    defer debug.debugPrint("--paging test done\n", .{});
+    log.debug("++testing paging by allocating a page and changing it's content\n", .{});
+    defer log.debug("--paging test done\n", .{});
 
     const physicalPage: u32 = @intFromPtr(pmm.physBitMap.alloc(1) catch |err| {
-        debug.errorPrint("testPaging:  Can't allocate page for test: {}\n", .{err});
+        log.err("testPaging:  Can't allocate page for test: {}\n", .{err});
         return;
     });
     const lvaddr = 55 * memory.DIR_SIZE;
     const testPageTablePtr = newPageTable(lvaddr) catch |err| {
-        debug.errorPrint("testPaging:  Can't create test page table error: {}\n", .{err});
+        log.err("testPaging:  Can't create test page table error: {}\n", .{err});
         return;
     };
     defer freePageTableRecursivly(@intFromPtr(testPageTablePtr));
@@ -676,21 +677,21 @@ fn testPaging() void {
 
     lptr0[0] = 0x6969;
     if (lptr1[0] == 0x6969) {
-        debug.infoPrint("testPaging:  paging test passed lptr0: 0x{X} and lptr1: 0x{X}\n", .{ lptr0[0], lptr1[0] });
+        log.info("testPaging:  paging test passed lptr0: 0x{X} and lptr1: 0x{X}\n", .{ lptr0[0], lptr1[0] });
     } else {
-        debug.infoPrint("testPaging:  paging test failed\n", .{});
+        log.info("testPaging:  paging test failed\n", .{});
     }
 }
 
 fn debugPrintPaging(pd: *PageDirectory) void {
-    debug.debugPrint("++debug printing pages\n", .{});
-    defer debug.debugPrint("--debug printing pages done\n", .{});
+    log.debug("++debug printing pages\n", .{});
+    defer log.debug("--debug printing pages done\n", .{});
 
     const lpageDirectory = pd;
-    debug.debugPrint("debugPrintPaging:  page directory physical address: 0x{X} virtual address: 0x{X}\n", .{ virtualToPhysical(@intFromPtr(&lpageDirectory)) catch blk: {
+    log.debug("debugPrintPaging:  page directory physical address: 0x{X} virtual address: 0x{X}\n", .{ virtualToPhysical(@intFromPtr(&lpageDirectory)) catch blk: {
         break :blk 0x6969;
     }, @intFromPtr(&lpageDirectory) });
-    debug.debugPrint("debugPrintPaging:  kernel start: 0x{X} end: 0x{X}, physical start: 0x{X} end: 0x{X}\n", .{
+    log.debug("debugPrintPaging:  kernel start: 0x{X} end: 0x{X}, physical start: 0x{X} end: 0x{X}\n", .{
         @intFromPtr(memory.kernel_start),
         @intFromPtr(memory.kernel_end),
         @intFromPtr(memory.kernel_physical_start),
@@ -704,7 +705,7 @@ fn debugPrintPaging(pd: *PageDirectory) void {
             if (@as(u32, @bitCast(lPTE)) == 0) {
                 continue;
             }
-            debug.debugPrint("debugPrintPaging:  directory entry: #{} entry data: 0x{X}\ndebugPrintPaging:  page entry: #{} entry data: 0x{X}, mapped vaddr: 0x{X}\n", .{
+            log.debug("debugPrintPaging:  directory entry: #{} entry data: 0x{X}\ndebugPrintPaging:  page entry: #{} entry data: 0x{X}, mapped vaddr: 0x{X}\n", .{
                 i,
                 @as(u32, @bitCast(entery.normal)),
                 j,

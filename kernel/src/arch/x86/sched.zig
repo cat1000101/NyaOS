@@ -1,7 +1,7 @@
 const sched = @import("../../sched.zig");
 const paging = @import("paging.zig");
 const gdt = @import("gdt.zig");
-const main = @import("../../main.zig");
+const bootEntry = @import("../../entry.zig");
 
 pub fn switchContext(oldContext: *sched.Context, newContext: *sched.Context) void {
     gdt.updateTss(@intFromPtr(newContext.stack));

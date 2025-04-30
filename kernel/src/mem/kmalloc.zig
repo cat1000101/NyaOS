@@ -1,6 +1,7 @@
 const vmm = @import("vmm.zig");
-const debug = @import("../arch/x86/debug.zig");
 const memory = @import("memory.zig");
+
+const log = @import("std").log;
 
 const blockHeader = struct {
     size: usize,
@@ -20,7 +21,7 @@ var kmallocSize: usize = 0;
 
 pub fn kmalloc(size: usize) ?[*]u8 {
     if (size == 0) {
-        debug.errorPrint("kmalloc:  size is 0\n", .{});
+        log.err("kmalloc:  size is 0\n", .{});
         return null;
     }
     const alignedSize = alignUp(size);
@@ -37,7 +38,7 @@ pub fn kmalloc(size: usize) ?[*]u8 {
             block.isFree = false;
             block.size = alignedSize;
             block.next = newBlock;
-            debug.debugPrint("kmalloc:  allocated memory at: 0x{X} size: 0x{X}\n", .{
+            log.debug("kmalloc:  allocated memory at: 0x{X} size: 0x{X}\n", .{
                 @intFromPtr(block) + blockHeaderSize,
                 alignedSize,
             });
@@ -45,18 +46,18 @@ pub fn kmalloc(size: usize) ?[*]u8 {
         }
         current = block.next;
     }
-    debug.errorPrint("kmalloc:  no free block found, TODO: allocating new page\n", .{});
+    log.err("kmalloc:  no free block found, TODO: allocating new page\n", .{});
     return null;
 }
 
 pub fn kfree(ptr: [*]u8) void {
     const block: *blockHeader = @ptrFromInt(@intFromPtr(ptr) - blockHeaderSize);
     if (block.isFree) {
-        debug.errorPrint("kfree:  block is already free\n", .{});
+        log.err("kfree:  block is already free\n", .{});
         return;
     }
     block.isFree = true;
-    debug.debugPrint("kfree:  freed memory at: 0x{X} size: 0x{X}\n", .{
+    log.debug("kfree:  freed memory at: 0x{X} size: 0x{X}\n", .{
         @intFromPtr(ptr),
         block.size,
     });
@@ -99,13 +100,13 @@ pub fn allocator() mem.Allocator {
 }
 
 pub fn init() void {
-    debug.debugPrint("++initializing kmalloc\n", .{});
-    defer debug.debugPrint("--initialized kmalloc\n", .{});
+    log.debug("++initializing kmalloc\n", .{});
+    defer log.debug("--initialized kmalloc\n", .{});
 
     const initialSizeInPages: usize = 16;
     const initialSizeInBytes: usize = initialSizeInPages * memory.PAGE_SIZE;
     const page = vmm.allocatePages(initialSizeInPages) orelse {
-        debug.errorPrint("kmalloc.init:  failed to allocate page\n", .{});
+        log.err("kmalloc.init:  failed to allocate page\n", .{});
         return;
     };
     if (kmallocHead == null) {
@@ -119,27 +120,27 @@ pub fn init() void {
         };
         kmallocSize = initialSizeInBytes;
     } else {
-        debug.errorPrint("kmalloc.init:  kmallocHead is not null\n", .{});
+        log.err("kmalloc.init:  kmallocHead is not null\n", .{});
     }
 
     // kmallocTest();
     // debugPrint();
-    debug.infoPrint("kmalloc initilized yippe\n", .{});
+    log.info("kmalloc initilized yippe\n", .{});
 }
 
 fn kmallocTest() void {
-    debug.debugPrint("++testing kmalloc\n", .{});
-    defer debug.debugPrint("--tested kmalloc\n", .{});
+    log.debug("++testing kmalloc\n", .{});
+    defer log.debug("--tested kmalloc\n", .{});
 
     const useZigApi = true;
     if (!useZigApi) {
         const allocationSize: usize = 0x100;
         const buffer = kmalloc(allocationSize) orelse {
-            debug.errorPrint("kmallocTest:  failed to allocate memory\n", .{});
+            log.err("kmallocTest:  failed to allocate memory\n", .{});
             return;
         };
         buffer[0] = 0x42;
-        debug.debugPrint("kmallocTest:  allocated memory at: 0x{X} size: 0x{X}, content: {X}\n", .{
+        log.debug("kmallocTest:  allocated memory at: 0x{X} size: 0x{X}, content: {X}\n", .{
             @intFromPtr(buffer),
             allocationSize,
             buffer[0..allocationSize],
@@ -149,15 +150,15 @@ fn kmallocTest() void {
         const theAllocator = allocator();
         const allocationSize: usize = 0x100;
         const buffer = theAllocator.alloc(u8, allocationSize) catch |err| {
-            debug.errorPrint("kmallocTest.zigApi:  failed to allocate memory error: {}\n", .{err});
+            log.err("kmallocTest.zigApi:  failed to allocate memory error: {}\n", .{err});
             return;
         };
         const buffer2 = theAllocator.alloc(u8, allocationSize) catch |err| {
-            debug.errorPrint("kmallocTest.zigApi:  failed to allocate memory error: {}\n", .{err});
+            log.err("kmallocTest.zigApi:  failed to allocate memory error: {}\n", .{err});
             return;
         };
         buffer[0] = 0x42;
-        debug.debugPrint("kmallocTest:  allocated memory at: 0x{X} size: 0x{X}, content: {X}\n", .{
+        log.debug("kmallocTest:  allocated memory at: 0x{X} size: 0x{X}, content: {X}\n", .{
             @intFromPtr(buffer.ptr),
             buffer.len,
             buffer,
@@ -168,12 +169,12 @@ fn kmallocTest() void {
 }
 
 fn debugPrint() void {
-    debug.debugPrint("++kmalloc debug print\n", .{});
-    defer debug.debugPrint("--kmalloc debug printed\n", .{});
+    log.debug("++kmalloc debug print\n", .{});
+    defer log.debug("--kmalloc debug printed\n", .{});
 
     var local = kmallocHead;
     while (local) |b| {
-        debug.debugPrint("kmalloc.debugPrint:  block header: {}\nkmalloc.debugPrint:  block addr: 0x{X} size: 0x{X} isFree: {}, content: {X}\n", .{
+        log.debug("kmalloc.debugPrint:  block header: {}\nkmalloc.debugPrint:  block addr: 0x{X} size: 0x{X} isFree: {}, content: {X}\n", .{
             b,
             @intFromPtr(b) + blockHeaderSize,
             b.size,

@@ -1,8 +1,9 @@
-const fmt = @import("std").fmt;
+const std = @import("std");
+const fmt = std.fmt;
 const Writer = @import("std").io.Writer;
 
 // debug.printf("debug print src: {s}:{}:{}\n", .{ @src().file, @src().line, @src().column });
-fn print(s: []const u8) void {
+pub fn print(s: []const u8) void {
     for (s) |char| {
         putcharAsm(char);
     }
@@ -30,29 +31,23 @@ pub fn printf(comptime format: []const u8, args: anytype) void {
     fmt.format(writer, format, args) catch unreachable;
 }
 
-const levels = struct {
-    infoPrintLevel: bool,
-    debugPrintLevel: bool,
-    errorPrintLevel: bool,
-};
-
-pub var printLevels: levels = .{
-    .infoPrintLevel = true,
-    .errorPrintLevel = true,
-    .debugPrintLevel = false,
-};
-
-pub fn infoPrint(comptime format: []const u8, args: anytype) void {
-    if (!printLevels.infoPrintLevel) return;
-    printf("[INFO]: " ++ format, args);
+pub fn printfBuf(comptime format: []const u8, args: anytype) void {
+    var buf: [1024]u8 = undefined;
+    const msg = fmt.bufPrint(&buf, format, args) catch unreachable;
+    print(msg);
 }
 
-pub fn debugPrint(comptime format: []const u8, args: anytype) void {
-    if (!printLevels.debugPrintLevel) return;
-    printf("[DEBUG]: " ++ format, args);
-}
-
-pub fn errorPrint(comptime format: []const u8, args: anytype) void {
-    if (!printLevels.errorPrintLevel) return;
-    printf("[ERROR]: " ++ format, args);
+pub fn myLogFn(
+    comptime level: std.log.Level,
+    comptime scope: @Type(.enum_literal),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    _ = scope;
+    const prefix = "[" ++ comptime level.asText() ++ "]: ";
+    if (format.len > 1000) {
+        printf(prefix ++ format, args);
+    } else {
+        printfBuf(prefix ++ format, args);
+    }
 }

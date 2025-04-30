@@ -1,7 +1,8 @@
-const debug = @import("debug.zig");
 const port = @import("port.zig");
 const pic = @import("pic.zig");
 const interrupts = @import("interrupts.zig");
+
+const log = @import("std").log;
 
 const CHANNEL_0_PORT: u16 = 0x40;
 const CHANNEL_1_PORT: u16 = 0x41;
@@ -147,11 +148,11 @@ pub fn initPit(freq: u16) void {
 
     pitReloadValue = @truncate(reloadValue);
 
-    debug.debugPrint("initPit:  ms: {}\n", .{timerMs});
-    debug.debugPrint("initPit:  fraction: {}\n", .{timerFraction});
-    debug.debugPrint("initPit:  frequency: {}\n", .{timerFrequency});
-    debug.debugPrint("initPit:  ReloadValue: {}\n", .{reloadValue});
-    debug.debugPrint("initPit:  pit reload value: {}\n", .{pitReloadValue});
+    log.debug("initPit:  ms: {}\n", .{timerMs});
+    log.debug("initPit:  fraction: {}\n", .{timerFraction});
+    log.debug("initPit:  frequency: {}\n", .{timerFrequency});
+    log.debug("initPit:  ReloadValue: {}\n", .{reloadValue});
+    log.debug("initPit:  pit reload value: {}\n", .{pitReloadValue});
 
     // set the command register
     port.outb(COMMAND_PORT, @bitCast(PIT_CONFIGURATION));
@@ -159,11 +160,11 @@ pub fn initPit(freq: u16) void {
 
     const timerHandler = interrupts.generateStub(&pitHandler);
     pic.installIrq(&timerHandler, 0) catch |err| {
-        debug.errorPrint("initPit:  failed to install timer handler {}\n", .{err});
+        log.err("initPit:  failed to install timer handler {}\n", .{err});
     };
 
     // testSleep();
-    debug.infoPrint("pit initialized :3\n", .{});
+    log.info("pit initialized :3\n", .{});
 }
 
 var timerMsSinceStart: u32 = 0;
@@ -184,7 +185,7 @@ fn pitHandler(cpuState: *interrupts.CpuState) callconv(.c) void {
         countDown -= 1;
     }
 
-    // debug.debugPrint("ms,fraction start: {}, {}\n", .{
+    // log.debug("ms,fraction start: {}, {}\n", .{
     //     timerMsSinceStart,
     //     timerFractionSinceStart,
     // });
@@ -202,7 +203,7 @@ pub fn ksleep(ms: u32) void {
     }
     const timePassedMs = @as(f32, @floatFromInt(timerMsSinceStart - startMs));
     const timePassed: f32 = timePassedMs + ((@as(f32, @floatFromInt(timerFractionSinceStart)) - startFraction) / @as(f32, @floatFromInt(timerFrequency)));
-    debug.debugPrint("slept for {} ms, amount of ms passed: {d}~\n", .{
+    log.debug("slept for {} ms, amount of ms passed: {d}~\n", .{
         ms,
         timePassed,
     });
@@ -213,6 +214,6 @@ pub fn getTimeMs() u32 {
 }
 
 fn testSleep() void {
-    debug.infoPrint("testing sleeping for 71ms\n", .{});
+    log.info("testing sleeping for 71ms\n", .{});
     ksleep(71);
 }

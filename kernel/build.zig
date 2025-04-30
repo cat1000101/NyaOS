@@ -24,10 +24,11 @@ pub fn build(b: *Builder) void {
         .cpu_features_add = enabled_features,
     });
 
-    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .Debug });
+    // const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .Debug });
 
     const kernelModule = b.createModule(.{
-        .optimize = optimize,
+        .optimize = .Debug,
+        .strip = false,
         .target = target,
         .root_source_file = b.path("src/main.zig"),
         .code_model = .kernel,

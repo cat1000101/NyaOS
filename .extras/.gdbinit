@@ -8,7 +8,6 @@ set logging enabled on
 lay src
 
 b kmain
-continue
 
 define logbt
   set logging enabled off

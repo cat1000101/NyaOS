@@ -1,9 +1,11 @@
 const acpi = @import("acpi.zig");
 const port = @import("../arch/x86/port.zig");
-const debug = @import("../arch/x86/debug.zig");
 const interrupts = @import("../arch/x86/interrupts.zig");
 const pic = @import("../arch/x86/pic.zig");
 const tty = @import("tty.zig");
+const debug = @import("../arch/x86/debug.zig");
+
+const log = @import("std").log;
 
 const DATA_READ_WRITE: u16 = 0x60;
 const STATUS_READ: u16 = 0x64;
@@ -94,7 +96,7 @@ fn sendCommand(command: u8) void {
         if (status.inputBufferStatus == 0) {
             break;
         } else if (timeout == 100000) {
-            debug.errorPrint("sendCommand:  ps2 sendCommand timeout status: {}\n", .{status});
+            log.err("sendCommand:  ps2 sendCommand timeout status: {}\n", .{status});
         }
     }
     port.outb(COMMAND_WRITE, command);
@@ -107,7 +109,7 @@ fn reciveData() u8 {
         if (status.outputBufferStatus == 1) {
             break;
         } else if (timeout == 100000) {
-            debug.errorPrint("reciveData:  ps2 reciveData timeout status: {}\n", .{status});
+            log.err("reciveData:  ps2 reciveData timeout status: {}\n", .{status});
         }
     }
     const data = port.inb(DATA_READ_WRITE);
@@ -121,7 +123,7 @@ fn sendData(data: u8) void {
         if (status.inputBufferStatus == 0) {
             break;
         } else if (timeout == 100000) {
-            debug.errorPrint("sendData:  ps2 sendData timeout status: {}\n", .{status});
+            log.err("sendData:  ps2 sendData timeout status: {}\n", .{status});
         }
     }
     port.outb(DATA_READ_WRITE, data);
@@ -135,7 +137,7 @@ fn sendDataPort2(data: u8) void {
         if (status.inputBufferStatus == 0) {
             break;
         } else if (timeout == 100000) {
-            debug.errorPrint("sendDataPort2:  ps2 sendDataPort2 timeout status: {}\n", .{status});
+            log.err("sendDataPort2:  ps2 sendDataPort2 timeout status: {}\n", .{status});
         }
     }
     port.outb(DATA_READ_WRITE, data);
@@ -175,7 +177,7 @@ fn disableSecondPort() void {
 fn initializePs2() !void {
     // TODO: usb stuff
     if (!acpi.ps2ControllerExists()) {
-        debug.errorPrint("ps2 controller not present sad\n", .{});
+        log.err("ps2 controller not present sad\n", .{});
         return ps2Errors.ps2ControllerNotPresent;
     }
 
@@ -196,7 +198,7 @@ fn initializePs2() !void {
     // self test
     sendCommand(0xAA);
     if (reciveData() != 0x55) {
-        debug.errorPrint("initializePs2:  ps2 self test failed\n", .{});
+        log.err("initializePs2:  ps2 self test failed\n", .{});
         setControllerConfiguration(psConfiguration);
         return ps2Errors.ps2SelfTestFailed;
     }
@@ -209,7 +211,7 @@ fn initializePs2() !void {
         disableSecondPort();
         ps2status.dualChannel = true;
     } else {
-        debug.infoPrint("single channel\n", .{});
+        log.info("single channel\n", .{});
     }
 
     // Perform Interface Tests
@@ -217,14 +219,14 @@ fn initializePs2() !void {
     if (reciveData() == 0) {
         ps2status.firstPort = true;
     } else {
-        debug.errorPrint("initializePs2:  ps2 first channel/port not aviable/not pasted the self test\n", .{});
+        log.err("initializePs2:  ps2 first channel/port not aviable/not pasted the self test\n", .{});
     }
     if (ps2status.dualChannel) {
         sendCommand(0xA9);
         if (reciveData() == 0) {
             ps2status.secondPort = true;
         } else {
-            debug.errorPrint("initializePs2:  ps2 second channel/port not aviable/not pasted the self test\n", .{});
+            log.err("initializePs2:  ps2 second channel/port not aviable/not pasted the self test\n", .{});
         }
     }
 
@@ -245,12 +247,12 @@ fn initializePs2() !void {
         sendData(0xFF);
         var data = reciveData();
         if (data != 0xFA) {
-            debug.errorPrint("initializePs2:  ps2 first port reset failed\n", .{});
+            log.err("initializePs2:  ps2 first port reset failed\n", .{});
             return ps2Errors.ps2FirstPortResetFailed;
         }
         data = reciveData();
         if (data != 0xAA) {
-            debug.errorPrint("initializePs2:  ps2 first port reset failed\n", .{});
+            log.err("initializePs2:  ps2 first port reset failed\n", .{});
             return ps2Errors.ps2FirstPortResetFailed;
         }
     }
@@ -258,27 +260,27 @@ fn initializePs2() !void {
         sendDataPort2(0xFF);
         var data = reciveData();
         if (data != 0xFA) {
-            debug.errorPrint("initializePs2:  ps2 second port reset failed\n", .{});
+            log.err("initializePs2:  ps2 second port reset failed\n", .{});
             return ps2Errors.ps2SecondPortResetFailed;
         }
         data = reciveData();
         if (data != 0xAA) {
-            debug.errorPrint("initializePs2:  ps2 second port reset failed\n", .{});
+            log.err("initializePs2:  ps2 second port reset failed\n", .{});
             return ps2Errors.ps2SecondPortResetFailed;
         }
     }
 
     // final flush and status
-    debug.debugPrint("initializePs2:  final ps2 controller config: 0x{X}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
+    log.debug("initializePs2:  final ps2 controller config: 0x{X}\n", .{@as(u8, @bitCast(getControllerConfiguration()))});
 
     _ = reciveData();
 
-    debug.infoPrint("ps2 controller initialized\n", .{});
+    log.info("ps2 controller initialized\n", .{});
 }
 
 pub fn initPs2() void {
     initializePs2() catch |err| {
-        debug.errorPrint("initPs2:  failed to initialize ps2 {}\n", .{err});
+        log.err("initPs2:  failed to initialize ps2 {}\n", .{err});
     };
 
     initializeKeyboard();
@@ -319,12 +321,12 @@ fn getDeviceId() keyboardIdentifier {
     disableFirstPort();
     sendCommand(0xF5);
     if (reciveData() != 0xFA) {
-        debug.errorPrint("getDeviceId:  ps2 getDeviceId failed\n", .{});
+        log.err("getDeviceId:  ps2 getDeviceId failed\n", .{});
         return .bleh;
     }
     sendCommand(0xF2);
     if (reciveData() != 0xFA) {
-        debug.errorPrint("getDeviceId:  ps2 getDeviceId failed2\n", .{});
+        log.err("getDeviceId:  ps2 getDeviceId failed2\n", .{});
         return .bleh;
     }
     var data: [2]u8 = undefined;
@@ -337,7 +339,7 @@ fn getDeviceId() keyboardIdentifier {
 }
 
 fn enableKeyboard() void {
-    // debug.infoPrint("the keyboard type: {s}\n", .{@tagName(getDeviceId())});
+    // log.info("the keyboard type: {s}\n", .{@tagName(getDeviceId())});
     sendData(0xF4);
     var newConfig = getControllerConfiguration();
     newConfig.firstPortInterrupt = 1;
@@ -351,10 +353,10 @@ fn disableKeyboard() void {
 fn initializeKeyboard() void {
     const keyboardHandeler = comptime interrupts.generateStub(&ps2KeyboardHandeler);
     pic.installIrq(&keyboardHandeler, 1) catch |err| {
-        debug.errorPrint("initializeKeyboard:  failed to install keyboard handeler {}\n", .{err});
+        log.err("initializeKeyboard:  failed to install keyboard handeler {}\n", .{err});
     };
     enableKeyboard();
-    debug.infoPrint("keyboard initialized!!!\n", .{});
+    log.info("keyboard initialized!!!\n", .{});
 }
 
 pub const keyboardData = extern struct {
@@ -369,7 +371,7 @@ var extendedCode: usize = 0; // 0 - no, 1 - 0xe0 extended code, 2 - 0xe1 extende
 fn ps2KeyboardHandeler(cpuState: *interrupts.CpuState) callconv(.c) void {
     _ = cpuState;
     if (readStatus().outputBufferStatus == 0) {
-        debug.errorPrint("ps2KeyboardHandeler:  keyboard handeler called with no data\n", .{});
+        log.err("ps2KeyboardHandeler:  keyboard handeler called with no data\n", .{});
         pic.picSendEOI(1);
         return;
     }
