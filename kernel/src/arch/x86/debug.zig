@@ -45,9 +45,9 @@ pub fn myLogFn(
 ) void {
     _ = scope;
     const prefix = "[" ++ comptime level.asText() ++ "]: ";
-    if (format.len > 1000) {
-        printf(prefix ++ format, args);
-    } else {
-        printfBuf(prefix ++ format, args);
-    }
+    // if (format.len > 1000) {
+    printf(prefix ++ format, args);
+    // } else {
+    //     printfBuf(prefix ++ format, args);
+    // }
 }
