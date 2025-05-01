@@ -28,7 +28,7 @@ fn callback(_: void, string: []const u8) error{}!usize {
 }
 
 pub fn printf(comptime format: []const u8, args: anytype) void {
-    fmt.format(writer, format, args) catch unreachable;
+    writer.print(format, args) catch unreachable;
 }
 
 pub fn printfBuf(comptime format: []const u8, args: anytype) void {

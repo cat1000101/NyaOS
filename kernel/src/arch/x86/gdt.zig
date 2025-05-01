@@ -232,18 +232,20 @@ fn gdtFlush(gdt_ptr_: *const GdtPtr) void {
 
     // Load the kernel data segment, index into the GDT
     asm volatile (
+        \\  push %ebx
         \\  mov $0x10, %ebx
         \\  mov %bx, %ds
         \\  mov %bx, %es
         \\  mov %bx, %fs
         \\  mov %bx, %gs
         \\  mov %bx, %ss
-        ::: "%ds", "%es", "%fs", "%gs", "%ss");
+        \\  pop %ebx
+        ::: "%ebx", "%ds", "%es", "%fs", "%gs", "%ss");
     // Load the kernel code segment into the CS register
     asm volatile (
         \\ljmp $0x08, $1f
         \\1:
-    );
+        ::: "%cs");
 }
 
 pub fn loadTss() void {
