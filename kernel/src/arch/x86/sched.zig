@@ -24,6 +24,7 @@ pub export fn switchThread(oldStack: **u8, newStack: *u8) void {
         :
         : [old_sp] "+{esi}" (oldStack),
           [new_sp] "{edi}" (newStack),
+        : "esp"
     );
 }
 
@@ -50,6 +51,6 @@ pub export fn saveStateToContext(context: *sched.Context, retAddress: ?*const u8
         : [old_sp] "+{ecx}" (&context.stackPointer),
           [contextStack] "{edx}" (context.stack),
           [retAddress] "{edi}" (retAddress),
-        : "{esp}", "{esi}"
+        : "esp", "esi"
     );
 }

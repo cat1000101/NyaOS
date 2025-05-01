@@ -5,6 +5,7 @@ pub export fn _start() void {
         \\ int $0x80
         :
         : [string] "{ebx}" (string),
+        : "eax"
     );
     while (true) {}
 }

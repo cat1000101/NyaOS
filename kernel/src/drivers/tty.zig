@@ -59,7 +59,6 @@ pub const FrameBuffer = struct {
         log.info("screen frame buffer: {}\n", .{frameBufferInfo});
 
         const sizeInPixels = frameBufferInfo.framebuffer_width * frameBufferInfo.framebuffer_height;
-        log.err("size in pixels: 0x{X}\n", .{sizeInPixels});
         var retFrameBuffer = FrameBuffer{
             .frameBuffer = @as([*]volatile Pixel, @ptrFromInt(frameBufferInfo.framebuffer_addr))[0..sizeInPixels],
             .width = frameBufferInfo.framebuffer_width,

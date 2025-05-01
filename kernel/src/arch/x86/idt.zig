@@ -94,6 +94,5 @@ fn loadIdt(idtr_pointer: *const Idtr) void {
     asm volatile ("LIDT (%[idtr_pointer])"
         :
         : [idtr_pointer] "{eax}" (idtr_pointer),
-        : "%eax"
     );
 }
