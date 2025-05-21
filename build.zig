@@ -31,12 +31,18 @@ pub fn build(b: *Builder) void {
     b.getInstallStep().dependOn(kernel_exe_step);
 
     // setting the paths and commands
+    const grub_mkrescue = b.option(bool, "grub-mkrescue-fix", "some distros ship with grub2 named just grub this fixes the calling to grub2-mkrescue") orelse false;
     const grub_path = b.path("bootloader/grub.cfg");
     const kernel_sys = "sysroot/boot/kernel.elf";
     const user_modules_sys = "sysroot/modules/doomgeneric.elf";
     const doomgenericWadFile_sys = "sysroot/modules/doom1.wad";
     const grub_sys = "sysroot/boot/grub/grub.cfg";
-    const iso_cmd = [_][]const u8{ "grub2-mkrescue", "-o" };
+    var iso_cmd: []const []const u8 = undefined;
+    if (grub_mkrescue) {
+        iso_cmd = &[_][]const u8{ "grub-mkrescue", "-o" };
+    } else {
+        iso_cmd = &[_][]const u8{ "grub2-mkrescue", "-o" };
+    }
     const common_qemu_args = [_][]const u8{
         "-M",
         "q35", // add ,smm=off for smm spam off but vga not work? idk why ; -;
@@ -67,7 +73,7 @@ pub fn build(b: *Builder) void {
     }).step;
 
     // making the iso
-    const mkiso = b.addSystemCommand(&iso_cmd);
+    const mkiso = b.addSystemCommand(iso_cmd);
     const nyaos_iso_file = mkiso.addOutputFileArg("NyaOS.iso");
     mkiso.addDirectoryArg(wf.getDirectory().path(b, "sysroot"));
 

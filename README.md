@@ -7,16 +7,16 @@ os that is stupid :3
 NyaOS is a passion project built with Zig that aims to be an oparating system that is safe... hopefully
 
 ### Roadmap
-Current: PMM, VMM, fs, Shell/REPL
+Currently working/TODO: fs, Shell/REPL
 
-Completed: VGA output, QEMU debug, GDB, printf, GDT, IDT, PIC, ACPI, PS/2
+Completed: VGA output, debug tooling, GDT, IDT, PIC, ACPI, PS/2, PMM, VMM, VFS?, PIT, Syscalls, Port Doom
 
-Extra: Syscalls, Scheduler, Apps, Port Doom
+Extra: Scheduler, Apps
 
-TODO (Maybe): PIT/timer, APIC, VFS, 64-bit
+TODO (Maybe): APIC, VFS(complete one), 64-bit
 
 ### Build and Run Instructions
-To build and run NyaOS, use:
+To build and run NyaOS, use: (if the build fails in the grub-mkrescue step then see `-Dgrub-mkrescue-fix` option in the help manu by running `zig build --help`)
 ```
 zig build run
 ```
