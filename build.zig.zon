@@ -1,0 +1,8 @@
+.{
+    .name = .doomgeneric,
+    .version = "0.0.0",
+    .fingerprint = 0x68718e1959a62dc1, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.14.0",
+
+    .paths = .{"."},
+}
