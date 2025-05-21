@@ -17,15 +17,6 @@ const debug = @import("debug.zig");
 pub export fn syscallHandler(context: *interrupts.CpuState) void {
     if (context.eax == 69) { // put string
         const printString: [*:0]u8 = @ptrFromInt(context.ebx);
-        const slice = std.mem.span(printString);
-        const forbidenChar = "j";
-        for (slice) |c| {
-            if (c == forbidenChar.*[0]) {
-                debug.printf("{s}\n", .{slice ++ "is not allowed\n"});
-
-                @panic(forbidenChar);
-            }
-        }
         debug.printf("{s}\n", .{printString});
         context.eax = syscallUtil.SUCCESS_RETURN;
         return;
