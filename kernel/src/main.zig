@@ -17,7 +17,7 @@ comptime {
     _ = @import("entry.zig");
 }
 
-pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
+pub fn kmain(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
     log.info("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
     _ = multiboot.checkMultibootHeader(mbh, magic);
 
@@ -44,6 +44,17 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
     while (true) {
         asm volatile ("");
     }
+}
+
+pub export fn kmainWrapper(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
+    kmain(mbh, magic) catch {
+        if (@errorReturnTrace()) |error_trace| {
+            if (std.builtin.os.tag != .freestanding) {
+                // hosted environment:
+                std.debug.dumpStackTrace(error_trace.*);
+            }
+        }
+    };
 }
 
 const debug = @import("arch/x86/debug.zig");

@@ -8,30 +8,30 @@ const log = @import("std").log;
 
 // stolen from https://github.com/ZystemOS/pluto
 // The bitmasks for the bits in a DirectoryEntry
-pub const DENTRY_PRESENT: u32 = 0x1;
-pub const DENTRY_READ_WRITE: u32 = 0x2;
-pub const DENTRY_USER: u32 = 0x4;
-pub const DENTRY_WRITE_THROUGH: u32 = 0x8;
-pub const DENTRY_CACHE_DISABLED: u32 = 0x10;
-pub const DENTRY_ACCESSED: u32 = 0x20;
-pub const DENTRY_DIRTY: u32 = 0x40;
-pub const DENTRY_4MB_PAGES: u32 = 0x80;
-pub const DENTRY_IGNORED: u32 = 0x100; // in big it is global in normal ones it is aviable, so we ignore it
-pub const DENTRY_AVAILABLE: u32 = 0xE00;
-pub const DENTRY_PAGE_ADDR: u32 = 0xFFFFF000;
+const DENTRY_PRESENT: u32 = 0x1;
+const DENTRY_READ_WRITE: u32 = 0x2;
+const DENTRY_USER: u32 = 0x4;
+const DENTRY_WRITE_THROUGH: u32 = 0x8;
+const DENTRY_CACHE_DISABLED: u32 = 0x10;
+const DENTRY_ACCESSED: u32 = 0x20;
+const DENTRY_DIRTY: u32 = 0x40;
+const DENTRY_4MB_PAGES: u32 = 0x80;
+const DENTRY_IGNORED: u32 = 0x100; // in big it is global in normal ones it is aviable, so we ignore it
+const DENTRY_AVAILABLE: u32 = 0xE00;
+const DENTRY_PAGE_ADDR: u32 = 0xFFFFF000;
 
 // The bitmasks for the bits in a TableEntry
-pub const TENTRY_PRESENT: u32 = 0x1;
-pub const TENTRY_READ_WRITE: u32 = 0x2;
-pub const TENTRY_USER: u32 = 0x4;
-pub const TENTRY_WRITE_THROUGH: u32 = 0x8;
-pub const TENTRY_CACHE_DISABLED: u32 = 0x10;
-pub const TENTRY_ACCESSED: u32 = 0x20;
-pub const TENTRY_DIRTY: u32 = 0x40;
-pub const TENTRY_ZERO: u32 = 0x80;
-pub const TENTRY_GLOBAL: u32 = 0x100;
-pub const TENTRY_AVIABLE: u32 = 0xE00;
-pub const TENTRY_PAGE_ADDR: u32 = 0xFFFFF000;
+const TENTRY_PRESENT: u32 = 0x1;
+const TENTRY_READ_WRITE: u32 = 0x2;
+const TENTRY_USER: u32 = 0x4;
+const TENTRY_WRITE_THROUGH: u32 = 0x8;
+const TENTRY_CACHE_DISABLED: u32 = 0x10;
+const TENTRY_ACCESSED: u32 = 0x20;
+const TENTRY_DIRTY: u32 = 0x40;
+const TENTRY_ZERO: u32 = 0x80;
+const TENTRY_GLOBAL: u32 = 0x100;
+const TENTRY_AVIABLE: u32 = 0xE00;
+const TENTRY_PAGE_ADDR: u32 = 0xFFFFF000;
 
 pub const FIRST_KERNEL_DIR_NUMBER: u32 = memory.KERNEL_ADDRESS_SPACE >> 22;
 pub const RECURSIVE_PAGE_TABLE_BASE: u32 = 0xFFC00000;
@@ -39,11 +39,11 @@ pub const RECURSIVE_PAGE_DIRECTORY_ADDRESS: u32 = 0xFFFFF000;
 
 pub const PageErrors = error{
     NoPage,
+    NotMapped,
+    Used,
     IsBigPage,
     InputNotAligned,
-    NotMapped,
     OnlyDirectDirectoryAllowed,
-    Used,
 };
 
 pub const PageDirectoryEntry = packed struct {
@@ -70,7 +70,6 @@ pub const PageDirectoryEntry = packed struct {
     flags: Flags = .{},
     address: u20 = 0, // the address
 };
-
 pub const PageDirectoryEntryBig = packed struct {
     pub const Flags = packed struct {
         present: u1 = 0,
@@ -91,6 +90,7 @@ pub const PageDirectoryEntryBig = packed struct {
     reserved: u1 = 0,
     address_low: u10 = 0,
 };
+
 pub const PageTableEntry = packed struct {
     pub const Flags = packed struct {
         /// P, or 'Present'. If the bit is set, the page is actually in physical memory at the moment.
