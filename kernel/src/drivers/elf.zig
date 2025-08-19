@@ -408,39 +408,52 @@ const Elf32Phdr = extern struct {
     };
 };
 
-pub inline fn getShdrSlice(elfHdr: *Elf32Ehdr) []Elf32Shdr {
+pub inline fn getShdrSlice(elfHdr: *const Elf32Ehdr) []Elf32Shdr {
     return @as([*]Elf32Shdr, @ptrFromInt(@intFromPtr(elfHdr) + elfHdr.shoff))[0..elfHdr.shnum];
 }
 
-pub inline fn getSection(elfHdr: *Elf32Ehdr, index: usize) *Elf32Shdr {
+pub inline fn getSection(elfHdr: *const Elf32Ehdr, index: usize) *const Elf32Shdr {
     return &getShdrSlice(elfHdr)[index];
 }
 
-pub inline fn getPhdrSlice(elfHdr: *Elf32Ehdr) []Elf32Phdr {
+pub inline fn getPhdrSlice(elfHdr: *const Elf32Ehdr) []Elf32Phdr {
     return @as([*]Elf32Phdr, @ptrFromInt(@intFromPtr(elfHdr) + elfHdr.phoff))[0..elfHdr.phnum];
 }
 
-pub inline fn getSegment(elfHdr: *Elf32Ehdr, index: usize) *Elf32Phdr {
+pub inline fn getSegment(elfHdr: *const Elf32Ehdr, index: usize) *const Elf32Phdr {
     return &getPhdrSlice(elfHdr)[index];
 }
 
-pub inline fn getStrTable(elfHdr: *Elf32Ehdr) ?[*]u8 {
+pub fn getElf32Ehdr(File: []const u8) ElfError!*Elf32Ehdr {
+    const elfHdr: *const Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
+    if (!isSupportedElf(elfHdr)) {
+        log.err("loadFile:  unsupported ELF file\n", .{});
+        return ElfError.InvalidElf;
+    }
+}
+
+pub fn getSectionData(elfHdr: *const Elf32Ehdr, shdr: *const Elf32Shdr) []const u8 {
+    // TODO: this trusts the elf file too much lol, maybe i need to get the file itself
+    return @as([*]const u8, @ptrCast(elfHdr))[shdr.offset..][0..shdr.size];
+}
+
+pub inline fn getStrTable(elfHdr: *const Elf32Ehdr) ?[*]const u8 {
     if (elfHdr.shstrndx == ElfSpecialSections.UNDEF) {
         return null;
     }
     const StrTableSection = getSection(elfHdr, elfHdr.shstrndx);
-    const StrTable: [*]u8 = @ptrFromInt(@intFromPtr(elfHdr) + StrTableSection.offset);
+    const StrTable: [*]const u8 = @ptrFromInt(@intFromPtr(elfHdr) + StrTableSection.offset);
     return StrTable;
 }
 
-pub inline fn getStrFromStrTable(elfHdr: *Elf32Ehdr, index: usize) ?[:0]const u8 {
+pub inline fn getStrFromStrTable(elfHdr: *const Elf32Ehdr, index: usize) ?[:0]const u8 {
     const strTable = getStrTable(elfHdr) orelse return null;
-    const startStr: [*c]u8 = @ptrFromInt(@intFromPtr(strTable) + index);
+    const startStr: [*c]const u8 = @ptrFromInt(@intFromPtr(strTable) + index);
     const retSlice = std.mem.span(startStr);
     return retSlice;
 }
 
-pub fn getSymValue(elfHdr: *Elf32Ehdr, symTableIndex: usize, index: usize) ?*Elf32Sym {
+pub fn getSymValue(elfHdr: *const Elf32Ehdr, symTableIndex: usize, index: usize) ?*const Elf32Sym {
     if (symTableIndex == ElfSpecialSections.UNDEF or index == ElfSpecialSections.UNDEF) {
         log.err("getSymValue:  symbol index Undefined: {} , {}\n", .{ symTableIndex, index });
         return null;
@@ -452,7 +465,7 @@ pub fn getSymValue(elfHdr: *Elf32Ehdr, symTableIndex: usize, index: usize) ?*Elf
         return null;
     }
 
-    const sym: *Elf32Sym = @ptrFromInt(@intFromPtr(elfHdr) + symTable.offset + index * symTable.entsize);
+    const sym: *const Elf32Sym = @ptrFromInt(@intFromPtr(elfHdr) + symTable.offset + index * symTable.entsize);
 
     if (sym.shndx == ElfSpecialSections.UNDEF) {
         log.err("getSymValue:  symbol shndx Undefined: {any}\n", .{sym});
@@ -465,12 +478,12 @@ pub fn getSymValue(elfHdr: *Elf32Ehdr, symTableIndex: usize, index: usize) ?*Elf
     }
 }
 
-pub fn isFileElf(elfHdr: *Elf32Ehdr) bool {
+pub fn isFileElf(elfHdr: *const Elf32Ehdr) bool {
     // return elfHdr.ident.mag == [4]u8{ 0x7f, 'E', 'L', 'F' };
     return std.mem.eql(u8, &elfHdr.ident.mag, &[4]u8{ 0x7f, 'E', 'L', 'F' });
 }
 
-pub fn isSupportedElf(elfHdr: *Elf32Ehdr) bool {
+pub fn isSupportedElf(elfHdr: *const Elf32Ehdr) bool {
     if (!isFileElf(elfHdr)) return false;
     if (elfHdr.ident.class != 1) return false; // 32-bit
     if (elfHdr.ident.data != 1) return false; // little-endian
@@ -479,12 +492,8 @@ pub fn isSupportedElf(elfHdr: *Elf32Ehdr) bool {
     return true;
 }
 
-pub fn loadFile(File: []u8) ElfError![]u8 {
-    const elfHdr: *Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
-    if (!isSupportedElf(elfHdr)) {
-        log.err("loadFile:  unsupported ELF file\n", .{});
-        return ElfError.InvalidElf;
-    }
+pub fn loadFile(File: []const u8) ElfError![]u8 {
+    const elfHdr = try getElf32Ehdr(File);
 
     switch (elfHdr.type) {
         Elf32Ehdr.ElfType.EXEC => {
@@ -497,7 +506,7 @@ pub fn loadFile(File: []u8) ElfError![]u8 {
     }
 }
 
-pub fn loadFileExec(elfHdr: *Elf32Ehdr, File: []u8) ElfError![]u8 {
+pub fn loadFileExec(elfHdr: *const Elf32Ehdr, File: []const u8) ElfError![]u8 {
     const phdrSlice = getPhdrSlice(elfHdr);
 
     var lo_addr: usize = 0;
@@ -554,7 +563,7 @@ pub fn loadFileExec(elfHdr: *Elf32Ehdr, File: []u8) ElfError![]u8 {
     return programMemory;
 }
 
-pub fn getEntryPoint(File: []u8) *u8 {
-    const elfHdr: *Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
+pub fn getEntryPoint(File: []const u8) *const u8 {
+    const elfHdr: *const Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
     return @ptrFromInt(elfHdr.entry);
 }
