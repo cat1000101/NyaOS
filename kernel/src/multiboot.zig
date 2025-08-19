@@ -252,12 +252,12 @@ pub fn getModuleInfo() ?[]multiboot_mod_list {
     const modList = @as([*]multiboot_mod_list, @ptrFromInt(header.mods_addr))[0..header.mods_count];
     for (0..header.mods_count) |i| {
         log.debug(
-            "Module {d}: start: 0x{X} end: 0x{X} cmdline: 0x{X}\n",
+            "Module {d}: start: 0x{X} end: 0x{X} cmdline/name: {s}\n",
             .{
                 i,
                 modList[i].mod_start,
                 modList[i].mod_end,
-                modList[i].cmdline,
+                @as([*:0]u8, @ptrFromInt(modList[i].cmdline)),
             },
         );
     }

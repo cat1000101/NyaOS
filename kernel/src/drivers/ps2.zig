@@ -365,8 +365,8 @@ pub const keyboardData = extern struct {
     modifiers: u8 = 0,
     pad: u8 = 0,
 };
-pub var kayboardData: [16]keyboardData = [_]keyboardData{.{}} ** 16;
-pub var currentKey: u8 = 0;
+pub var kayboardData: [64]keyboardData = [_]keyboardData{.{}} ** 64;
+pub var currentKey: usize = 0;
 var extendedCode: usize = 0; // 0 - no, 1 - 0xe0 extended code, 2 - 0xe1 extended code 3 - 0xe1 extended code final
 fn ps2KeyboardHandeler(cpuState: *interrupts.CpuState) callconv(.c) void {
     _ = cpuState;
@@ -407,7 +407,7 @@ fn ps2KeyboardHandeler(cpuState: *interrupts.CpuState) callconv(.c) void {
     kayboardData[currentKey].scancode = finalData;
     kayboardData[currentKey].ascii = char;
     kayboardData[currentKey].modifiers = @intFromBool(pressed);
-    currentKey = (currentKey + 1) % 16;
+    currentKey = (currentKey + 1) % kayboardData.len;
     extendedCode = 0;
 
     if (pressed) {
@@ -424,7 +424,7 @@ pub fn getKey() keyboardData {
     kayboardData[currentKey].ascii = 0;
     kayboardData[currentKey].modifiers = 0;
     if (currentKey == 0) {
-        currentKey = 15;
+        currentKey = kayboardData.len - 1;
     } else {
         currentKey -= 1;
     }
