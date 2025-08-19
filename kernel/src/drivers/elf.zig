@@ -424,12 +424,13 @@ pub inline fn getSegment(elfHdr: *const Elf32Ehdr, index: usize) *const Elf32Phd
     return &getPhdrSlice(elfHdr)[index];
 }
 
-pub fn getElf32Ehdr(File: []const u8) ElfError!*Elf32Ehdr {
+pub fn getElf32Ehdr(File: []const u8) ElfError!*const Elf32Ehdr {
     const elfHdr: *const Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
     if (!isSupportedElf(elfHdr)) {
         log.err("loadFile:  unsupported ELF file\n", .{});
         return ElfError.InvalidElf;
     }
+    return elfHdr;
 }
 
 pub fn getSectionData(elfHdr: *const Elf32Ehdr, shdr: *const Elf32Shdr) []const u8 {
