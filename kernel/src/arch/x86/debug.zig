@@ -20,7 +20,7 @@ pub fn bochsBreak() void {
     asm volatile ("xchg %bx, %bx" ::: "bx");
 }
 
-const writer = Writer(void, error{}, callback){ .context = {} };
+pub const writer = Writer(void, error{}, callback){ .context = {} };
 
 fn callback(_: void, string: []const u8) error{}!usize {
     print(string);

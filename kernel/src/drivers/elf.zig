@@ -132,9 +132,8 @@ const ElfSpecialSections = enum(Elf32Half) {
     /// section number SHN_UNDEF is an undefined symbol.
     UNDEF = 0,
     /// SHN_LORESERVE This value specifies the lower bound of the range of reserved indexes.
-    LORESERVE = 0xff00,
     /// SHN_LOPROC Values in this inclusive range are reserved for processor-specific semantics.
-    LOPROC = 0xff00,
+    LORESERVE_LOPROC = 0xff00,
     /// SHN_HIPROC Values in this inclusive range are reserved for processor-specific semantics.
     HIPROC = 0xff1f,
     /// SHN_ABS This value specifies absolute values for the corresponding reference. For
@@ -439,7 +438,7 @@ pub fn getSectionData(elfHdr: *const Elf32Ehdr, shdr: *const Elf32Shdr) []const 
 }
 
 pub inline fn getStrTable(elfHdr: *const Elf32Ehdr) ?[*]const u8 {
-    if (elfHdr.shstrndx == ElfSpecialSections.UNDEF) {
+    if (elfHdr.shstrndx == @intFromEnum(ElfSpecialSections.UNDEF)) {
         return null;
     }
     const StrTableSection = getSection(elfHdr, elfHdr.shstrndx);
@@ -565,6 +564,8 @@ pub fn loadFileExec(elfHdr: *const Elf32Ehdr, File: []const u8) ElfError![]u8 {
 }
 
 pub fn getEntryPoint(File: []const u8) *const u8 {
-    const elfHdr: *const Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
-    return @ptrFromInt(elfHdr.entry);
+    _ = File;
+    @panic("test");
+    // const elfHdr: *const Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
+    // return @ptrFromInt(elfHdr.entry);
 }
