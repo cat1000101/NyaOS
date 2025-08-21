@@ -24,33 +24,10 @@ pub fn panicHandler(msg: []const u8, ra: ?usize) noreturn {
         @intFromPtr(&entry.stack[0]),
         @intFromPtr(&entry.stack[0]) + entry.stack.len,
     });
-    var stackTrace = std.debug.StackIterator.init(@returnAddress(), @frameAddress());
-
-    const kernelFile = files.open("kernel.elf", 0) catch |err| {
-        log.err("couldn't open kernel elf file for dwarf {}\n", .{err});
-        @trap();
-    };
-
+    var si = std.debug.StackIterator.init(@returnAddress(), @frameAddress());
     const allocator = kmalloc.allocator();
-    var dwarfInfo = dwarf.getSelfDwarf(allocator, kernelFile.file) catch |err| {
-        log.err("couldn't get dwarf info {}\n", .{err});
-        while (stackTrace.next()) |raddr| {
-            log.err("  \x1B[90m0x{x:0>16}\x1B[0m\n", .{raddr});
-        }
-        @trap();
-    };
-    defer dwarfInfo.deinit(allocator);
 
-    while (stackTrace.next()) |raddr| {
-        dwarf.printSourceAtAddress(
-            allocator,
-            &dwarfInfo,
-            raddr,
-            &dwarf.sourceFiles,
-        ) catch |err| {
-            log.err("failed to print source at address: {}\n", .{err});
-        };
-    }
+    dwarf.stackIteratorTrace(&si, allocator);
 
     log.err("panic finish\n", .{});
     @trap();

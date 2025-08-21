@@ -7,6 +7,8 @@ const ps2 = @import("drivers/ps2.zig");
 const pmm = @import("mem/pmm.zig");
 const vmm = @import("mem/vmm.zig");
 const pit = @import("arch/x86/pit.zig");
+const dwarf = @import("dwarf.zig");
+const kmalloc = @import("mem/kmalloc.zig");
 const userLand = @import("arch/x86/userLand.zig");
 const sched = @import("sched.zig");
 
@@ -17,7 +19,7 @@ comptime {
     _ = @import("entry.zig");
 }
 
-pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
+pub fn kmain(mbh: *multiboot.multiboot_info, magic: u32) !void {
     log.info("size of pointer:{}\n", .{@sizeOf(*anyopaque)});
     _ = multiboot.checkMultibootHeader(mbh, magic);
 
@@ -49,14 +51,17 @@ pub export fn kmain(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
 pub export fn kmainWrapper(mbh: *multiboot.multiboot_info, magic: u32) noreturn {
     kmain(mbh, magic) catch {
         if (@errorReturnTrace()) |error_trace| {
-            log.err("failed error: {}\n", .{error_trace});
+            dwarf.generalStackTrace(error_trace, kmalloc.allocator());
+        } else {
+            log.err("failed to error trace kmain\n", .{});
         }
     };
+    @panic("system failure");
 }
 
 const debug = @import("arch/x86/debug.zig");
 pub const panic = @import("panic.zig").panic;
 pub const std_options = std.Options{
-    .log_level = .debug,
+    .log_level = .info,
     .logFn = debug.myLogFn,
 };

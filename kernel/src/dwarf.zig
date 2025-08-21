@@ -1,6 +1,7 @@
 const std = @import("std");
 const log = std.log;
 const elf = @import("drivers/elf.zig");
+const fs = @import("mem/files.zig");
 const debug = @import("arch/x86/debug.zig");
 
 // stolen from https://github.com/xor-bits/hiillos which stole from std and adapted
@@ -79,8 +80,64 @@ pub fn getSelfDwarf(
     // log.debug("sections: {any}\n", .{sections});
 
     try dwarf.open(allocator);
-    log.info("dwarf debug info opened\n", .{});
+    log.debug("dwarf debug info opened\n", .{});
     return dwarf;
+}
+
+pub fn stackIteratorTrace(stackIterator: *std.debug.StackIterator, allocator: std.mem.Allocator) void {
+    const kernelFile = fs.open("kernel.elf", 0) catch |err| {
+        log.err("couldn't open kernel elf file for dwarf {}\n", .{err});
+        return;
+    };
+
+    var dwarfInfo = getSelfDwarf(allocator, kernelFile.file) catch |err| {
+        log.err("couldn't get dwarf info {}\n", .{err});
+        while (stackIterator.next()) |raddr| {
+            log.err("  \x1B[90m0x{x:0>16}\x1B[0m\n", .{raddr});
+        }
+        return;
+    };
+    defer dwarfInfo.deinit(allocator);
+
+    while (stackIterator.next()) |raddr| {
+        printSourceAtAddress(
+            allocator,
+            &dwarfInfo,
+            raddr,
+            &sourceFiles,
+        ) catch |err| {
+            log.err("failed to print source at address error: {}\n", .{err});
+        };
+    }
+    log.info("stack trace finished\n", .{});
+}
+
+pub fn generalStackTrace(st: *std.builtin.StackTrace, allocator: std.mem.Allocator) void {
+    const kernelFile = fs.open("kernel.elf", 0) catch |err| {
+        log.err("couldn't open kernel elf file for dwarf {}\n", .{err});
+        return;
+    };
+
+    var dwarfInfo = getSelfDwarf(allocator, kernelFile.file) catch |err| {
+        log.err("couldn't get dwarf info {}\n", .{err});
+        for (st.instruction_addresses) |raddr| {
+            log.err("  \x1B[90m0x{x:0>16}\x1B[0m\n", .{raddr});
+        }
+        return;
+    };
+    defer dwarfInfo.deinit(allocator);
+
+    for (st.instruction_addresses) |raddr| {
+        printSourceAtAddress(
+            allocator,
+            &dwarfInfo,
+            raddr,
+            &sourceFiles,
+        ) catch |err| {
+            log.err("failed to print source at address error: {}\n", .{err});
+        };
+    }
+    log.info("stack trace finished\n", .{});
 }
 
 pub fn printSourceAtAddress(

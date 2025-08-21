@@ -132,7 +132,7 @@ export fn high_half_entery() align(16) callconv(.naked) noreturn {
         \\  pushl $0
         \\  jmp %[kmain:P]
         :
-        : [kmain] "X" (&kmainFile.kmain),
+        : [kmain] "X" (&kmainFile.kmainWrapper),
           [stack_top] "{edx}" (stack_top),
         : "eax", "esp", "ebp"
     );
