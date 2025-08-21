@@ -76,7 +76,7 @@ pub fn getSelfDwarf(
         .is_macho = false,
     };
 
-    log.debug("sections: {any}\n", .{sections});
+    // log.debug("sections: {any}\n", .{sections});
 
     try dwarf.open(allocator);
     return dwarf;
