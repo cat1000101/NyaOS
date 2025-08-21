@@ -89,8 +89,8 @@ pub fn printSourceAtAddress(
     address: usize,
     sources: []const SourceFile,
 ) !void {
-    const sym = debug_info.getSymbol(allocator, address) catch {
-        try std.fmt.format(debug.writer, "unable to get sym: \x1B[90m0x{x}\x1B[0m\n", .{address});
+    const sym = debug_info.getSymbol(allocator, address) catch |err| {
+        try std.fmt.format(debug.writer, "unable to get sym: \x1B[90m0x{x}\x1B[0m\nerror: {}\n", .{ address, err });
         return;
     };
     defer if (sym.source_location) |loc| allocator.free(loc.file_name);

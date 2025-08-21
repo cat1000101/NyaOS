@@ -113,7 +113,7 @@ pub fn init() void {
     log.debug("++initializing kmalloc\n", .{});
     defer log.debug("--initialized kmalloc\n", .{});
 
-    const initialSizeInPages: usize = 256;
+    const initialSizeInPages: usize = 1024;
     const initialSizeInBytes: usize = initialSizeInPages * memory.PAGE_SIZE;
     const page = vmm.allocatePages(initialSizeInPages) orelse {
         log.err("kmalloc.init:  failed to allocate page\n", .{});
