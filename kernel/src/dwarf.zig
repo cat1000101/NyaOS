@@ -79,6 +79,7 @@ pub fn getSelfDwarf(
     // log.debug("sections: {any}\n", .{sections});
 
     try dwarf.open(allocator);
+    log.info("dwarf debug info opened\n", .{});
     return dwarf;
 }
 
@@ -89,23 +90,25 @@ pub fn printSourceAtAddress(
     sources: []const SourceFile,
 ) !void {
     const sym = debug_info.getSymbol(allocator, address) catch {
-        log.err("\x1B[90m0x{x}\x1B[0m\n", .{address});
+        try std.fmt.format(debug.writer, "unable to get sym: \x1B[90m0x{x}\x1B[0m\n", .{address});
         return;
     };
     defer if (sym.source_location) |loc| allocator.free(loc.file_name);
 
-    log.err("\x1B[1m", .{});
+    try std.fmt.format(debug.writer, "\x1B[1m", .{});
 
     if (sym.source_location) |*sl| {
-        log.err(
+        try std.fmt.format(
+            debug.writer,
             "{s}:{d}:{d}",
             .{ sl.file_name, sl.line, sl.column },
         );
     } else {
-        log.err("???:?:?", .{});
+        try std.fmt.format(debug.writer, "cant find sym source location: ???:?:?", .{});
     }
 
-    log.err(
+    try std.fmt.format(
+        debug.writer,
         "\x1B[0m: \x1B[90m0x{x} in {s} ({s})\x1B[0m\n",
         .{ address, sym.name, sym.compile_unit_name },
     );
@@ -121,12 +124,12 @@ pub fn printSourceAtAddress(
         source_line = lines_iter.next() orelse "<out-of-bounds>";
     }
 
-    log.err("{s}\n", .{source_line});
+    try std.fmt.format(debug.writer, "{s}\n", .{source_line});
 
     const space_needed = @as(usize, @intCast(@max(loc.column, 1) - 1));
 
-    try debug.writer.writeByteNTimes(' ', space_needed);
-    log.err("\x1B[92m^\x1B[0m\n", .{});
+    try debug.writer.writeBytesNTimes(" ", space_needed);
+    try debug.writer.writeAll("\x1B[92m^\x1B[0m\n");
 }
 
 pub fn findSourceFile(

@@ -84,8 +84,8 @@ pub fn kfree(ptr: [*]u8) void {
     }
 }
 
-var fba: std.heap.FixedBufferAllocator = undefined;
 const useMyAllocator = false;
+var fba: std.heap.FixedBufferAllocator = undefined;
 
 pub fn alloc(_: *anyopaque, len: usize, _: mem.Alignment, _: usize) ?[*]u8 {
     return kmalloc(len);
@@ -113,14 +113,18 @@ pub fn init() void {
     log.debug("++initializing kmalloc\n", .{});
     defer log.debug("--initialized kmalloc\n", .{});
 
-    const initialSizeInPages: usize = 16;
+    const initialSizeInPages: usize = 256;
     const initialSizeInBytes: usize = initialSizeInPages * memory.PAGE_SIZE;
     const page = vmm.allocatePages(initialSizeInPages) orelse {
         log.err("kmalloc.init:  failed to allocate page\n", .{});
         return;
     };
     const kmallocHeapSlice: []u8 = page[0..initialSizeInBytes];
-    log.debug("kmalloc:  init: kmalloc heap at: 0x{X} until: 0x{X}\n", .{ @intFromPtr(page), @intFromPtr(page) + initialSizeInBytes });
+    log.debug("kmalloc:  init: kmalloc heap at: 0x{X} until: 0x{X} size: 0x{X}\n", .{
+        @intFromPtr(page),
+        @intFromPtr(page) + initialSizeInBytes,
+        kmallocHeapSlice.len,
+    });
 
     if (useMyAllocator) {
         if (kmallocHead == null) {
