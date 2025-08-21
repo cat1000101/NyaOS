@@ -199,7 +199,7 @@ pub fn ksleep(ms: u32) void {
     const startFraction: f32 = @floatFromInt(timerFractionSinceStart);
     countDown = (ms * timerFrequency + 500) / 1000;
     while (countDown > 0) {
-        interrupts.hlt();
+        hlt();
     }
     const timePassedMs = @as(f32, @floatFromInt(timerMsSinceStart - startMs));
     const timePassed: f32 = timePassedMs + ((@as(f32, @floatFromInt(timerFractionSinceStart)) - startFraction) / @as(f32, @floatFromInt(timerFrequency)));
@@ -216,4 +216,10 @@ pub fn getTimeMs() u32 {
 fn testSleep() void {
     log.info("testing sleeping for 71ms\n", .{});
     ksleep(71);
+}
+
+pub inline fn hlt() void {
+    asm volatile (
+        \\ hlt
+    );
 }
