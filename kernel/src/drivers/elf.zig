@@ -432,7 +432,7 @@ pub fn getElf32Ehdr(File: []const u8) ElfError!*const Elf32Ehdr {
     return elfHdr;
 }
 
-pub fn getSectionData(elfHdr: *const Elf32Ehdr, shdr: *const Elf32Shdr) []const u8 {
+pub fn getSectionData(elfHdr: *const Elf32Ehdr, shdr: Elf32Shdr) []const u8 {
     // TODO: this trusts the elf file too much lol, maybe i need to get the file itself
     return @as([*]const u8, @ptrCast(elfHdr))[shdr.offset..][0..shdr.size];
 }
@@ -564,8 +564,6 @@ pub fn loadFileExec(elfHdr: *const Elf32Ehdr, File: []const u8) ElfError![]u8 {
 }
 
 pub fn getEntryPoint(File: []const u8) *const u8 {
-    _ = File;
-    @panic("test");
-    // const elfHdr: *const Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
-    // return @ptrFromInt(elfHdr.entry);
+    const elfHdr: *const Elf32Ehdr = @ptrCast(@alignCast(File.ptr));
+    return @ptrFromInt(elfHdr.entry);
 }

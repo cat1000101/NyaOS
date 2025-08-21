@@ -1,3 +1,6 @@
+const std = @import("std");
+const mem = std.mem;
+
 const vmm = @import("vmm.zig");
 const memory = @import("memory.zig");
 
@@ -38,9 +41,10 @@ pub fn kmalloc(size: usize) ?[*]u8 {
             block.isFree = false;
             block.size = alignedSize;
             block.next = newBlock;
-            log.debug("kmalloc:  allocated memory at: 0x{X} size: 0x{X}\n", .{
+            log.debug("kmalloc:  allocated memory at: 0x{X} size: 0x{X} block address: 0x{X}\n", .{
                 @intFromPtr(block) + blockHeaderSize,
                 alignedSize,
+                @intFromPtr(block),
             });
             return @ptrFromInt(@intFromPtr(block) + blockHeaderSize);
         }
@@ -80,7 +84,9 @@ pub fn kfree(ptr: [*]u8) void {
     }
 }
 
-const mem = @import("std").mem;
+var fba: std.heap.FixedBufferAllocator = undefined;
+const useMyAllocator = false;
+
 pub fn alloc(_: *anyopaque, len: usize, _: mem.Alignment, _: usize) ?[*]u8 {
     return kmalloc(len);
 }
@@ -88,15 +94,19 @@ pub fn free(_: *anyopaque, bufferToFree: []u8, _: mem.Alignment, _: usize) void 
     return kfree(bufferToFree.ptr);
 }
 pub fn allocator() mem.Allocator {
-    return .{
-        .ptr = kmallocHead.?,
-        .vtable = &.{
-            .alloc = alloc,
-            .resize = mem.Allocator.noResize,
-            .remap = mem.Allocator.noRemap,
-            .free = free,
-        },
-    };
+    if (useMyAllocator) {
+        return .{
+            .ptr = undefined,
+            .vtable = &.{
+                .alloc = alloc,
+                .resize = mem.Allocator.noResize,
+                .remap = mem.Allocator.noRemap,
+                .free = free,
+            },
+        };
+    } else {
+        return fba.allocator();
+    }
 }
 
 pub fn init() void {
@@ -109,22 +119,29 @@ pub fn init() void {
         log.err("kmalloc.init:  failed to allocate page\n", .{});
         return;
     };
-    if (kmallocHead == null) {
-        kmallocHead = @alignCast(@ptrCast(page));
+    const kmallocHeapSlice: []u8 = page[0..initialSizeInBytes];
+    log.debug("kmalloc:  init: kmalloc heap at: 0x{X} until: 0x{X}\n", .{ @intFromPtr(page), @intFromPtr(page) + initialSizeInBytes });
 
-        kmallocHead.?.* = .{
-            .size = initialSizeInBytes - blockHeaderSize,
-            .isFree = true,
-            .next = null,
-            .prev = null,
-        };
-        kmallocSize = initialSizeInBytes;
+    if (useMyAllocator) {
+        if (kmallocHead == null) {
+            kmallocHead = @alignCast(@ptrCast(page));
+
+            kmallocHead.?.* = .{
+                .size = initialSizeInBytes - blockHeaderSize,
+                .isFree = true,
+                .next = null,
+                .prev = null,
+            };
+            kmallocSize = initialSizeInBytes;
+        } else {
+            log.err("kmalloc.init:  kmallocHead is not null\n", .{});
+        }
+        // kmallocTest();
+        // debugPrint();
     } else {
-        log.err("kmalloc.init:  kmallocHead is not null\n", .{});
+        fba = std.heap.FixedBufferAllocator.init(kmallocHeapSlice);
     }
 
-    // kmallocTest();
-    // debugPrint();
     log.info("kmalloc initilized yippe\n", .{});
 }
 

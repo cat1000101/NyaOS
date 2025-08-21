@@ -14,6 +14,10 @@ pub var fileMaps: usize = 0x10000000; // 256MiB virtual
 pub const programRandomHeap: usize = 0x8000000; // 128MiB virtual
 
 pub fn switchToUserMode() void {
+    if (true) {
+        @panic("test");
+    }
+
     // Set up the stack for user mode.
     paging.setBigEntryRecursivly(userStackBottom, userStackAddress, .{
         .page_size = 1,
