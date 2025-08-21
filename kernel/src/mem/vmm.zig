@@ -95,20 +95,7 @@ pub fn mapVirtualAddressRange(virtualAddr: u32, size: u32) ?[]u8 {
         });
         return null;
     }
-    // if (size >= memory.DIR_SIZE * 2) {
-    //     const lsize = memory.alignAddressUp(size, memory.DIR_SIZE);
-    //     const physicalAddr: u32 = @intFromPtr(pmm.physBitMap.alloc(lsize / memory.PAGE_SIZE) catch |err| {
-    //         log.err("vmm.mapVirtualAddressRange:  failed to allocate physical memory: {}\n", .{err});
-    //         return null;
-    //     });
-    //     errdefer {
-    //         pmm.physBitMap.free(@ptrFromInt(physicalAddr), lsize / memory.PAGE_SIZE);
-    //     }
-    //     paging.idBigPagesRecursivly(virtualAddr, physicalAddr, lsize, true) catch |err| {
-    //         log.err("vmm.mapVirtualAddressRange:  failed to big id map virtual address range: {}\n", .{err});
-    //         return null;
-    //     };
-    // } else {
+
     const lsize = memory.alignAddressUp(size, memory.PAGE_SIZE);
     const physicalAddr: u32 = @intFromPtr(pmm.physBitMap.alloc(lsize / memory.PAGE_SIZE) catch |err| {
         log.err("vmm.mapVirtualAddressRange:  failed to allocate physical memory: {}\n", .{err});

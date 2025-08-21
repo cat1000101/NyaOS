@@ -62,8 +62,6 @@ pub fn initIdt() void {
 
     loadIdt(&idtr);
     log.info("initialized idt\n", .{});
-
-    // asm volatile ("int $1"); // test for the interrutps
 }
 
 pub fn openIdtGate(index: usize, interrupt: *const fn () callconv(.naked) void, gateType: u4, dpl: u2) InterruptError!void {

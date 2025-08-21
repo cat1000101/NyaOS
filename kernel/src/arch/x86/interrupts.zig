@@ -62,7 +62,6 @@ export fn Handler(cpu_state: *ExeptionCpuState) void {
                     paging.getPageTableEntryRecursivly(faulting_address >> 22, (faulting_address >> 12) & 0x3FF),
                 });
             }
-            hlt(); // remember to remove this ====================================================================
         },
         else => {
             log.err("interrupt has accured yippe? not exeption. interrupt:{}, error:{}\n", .{ cpu_state.interrupt_number, cpu_state.error_code });
@@ -286,10 +285,5 @@ pub inline fn cli() void {
 pub inline fn sti() void {
     asm volatile (
         \\ sti
-    );
-}
-pub inline fn hlt() void {
-    asm volatile (
-        \\ hlt
     );
 }
