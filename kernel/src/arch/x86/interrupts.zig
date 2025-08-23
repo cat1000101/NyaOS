@@ -113,7 +113,7 @@ export fn ExeptionCommonStub() callconv(.naked) void {
         \\  push %ax
         \\  mov %gs, %ax
         \\  push %ax
-        ::: "eax", "esp");
+        ::: .{ .eax = true, .esp = true });
 
     // this place now is black boxed wawwie
     asm volatile (
@@ -128,7 +128,7 @@ export fn ExeptionCommonStub() callconv(.naked) void {
         \\  add $4, %esp         // remove the pointer to the cpu state
         :
         : [Handler] "X" (&Handler),
-        : "eax", "esp", "ds", "es", "fs", "gs"
+        : .{ .eax = true, .esp = true, .ds = true, .es = true, .fs = true, .gs = true }
     );
     // end of black box
 
@@ -147,7 +147,7 @@ export fn ExeptionCommonStub() callconv(.naked) void {
         \\  popa                // pop what we pushed with pusha
         \\  add $8, %esp        // remove the error code that was pushed by us or the cpu and the interrupt number
         \\  iret                // will pop: cs, eip, eflags and ss, esp if there was a privlige level change
-        ::: "eax", "esp", "ds", "es", "fs", "gs");
+        ::: .{ .eax = true, .esp = true, .ds = true, .es = true, .fs = true, .gs = true });
 }
 
 // stollen/"inspired" from https://github.com/ZystemOS/pluto
@@ -163,7 +163,7 @@ fn generateExeptionStub(comptime interrupt_num: u32) fn () callconv(.naked) void
             if (interrupt_num != 8 and !(interrupt_num >= 10 and interrupt_num <= 14) and interrupt_num != 17) {
                 asm volatile (
                     \\ pushl $0
-                    ::: "esp");
+                    ::: .{ .esp = true });
             }
 
             asm volatile (
@@ -172,7 +172,7 @@ fn generateExeptionStub(comptime interrupt_num: u32) fn () callconv(.naked) void
                 :
                 : [nr] "n" (interrupt_num),
                   [ExeptionCommonStub] "X" (&ExeptionCommonStub),
-                : "esp"
+                : .{ .esp = true }
             );
         }
     }.func;
@@ -219,7 +219,7 @@ pub fn generateStub(function: *const fn (*CpuState) callconv(.c) void) fn () cal
                 \\  push %ax
                 \\  mov %gs, %ax
                 \\  push %ax
-                ::: "eax", "esp");
+                ::: .{ .eax = true, .esp = true });
 
             // this place now is black boxed wawwie
             asm volatile (
@@ -228,7 +228,7 @@ pub fn generateStub(function: *const fn (*CpuState) callconv(.c) void) fn () cal
                 \\  mov %ax, %es
                 \\  mov %ax, %fs
                 \\  mov %ax, %gs
-                ::: "eax", "ds", "es", "fs", "gs");
+                ::: .{ .eax = true, .ds = true, .es = true, .fs = true, .gs = true });
 
             asm volatile (
                 \\  push %esp            // pass pointer to the cpu state
@@ -236,7 +236,7 @@ pub fn generateStub(function: *const fn (*CpuState) callconv(.c) void) fn () cal
                 \\  add $4, %esp         // remove the pointer to the cpu state
                 :
                 : [function] "X" (function),
-                : "esp"
+                : .{ .esp = true }
             );
             // end of black box
 
@@ -253,7 +253,7 @@ pub fn generateStub(function: *const fn (*CpuState) callconv(.c) void) fn () cal
                 \\
                 \\  popa                // pop what we pushed with pusha
                 \\  iret                // will pop: cs, eip, eflags and ss, esp if there was a privlige level change
-                ::: "eax", "esp", "ds", "es", "fs", "gs");
+                ::: .{ .eax = true, .esp = true, .ds = true, .es = true, .fs = true, .gs = true });
         }
     }.func;
 }

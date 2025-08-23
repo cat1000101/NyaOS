@@ -61,7 +61,7 @@ pub inline fn insb(port: u16, addr: *void, count: u32) void {
         : [addr] "+{edi}" (addr),
           [count] "+{ecx}" (count),
         : [port] "{dx}" (port),
-        : "memory"
+        : .{ .memory = true }
     );
 }
 
@@ -71,7 +71,7 @@ pub inline fn insw(port: u16, addr: *void, count: u32) void {
         : [addr] "+{edi}" (addr),
           [count] "+{ecx}" (count),
         : [port] "{dx}" (port),
-        : "memory"
+        : .{ .memory = true }
     );
 }
 
@@ -81,7 +81,7 @@ pub inline fn insd(port: u16, addr: *void, count: u32) void {
         : [addr] "+{edi}" (addr),
           [count] "+{ecx}" (count),
         : [port] "{dx}" (port),
-        : "memory"
+        : .{ .memory = true }
     );
 }
 

@@ -227,7 +227,7 @@ fn gdtFlush(gdt_ptr_: *const GdtPtr) void {
     asm volatile ("lgdt (%eax)"
         :
         : [gdt_ptr_] "{eax}" (gdt_ptr_),
-        : "eax"
+        : .{ .eax = true }
     );
 
     // Load the kernel data segment, index into the GDT
@@ -238,12 +238,12 @@ fn gdtFlush(gdt_ptr_: *const GdtPtr) void {
         \\  mov %bx, %fs
         \\  mov %bx, %gs
         \\  mov %bx, %ss
-        ::: "ebx", "ds", "es", "fs", "gs", "ss");
+        ::: .{ .ebx = true, .ds = true, .es = true, .fs = true, .gs = true, .ss = true });
     // Load the kernel code segment into the CS register
     asm volatile (
         \\ljmp $0x08, $1f
         \\1:
-        ::: "cs");
+        ::: .{ .cs = true });
 }
 
 pub fn loadTss() void {

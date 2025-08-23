@@ -72,10 +72,10 @@ fn appendSources(b: *std.Build, writer: anytype, sub_path: []const u8) !void {
 fn generateSourcesZig(b: *std.Build) !*std.Build.Module {
     // collect all kernel source files for the stack tracer
 
-    var sources_zig_contents = std.ArrayList(u8).init(b.allocator);
-    errdefer sources_zig_contents.deinit();
+    var sources_zig_contents = try std.ArrayList(u8).initCapacity(b.allocator, 16);
+    errdefer sources_zig_contents.deinit(b.allocator);
 
-    const sources_zig_writer = sources_zig_contents.writer();
+    const sources_zig_writer = sources_zig_contents.writer(b.allocator);
     try sources_zig_writer.writeAll(
         \\pub const sources: []const []const u8 = &.{
         \\

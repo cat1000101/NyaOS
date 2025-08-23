@@ -83,28 +83,28 @@ pub export fn _start() align(16) linksection(".boot") callconv(.naked) noreturn 
         \\  or  $3, %ecx
         \\  add $0xffc, %edx                    // the last entry index 1023 * 4
         \\  mov %ecx, (%edx)
-        ::: "ecx", "edx", "memory");
+        ::: .{ .ecx = true, .edx = true, .memory = true });
 
     // Set the page directory to the boot directory
     asm volatile (
         \\  .extern tempBootPageDirectory
         \\  mov $tempBootPageDirectory, %ecx
         \\  mov %ecx, %cr3
-        ::: "ecx");
+        ::: .{ .ecx = true });
 
     // Enable 4 MiB pages
     asm volatile (
         \\  mov %cr4, %ecx
         \\  or $0x00000010, %ecx
         \\  mov %ecx, %cr4
-        ::: "ecx");
+        ::: .{ .ecx = true });
 
     // Enable paging
     asm volatile (
         \\  mov %cr0, %ecx
         \\  or $0x80000000, %ecx
         \\  mov %ecx, %cr0
-        ::: "ecx");
+        ::: .{ .ecx = true });
     asm volatile (
         \\  jmp %[high_half_entery:P]
         :
@@ -134,7 +134,7 @@ export fn high_half_entery() align(16) callconv(.naked) noreturn {
         :
         : [kmain] "X" (&kmainFile.kmainWrapper),
           [stack_top] "{edx}" (stack_top),
-        : "eax", "esp", "ebp"
+        : .{ .eax = true, .esp = true, .ebp = true }
     );
     while (true) {
         asm volatile ("hlt");

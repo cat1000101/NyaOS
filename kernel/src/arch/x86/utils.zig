@@ -10,7 +10,7 @@ pub fn cpuidFeature() u32 {
         \\ cpuid
         : [ret] "={edx}" (ret),
         : [value] "{eax}" (1),
-        : "ebx", "ecx", "eax"
+        : .{ .ebx = true, .ecx = true, .eax = true }
     );
     return ret;
 }

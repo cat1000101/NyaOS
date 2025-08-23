@@ -128,7 +128,7 @@ pub fn init() void {
 
     if (useMyAllocator) {
         if (kmallocHead == null) {
-            kmallocHead = @alignCast(@ptrCast(page));
+            kmallocHead = @ptrCast(@alignCast(page));
 
             kmallocHead.?.* = .{
                 .size = initialSizeInBytes - blockHeaderSize,

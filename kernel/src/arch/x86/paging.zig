@@ -591,7 +591,7 @@ inline fn forceTLBFlush() void {
     asm volatile (
         \\  mov %cr3, %eax
         \\  mov %eax, %cr3
-        ::: "eax");
+        ::: .{ .eax = true });
 }
 
 inline fn invalidatePage(address: u32) void {
