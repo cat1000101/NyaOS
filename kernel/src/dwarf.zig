@@ -147,25 +147,23 @@ pub fn printSourceAtAddress(
     sources: []const SourceFile,
 ) !void {
     const sym = debug_info.getSymbol(allocator, address) catch |err| {
-        try std.fmt.format(debug.writer, "unable to get sym: \x1B[90m0x{x}\x1B[0m\nerror: {}\n", .{ address, err });
+        try debug.qemuWriter.print("unable to get sym: \x1B[90m0x{x}\x1B[0m\nerror: {}\n", .{ address, err });
         return;
     };
     defer if (sym.source_location) |loc| allocator.free(loc.file_name);
 
-    try std.fmt.format(debug.writer, "\x1B[1m", .{});
+    try debug.qemuWriter.print("\x1B[1m", .{});
 
     if (sym.source_location) |*sl| {
-        try std.fmt.format(
-            debug.writer,
+        try debug.qemuWriter.print(
             "{s}:{d}:{d}",
             .{ sl.file_name, sl.line, sl.column },
         );
     } else {
-        try std.fmt.format(debug.writer, "cant find sym source location: ???:?:?", .{});
+        try debug.qemuWriter.print("cant find sym source location: ???:?:?", .{});
     }
 
-    try std.fmt.format(
-        debug.writer,
+    try debug.qemuWriter.print(
         "\x1B[0m: \x1B[90m0x{x} in {s} ({s})\x1B[0m\n",
         .{ address, sym.name, sym.compile_unit_name },
     );
@@ -181,12 +179,13 @@ pub fn printSourceAtAddress(
         source_line = lines_iter.next() orelse "<out-of-bounds>";
     }
 
-    try std.fmt.format(debug.writer, "{s}\n", .{source_line});
+    try debug.qemuWriter.print("{s}\n", .{source_line});
 
     const space_needed = @as(usize, @intCast(@max(loc.column, 1) - 1));
 
-    try debug.writer.writeBytesNTimes(" ", space_needed);
-    try debug.writer.writeAll("\x1B[92m^\x1B[0m\n");
+    for (0..space_needed) |_|
+        try debug.qemuWriter.writeAll(" ");
+    try debug.qemuWriter.writeAll("\x1B[92m^\x1B[0m\n");
 }
 
 pub fn findSourceFile(

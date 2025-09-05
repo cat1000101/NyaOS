@@ -62,7 +62,7 @@ fn appendSources(b: *std.Build, writer: anytype, sub_path: []const u8) !void {
         const file = try entry.dir.openFile(entry.basename, .{});
         defer file.close();
 
-        try std.fmt.format(writer,
+        try writer.print(
             \\    "{s}",
             \\
         , .{entry.path});

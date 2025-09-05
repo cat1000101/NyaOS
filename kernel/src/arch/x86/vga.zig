@@ -81,14 +81,31 @@ fn nextLine() void {
         buffer[i - VGA_WIDTH] = buffer[i];
 }
 
-pub const vgaTextWriter = Writer(void, error{}, callback){ .context = {} };
+pub var vgaTextWriter = Writer{
+    .buffer = &[0]u8{},
+    .vtable = &.{
+        .drain = &callback,
+    },
+};
 
-fn callback(_: void, string: []const u8) error{}!usize {
-    for (string) |c|
-        putChar(c);
-    return string.len;
+fn callback(_: *Writer, data: []const []const u8, splat: usize) Writer.Error!usize {
+    var bytesWritten: usize = 0;
+    for (data, 0..) |dataSlice, index| {
+        if (index == data.len - 1) {
+            for (0..splat) |_| {
+                for (dataSlice) |c|
+                    putChar(c);
+            }
+            bytesWritten = bytesWritten + (dataSlice.len * splat);
+            return bytesWritten;
+        }
+        bytesWritten = bytesWritten + dataSlice.len;
+        for (dataSlice) |c|
+            putChar(c);
+    }
+    return bytesWritten;
 }
 
 pub fn printf(comptime format: []const u8, args: anytype) void {
-    fmt.format(vgaTextWriter, format, args) catch unreachable;
+    vgaTextWriter.print(format, args) catch unreachable;
 }
