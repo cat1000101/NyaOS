@@ -7,33 +7,33 @@ SECTIONS {
         KEEP(*(.multiboot))
     }
 
-    .boot ALIGN(4K): {
+    .boot ALIGN(4K) : {
         *(.boot)
     }
 
     . += 0xC0000000;
 
 
-    .text ALIGN(4K):AT(ADDR(.text) - 0xC0000000) {
+    .text ALIGN(4K) : AT(ADDR(.text) - 0xC0000000) {
         kernel_start = .;
         kernel_text_start = .;
         *(.text)
         kernel_text_end = .;
     }
  
-    .rodata ALIGN(4K):AT(ADDR(.rodata) - 0xC0000000) {
+    .rodata ALIGN(4K) : AT(ADDR(.rodata) - 0xC0000000) {
         kernel_rodata_start = .;
         *(.rodata)
         kernel_rodata_end = .;
     }
  
-    .data ALIGN(4K):AT(ADDR(.data) - 0xC0000000) {
+    .data ALIGN(4K) : AT(ADDR(.data) - 0xC0000000) {
         kernel_data_start = .;
         *(.data)
         kernel_data_end = .;
     }
  
-    .bss ALIGN(4K):AT(ADDR(.bss) - 0xC0000000) {
+    .bss ALIGN(4K) : AT(ADDR(.bss) - 0xC0000000) {
         kernel_bss_start = .;
         *(COMMON)
         *(.bss)
