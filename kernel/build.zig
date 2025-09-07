@@ -2,10 +2,9 @@ const std = @import("std");
 const Builder = std.Build;
 const Target = std.Target;
 const Feature = std.Target.Cpu.Feature;
+const features = Target.x86.Feature;
 
 pub fn build(b: *Builder) !void {
-    const features = Target.x86.Feature;
-
     var disabled_features = Feature.Set.empty;
     var enabled_features = Feature.Set.empty;
 

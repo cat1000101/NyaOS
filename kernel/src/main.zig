@@ -62,6 +62,6 @@ pub export fn kmainWrapper(mbh: *multiboot.multiboot_info, magic: u32) noreturn 
 const debug = @import("arch/x86/debug.zig");
 pub const panic = @import("panic.zig").panic;
 pub const std_options = std.Options{
-    .log_level = .debug,
+    .log_level = .info,
     .logFn = debug.myLogFn,
 };

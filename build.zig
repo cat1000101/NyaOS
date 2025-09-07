@@ -83,11 +83,6 @@ pub fn build(b: *Builder) void {
     install_iso.dependOn(user_exe_step);
     install_iso.dependOn(sysroot_extra_step);
 
-    // step to make everything
-    const all_step = b.step("all", "does(installs) everything");
-    const steps: []const *std.Build.Step = &.{ install_iso, kernel_exe_step, user_exe_step };
-    for (steps) |step| all_step.dependOn(step);
-
     // step and commands to run the iso in qemu
     const run_cmd_args = [_][]const u8{"qemu-system-i386"} ++ common_qemu_args;
     const run_cmd = b.addSystemCommand(&run_cmd_args);
